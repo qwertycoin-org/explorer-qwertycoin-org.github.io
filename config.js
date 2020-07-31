@@ -10,16 +10,15 @@ var poolsStat =
 	[
 		["pool.qwertycoin.org","https://pool.qwertycoin.org:8119/stats"],
 		["superblockchain.con-ip.com/qwc","https://superblockchain.con-ip.com:8333/stats"],
-		["qwc.superpools.online","http://qwc.superpools.online/api/stats"],
+		["qwc.superpools.online","https://qwc.cryptonote.club:8199/stats"],
 		["easyhash.pro/qwc","https://easyhash.pro/qwc/api/stats"],
 		["qwc.cryptonote.club","https://qwc.cryptonote.club:8199/stats"],
 		["qwertycoin.fairhash.org","https://qwertycoin.fairhash.org/api/stats"],
 		["newpool.pw/qwc_b2b","https://minenice.newpool.pw:8205/stats"],
 		["dxpool.com","https://api.qwertycoin.org/pools/dxpool-com"],
-		["m2pool.eu","http://80.211.204.60:7770/stats"],
-		["cnpool.cc/qwc","https://cnpool.cc/api/qwc/stats"],
-		["qwertycoin.herominers.com","https://qwertycoin.herominers.com/api/stats"],
-		["qwertypool.com","https://qwertypool.com:7776/stats"]
+		["m2pool.eu","http://103.253.41.40:9981/stats"],
+		["qwertycoin.herominers.com","https://qwertycoin.herominers.com/api/stats"]
+		//["qwertypool.com","https://qwertypool.com:7776/stats"]
     ];
 var nodesStat = 
 	[

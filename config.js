@@ -1,0 +1,36 @@
+var api = "https://api.qwertycoin.org/sslnode";
+var apiList = [
+];
+var blockTargetInterval = 120;
+var coinUnits = 100000000;
+var symbol = 'QWC';
+var refreshDelay = 30000;
+var addressPattern = new RegExp("^QWC[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{95}$");
+// pools stats by MainCoins
+var poolsStat = 
+	[
+		["pool.qwertycoin.org","https://pool.qwertycoin.org:8119/stats"],
+		["superblockchain.con-ip.com/qwc","https://superblockchain.con-ip.com:8333/stats"],
+		["qwertycoin.spdns.org","https://qwertycoin.spdns.org:8119/stats"],
+		["qwc.superpools.online","http://qwc.superpools.online/api/stats"],
+		["easyhash.pro/qwc","https://easyhash.pro/qwc/api/stats"],
+		["qwc.cryptonote.club","https://qwc.cryptonote.club:8199/stats"],
+		["qwertycoin.fairhash.org","https://qwertycoin.fairhash.org/api/stats"],
+		["newpool.pw/qwc_b2b","https://minenice.newpool.pw:8205/stats"],
+		["dxpool.com","https://explorer.qwertycoin.org/api/pools/dxpool-com"],
+		["m2pool.eu","http://80.211.204.60:7770/stats"],
+		["cnpool.cc/qwc","https://cnpool.cc/api/qwc/stats"],
+		["qwertycoin.herominers.com","https://qwertycoin.herominers.com/api/stats"],
+		["qwertypool.com","https://qwertypool.com:7776/stats"]
+		["qwertycoin.miner.rocks","https://qwertycoin.miner.rocks/api/stats"]
+    ];
+var nodesStat = 
+	[
+		["node-00.qwertycoin.org:8197"],
+		["node-01.qwertycoin.org:8197"],
+		["node-02.qwertycoin.org:8197"],
+		["node-03.qwertycoin.org:8197"],
+		["node-04.qwertycoin.org:8197"],
+		["node-05.qwertycoin.org:8197"],
+		["195.201.27.148:8197"]
+    ];

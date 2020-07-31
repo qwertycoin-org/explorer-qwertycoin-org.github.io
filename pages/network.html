@@ -256,7 +256,7 @@ function getPools() {
 		if (window.location.protocol == 'https:') {	
 			var pattern = /^((https):\/\/)/;
 			if(!pattern.test(url)) {
-				url = '/api/?mode=get&url=' + url;
+				url = 'https://api.qwertycoin.org/index.php?mode=get&url=' + url;
 			}
 		}
 
@@ -323,7 +323,7 @@ function getNodes() {
 		if (window.location.protocol == 'https:') {	
 			var pattern = /^((https):\/\/)/;
 			if(!pattern.test(url)) {
-				purl = '/api/?mode=get&url=' + url;
+				purl = 'https://api.qwertycoin.org/index.php?mode=get&url=' + url;
 			} else {
 				purl = url;
 			}
@@ -393,7 +393,7 @@ setInterval(function() {
 		if (window.location.protocol == 'https:') {	
 			var pattern = /^((https):\/\/)/;
 			if(!pattern.test(url)) {
-				url = '/api/?mode=get&url=' + url;
+				url = 'https://api.qwertycoin.org/index.php?mode=get&url=' + url;
 			}
 		}
 		
@@ -462,7 +462,7 @@ setInterval(function() {
 		if (window.location.protocol == 'https:') {	
 			var pattern = /^((https):\/\/)/;
 			if(!pattern.test(url)) {
-				purl = '/api/?mode=get&url=' + url;
+				purl = 'https://api.qwertycoin.org/index.php?mode=get&url=' + url;
 			} else {
 				purl = url;
 			}

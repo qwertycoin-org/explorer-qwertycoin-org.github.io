@@ -189,7 +189,7 @@ var poolsRefreshed = 0;
 				if (window.location.protocol == 'https:') {	
 					var pattern = /^((https):\/\/)/;
 					if(!pattern.test(url)) {
-						url = '/api/?mode=get&url=' + url;
+						url = 'https://api.qwertycoin.org/index.php?mode=get&url=' + url;
 					}
 				}
 	
@@ -575,7 +575,7 @@ setInterval(function(){
 				if (window.location.protocol == 'https:') {	
 					var pattern = /^((https):\/\/)/;
 					if(!pattern.test(url)) {
-						url = '/api/?mode=get&url=' + url;
+						url = 'https://api.qwertycoin.org/index.php?mode=get&url=' + url;
 					}
 				}
 				

@@ -25,8 +25,8 @@ var nodesStat =
 		["node-00.qwertycoin.org:8197"],
 		["node-01.qwertycoin.org:8197"],
 		["node-02.qwertycoin.org:8197"],
-		["node-03.qwertycoin.org:8197"],
+		["node-03.qwertycoin.org:8197","https://api.qwertycoin.org/sslnode"],
 		["node-04.qwertycoin.org:8197"],
 		["node-05.qwertycoin.org:8197"],
-		["195.201.27.148:8197"]
+		["https://api.qwertycoin.org/sslnode"]
     ];

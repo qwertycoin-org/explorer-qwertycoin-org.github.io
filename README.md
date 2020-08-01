@@ -12,7 +12,7 @@ Block explorer for Qwertycoin CryptoNote based cryptocurrency based on the Karbo
 ```bash
 ./qwertycoind --restricted-rpc --enable-cors=* --enable-blockchain-indexes --rpc-bind-ip=0.0.0.0 --rpc-bind-port=8197
 ```
-2) Just upload to your website and change 'api' variable in config.js to point to your daemon. Also change the '$apiNode=' variable in /api/index.php to point the API urls to your daemon.
+2) Just upload to your website and change 'api' variable in config.js to point to your daemon.
 
 ## Donate
 

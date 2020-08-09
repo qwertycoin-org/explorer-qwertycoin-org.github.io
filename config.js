@@ -17,7 +17,7 @@ var poolsStat =
 		["newpool.pw/qwc_b2b","https://minenice.newpool.pw:8205/stats"],
 		["dxpool.com","https://api.qwertycoin.org/pools/dxpool-com"],
 		["m2pool.eu","http://103.253.41.40:9981/stats"],
-		["qwertycoin.herominers.com","https://qwertycoin.herominers.com/api/stats"]
+		//["qwertycoin.herominers.com","https://qwertycoin.herominers.com/api/stats"]
 		//["qwertypool.com","https://qwertypool.com:7776/stats"]
     ];
 var nodesStat = 

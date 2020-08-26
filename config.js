@@ -1,5 +1,5 @@
 var api = "https://api.qwertycoin.org/sslnode";
-var apiList = ["node-05.qwertycoin.org:8197","80.211.204.60:8197"];
+var apiList = [];
 var blockTargetInterval = 120;
 var coinUnits = 100000000;
 var symbol = 'QWC';

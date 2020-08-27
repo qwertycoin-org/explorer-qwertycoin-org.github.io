@@ -30,7 +30,7 @@ var nodesStat =
 		["195.201.25.118:8197"],
 		["node-02.qwertycoin.org:8197"],
 		["195.201.29.64:8197"],
-		["node-03.qwertycoin.org:8197"]
+		["node-03.qwertycoin.org:8197"],
 		["78.47.85.215:8197"],
 		["node-04.qwertycoin.org:8197"],
 		["116.203.121.22:8197"],

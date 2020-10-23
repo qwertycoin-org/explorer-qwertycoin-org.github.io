@@ -463,7 +463,7 @@ $('#goto-height').keyup(function(e){
         row.setAttribute('title', block.hash);
 		var dateTime = new Date(block.timestamp * 1000).toISOString();
 		row.setAttribute('data-dt', dateTime);
-		row.setAttribute('data-reward', parseFloat(getReadableCoins(block.reward,6,false)));
+		row.setAttribute('data-reward', parseFloat(getReadableCoins(block.reward,2,false)));
         var columns =
             '<td>' + addCommas(block.height) + '</td>' +
             '<td class="date-time">' + formatDate(block.timestamp) + ' (<time class="timeago" datetime="'+dateTime+'"></time>)</td>' +
@@ -473,7 +473,7 @@ $('#goto-height').keyup(function(e){
             '<td>' + block.tx_count + '</td>';
 
 		Difficulties.push(parseInt(block.difficulty));
-		Rewards.push(parseFloat(block.reward));
+		Rewards.push(parseFloat(getReadableCoins(block.reward,2,false)));
 		Blocks.push(parseInt(block.height));
 		Txses.push(parseInt(block.tx_count));
 		Sizes.push(parseInt(block.cumul_size));

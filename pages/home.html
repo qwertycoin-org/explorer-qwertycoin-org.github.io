@@ -26,8 +26,6 @@
 				
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="The number of transactions in the network (excluding coinbase, i.e. reward for mined blocks)."><i class="fa fa fa-exchange"></i> Transactions: <span id="networkTransactions" class="value"></span></li>
 
-						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Minimum transaction fee."><i class="fa fa-percent" aria-hidden="true"></i> Min. fee: <span id="minimumFee" class="value"></span></li>
-
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Current Base Reward (for last mined block)."><i class="fa fa-certificate"></i> Reward: <span id="currentReward" class="value"></span></li>
 
 					</ul>
@@ -209,7 +207,6 @@
 <script>
 var block,
 	Difficulties = [],
-	MinFees = [],
 	Blocks = [],
 	Rewards = [],
 	Txses = [],
@@ -245,7 +242,6 @@ currentPage = {
             updateText('networkTransactions', addCommas(lastStats.tx_count.toString()));
 			updateText('networkDifficulty', getReadableDifficultyString(lastStats.difficulty, 2).toString());
 			updateText('networkHashrate', getReadableHashRateString(lastStats.difficulty / blockTargetInterval));
-			updateText('minimumFee', getReadableCoins(lastStats.min_tx_fee,8));
 			$("time.timeago").timeago();
 			getPoolTransactions();
 			var currHeight = $('#blocks_rows').children().first().data('height');
@@ -467,7 +463,7 @@ $('#goto-height').keyup(function(e){
         row.setAttribute('title', block.hash);
 		var dateTime = new Date(block.timestamp * 1000).toISOString();
 		row.setAttribute('data-dt', dateTime);
-		row.setAttribute('data-min-fee', parseFloat(getReadableCoins(block.min_tx_fee,6,false)));
+		row.setAttribute('data-reward', parseFloat(getReadableCoins(block.reward,6,false)));
         var columns =
             '<td>' + addCommas(block.height) + '</td>' +
             '<td class="date-time">' + formatDate(block.timestamp) + ' (<time class="timeago" datetime="'+dateTime+'"></time>)</td>' +
@@ -477,7 +473,7 @@ $('#goto-height').keyup(function(e){
             '<td>' + block.tx_count + '</td>';
 
 		Difficulties.push(parseInt(block.difficulty));
-		MinFees.push(parseFloat(getReadableCoins(block.min_tx_fee,6,false)));
+		Rewards.push(parseFloat(block.reward));
 		Blocks.push(parseInt(block.height));
 		Txses.push(parseInt(block.tx_count));
 		Sizes.push(parseInt(block.cumul_size));
@@ -646,9 +642,9 @@ function displayDiffChart() {
 				pointHitRadius: 20,
 				type: 'line'
 			  },{
-				data: [].concat(MinFees).reverse(),
-				yAxisID: "MinFee",
-				label: "Minimum fee",
+				data: [].concat(Rewards).reverse(),
+				yAxisID: "Reward",
+				label: "Reward",
 				backgroundColor: "rgba(237,28,36,0)",
 				borderColor: '#ED1C24',
 				borderWidth: 1,
@@ -761,21 +757,19 @@ function displayDiffChart() {
 				},
 				display: false
 			  },{
-				id: 'MinFee',
+				id: 'Reward',
 				type: 'linear',
 				position: 'right',
 				scaleLabel: {
 					display: true,
-					labelString: 'Minimum Fee'
+					labelString: 'Reward'
 				},
 				gridLines: {
 					display:false
 				},
 				ticks: {
 					fontSize: 9,
-					display:true,
-					suggestedMin: 0.001,
-					suggestedMax: 0.01
+					display:true
 				},
 				display: true
 			  },{
@@ -891,7 +885,7 @@ function refreshChart() {
 		times   = [],
 		heights = [],
 		txsnr   = [];
-		mfees   = [];
+		rewards = [];
 		for (var i = 0; i < brows.length; i++) {
 			var row = $(brows[i]);
 			var label = row.data("json").height;
@@ -899,20 +893,20 @@ function refreshChart() {
 			var txses = row.data("json").tx_count;
 			var size  = row.data("json").cumul_size;
 			var time  = row.attr('data-dt');
-			var mfee  = row.attr('data-min-fee');
+			var reward  = row.attr('data-reward');
 
 				labels.push(label);
 				diffs.push(diff);
 				txsnr.push(txses);
 				sizes.push(size);				
 				times.push(time);				
-				mfees.push(mfee);				
+				rewards.push(reward);				
 		}
 		
 		diffChart.data.labels = times.reverse();
 		diffChart.data.datasets[0].data = labels.reverse();
 		diffChart.data.datasets[1].data = diffs.reverse();
-		diffChart.data.datasets[2].data = mfees.reverse();
+		diffChart.data.datasets[2].data = rewards.reverse();
 		diffChart.data.datasets[3].data = txsnr.reverse();
 		diffChart.data.datasets[4].data = sizes.reverse();
 		
@@ -925,7 +919,7 @@ function loadMoreChart() {
 	diffChart.data.labels = [].concat(Timestamps).reverse();
 	diffChart.data.datasets[0].data = [].concat(Blocks).reverse();
 	diffChart.data.datasets[1].data = [].concat(Difficulties).reverse();
-	diffChart.data.datasets[2].data = [].concat(MinFees).reverse();
+	diffChart.data.datasets[2].data = [].concat(Rewards).reverse();
 	diffChart.data.datasets[3].data = [].concat(Txses).reverse();
 	diffChart.data.datasets[4].data = [].concat(Sizes).reverse();
 	
@@ -986,4 +980,4 @@ function getReadableTime(seconds){
 
 </script>
 
-<script src="../js/Chart.bundle.min.js"></script>
+<script src="https://explorer.qwertycoin.org/js/Chart.bundle.min.js"></script>

@@ -50,7 +50,7 @@
 </div>
 
 <script>
-    var block, xhrGetBlock, tempVa;
+    var block, xhrGetBlock, tempVa, tempVb;
 	var refresh, next = false;
 
     currentPage = {
@@ -114,11 +114,12 @@
 				updateText('block_currentTxsMedian', formatBytes(parseInt(block.sizeMedian)));
 				updateText('block_effectiveTxsMedian', formatBytes(parseInt(block.effectiveSizeMedian)));
 				updateText('block_rewardPenalty', block.penalty*100 + "%");
-				updateText('block_baseReward', addCommas(getReadableCoins(block.baseReward)));
-				if(block.major_version != 6) {tempVa = 0; }else{ tempVa = block.baseReward-(block.baseReward*0.9);}
+				tempVb = block.baseReward*1.10;
+				updateText('block_baseReward', addCommas(getReadableCoins(tempVb)));
+				if(block.major_version != 6) {tempVa = 0; }else{ tempVa = tempVb*0.1;}
 				updateText('block_baseRewardTax',addCommas(getReadableCoins(tempVa)));
 				updateText('block_transactionsFee', getReadableCoins(block.totalFeeAmount));
-				updateText('block_reward', addCommas(getReadableCoins(block.reward-tempVa)));
+				updateText('block_reward', addCommas(getReadableCoins(block.reward)));
 				updateText('block_totalCoins', addCommas(getReadableCoins(block.alreadyGeneratedCoins)));
 				updateText('block_totalTransactions', addCommas(block.alreadyGeneratedTransactions));
 				renderTransactions(block.transactions);

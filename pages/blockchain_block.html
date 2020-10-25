@@ -23,8 +23,7 @@
         <div><span data-toggle="tooltip" data-placement="right" data-original-title="Bounded from below median value that is actually used to calculate penalty. More specifically, &lt;effective median&gt; = max(&lt;current median&gt;, 20000)"><i class="fa fa-question-circle"></i></span> Effective txs median: <span id="block_effectiveTxsMedian"></span></div>
         <div><span data-toggle="tooltip" data-placement="right" data-original-title="Penalty for exceeding the median. &lt;penalty&gt; = (&lt;total&nbsp;transactions&nbsp;size&gt; / &lt;effective&nbsp;tx&nbsp;median&gt; âˆ’ 1) ^ 2. No penalty if total transactions size is less then effective median. Penalty is near 100% if total txs size is twice the effective median. Greater blocks are not allowed."><i class="fa fa-question-circle"></i></span> Reward penalty: <span id="block_rewardPenalty"></span></div>
         <div><span data-toggle="tooltip" data-placement="right" data-original-title="Sum of fees for all transactions in the block."><i class="fa fa-question-circle"></i></span> Transactions fees: <span id="block_transactionsFee"></span></div>
-        <div><span data-toggle="tooltip" data-placement="right" data-original-title="Base value for calculating the block reward. Does not depend on how many transactions are included into the block. Also, this is how many coins the miner would receive if the block contains only coinbase transaction.">
-        <i class="fa fa-question-circle"></i></span> Base reward: <span id="block_baseReward"></span></div>
+        <div><span data-toggle="tooltip" data-placement="right" data-original-title="Base value for calculating the block reward. Does not depend on how many transactions are included into the block. Also, this is how many coins the miner would receive if the block contains only coinbase transaction."><i class="fa fa-question-circle"></i></span> Base reward: <span id="block_baseReward"></span></div>
         <div><span data-toggle="tooltip" data-placement="right" data-original-title="10% of BaseBlockReward go to the Exchange and Collecting Fund for exchange and promotion campaigns. Based on chinese election (#20). Only affect v6 Blocks.">
         <i class="fa fa-question-circle"></i></span> Community Tax: <span id="block_baseRewardTax"></span></div>
         <div><span data-toggle="tooltip" data-placement="right" data-original-title="Actual amount of coins the miner received for finding the block. &lt;reward&gt; = &lt;base reward&gt; Ã— (1 âˆ’ &lt;penalty&gt;) - &lt;tax&gt; + &lt;transactions fee&gt;"><i class="fa fa-question-circle"></i></span> Reward: <span id="block_reward"></span></div>
@@ -114,12 +113,15 @@
 				updateText('block_currentTxsMedian', formatBytes(parseInt(block.sizeMedian)));
 				updateText('block_effectiveTxsMedian', formatBytes(parseInt(block.effectiveSizeMedian)));
 				updateText('block_rewardPenalty', block.penalty*100 + "%");
-				tempVb = block.baseReward*1.10;
-				updateText('block_baseReward', addCommas(getReadableCoins(tempVb)));
-				if(block.major_version != 6) {tempVa = 0; }else{ tempVa = tempVb*0.1;}
+				updateText('block_baseReward', addCommas(getReadableCoins(block.baseReward)));
+				if(block.major_version != 6) {
+					tempVa = 0;
+				}else{
+					tempVa = block.baseReward*0.1;
+				}
 				updateText('block_baseRewardTax',addCommas(getReadableCoins(tempVa)));
 				updateText('block_transactionsFee', getReadableCoins(block.totalFeeAmount));
-				updateText('block_reward', addCommas(getReadableCoins(block.reward)));
+				updateText('block_reward', addCommas(getReadableCoins(block.reward-tempVa)));
 				updateText('block_totalCoins', addCommas(getReadableCoins(block.alreadyGeneratedCoins)));
 				updateText('block_totalTransactions', addCommas(block.alreadyGeneratedTransactions));
 				renderTransactions(block.transactions);

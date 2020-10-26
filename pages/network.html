@@ -1,5 +1,3 @@
-<!-- // pools stats by MainCoins @ http://krb.mypool.name -->
-
 <style>
 	#nodes_rows *,
 	.value {
@@ -48,11 +46,7 @@
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="bottom" data-original-title="Average estimated network hash rate. Calculated by average difficulty.">
 							Average: <span id="avgHashrate"></span>
 						</li>
-						
-						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="The overall hash rate of all known pools listed below.">
-							By pools: <span id="totalPoolsHashrate"></span>
-						</li>
-						
+
 					</ul>
 				</div>
 				<div class="col-sm-6 col-md-2">
@@ -83,12 +77,6 @@
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="bottom" data-original-title="The number of active known RPC nodes.">
 							Nodes: <span id="total_nodes"></span>
 						</li>
-						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="The number of known pools.">
-							Pools: <span id="total_pools"></span>
-						</li>
-						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="The number of miners on all known pools.">
-							Miners: <span id="total_miners"></span> (<span id="total_workers"></span> Workers)
-						</li>
 					</ul>
 				</div>
 
@@ -97,10 +85,10 @@
 						<li class="list-group-item d-flex justify-content-between align-items-center active">
 							<i class="fa fa-group"></i> Heights
 						</li>
-						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="bottom" data-original-title="The number of active known RPC nodes.">
+						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="bottom" data-original-title="The network height (lastblock +1).">
 							Network: <span id="networkHeight"></span>
 						</li>
-						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="The number of known pools.">
+						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="The last block height">
 							Last block: <span id="commonHeight"></span>
 						</li>
 					</ul>
@@ -172,10 +160,7 @@ function mode(array)
     return maxEl;
 }
 
-window.POOLS_STAT_MAP = new Map(poolsStat);
 window.NODES_STAT_MAP = new Map(nodesStat);
-window.poolNames = [];
-window.poolHashrates = [];
 window.commonHeight;
 window.networkHeight;
 window.commonHash;
@@ -186,10 +171,6 @@ Hashes = [];
 Difficulties = [];
 nextDifficulties = [];
 Versions = [];
-poolMiners = [];
-totalHashrate = 0;
-totalMiners = 0;
-totalWorkers = 0;
 totalNodes = 0;
 lastReward = 0;
 avgDiff = 0;
@@ -201,7 +182,6 @@ currentPage = {
 	init: function(){
 		getBlocks();
 		getNodes();
-		getPools();
 	},
 	update: function(){
 		updateText('networkHashrate', getReadableHashRateString(lastStats.difficulty / blockTargetInterval) + '/sec');
@@ -259,98 +239,19 @@ function getNodes() {
 
 // Refresh
 setInterval(function() {
-	poolsRefreshed = 0;
 	nodesRefreshed = 0;
 	totalHashrate = 0;
 	totalMiners = 0;
 	totalWorkers = 0;
-	poolMiners = [];
-	poolWorkers = [];
-	
+
 	totalNodes = 0;
 	nextDifficulties = [];
-	poolHashrates = [];
 	
 	Versions = [];
 	Heights = [];
 	Hashes = [];
 	it = -1;
-	
-	// pools
-	POOLS_STAT_MAP.forEach((url, host, map) => {
-		var index = host.indexOf("/");
-		var result;
-		if (index < 0) {
-			result = host;
-		} else {
-			result = host.substr(0, index);
-		}
-		it = it + 1;
-		
-		if (window.location.protocol == 'https:') {	
-			var pattern = /^((https):\/\/)/;
-			if(!pattern.test(url)) {
-				url = 'https://api.qwertycoin.org/index.php?mode=get&url=' + url;
-			}
-		}
-		
-		$.getJSON(url, (data, textStatus, jqXHR) => {
-			if (data.pool === undefined){			
-				var d = new Date(data.pool_statistics.lastBlockFoundTime*1000);
-				var datestring = ("0" + d.getDate()).slice(-2) + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + d.getFullYear() + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
-				var agostring = $.timeago(d);
-				updateText('hashrate-'+result, data.pool_statistics.hashRate);
-				updateText('miners-'+result, data.pool_statistics.miners);
-				poolHashrates.push(parseInt(data.pool_statistics.hashRate));
-				poolMiners.push(parseInt(data.pool_statistics.miners));
-				totalHashrate += parseInt(data.pool_statistics.hashRate);
-				totalMiners += parseInt(data.pool_statistics.miners);
-				totalWorkers += parseInt(data.pool_statistics.workers);
-				updateText('totalPoolsHashrate', getReadableHashRateString(totalHashrate) + '/sec');
-				$.getJSON(url.split('/pool/stats')[0] + '/network/stats', (data, textStatus, jqXHR) => {
-					updateText('height-'+result, data.height);
-					updateText('lastHash-'+result, data.hash);
-					Heights.push(data.height);
-					Hashes.push(data.hash);
-				});				
-			} else {
-				var lastHeight =  data.lastblock ? data.lastblock.height : data.network.height;
-				var lastHash =  data.lastblock ? data.lastblock.hash : data.network.hash;
-				Heights.push(lastHeight);
-				Hashes.push(lastHash);
-				updateText('height-'+result, lastHeight);
-				updateText('lastHash-'+result, lastHash);
-				updateText('hashrate-'+result, addCommas(data.pool.hashrate));
-				updateText('miners-'+result, data.pool.miners);
-				poolHashrates.push(parseInt(data.pool.hashrate));
-				poolNames.push(result);
-				poolMiners.push(parseInt(data.pool.miners));
-				poolWorkers.push(parseInt(data.pool.miners));
-				var poolBlocks = [];
-				for (var i = 0; i < data.pool.blocks.length; i++) {
-					if (data.pool.blocks[i].length < 10) {
-						poolBlocks.push(parseInt(data.pool.blocks[i]));
-					}
-				}
-				updateText('lastFoundBlock-' + result, (typeof poolBlocks != "undefined" && poolBlocks != null && poolBlocks.length > 0 ? poolBlocks.sort(cmp).reverse()[0] : 'none' ));
-				var d = new Date(parseInt(data.pool.lastBlockFound));
-				if (!isNaN(d)) {	
-					var datestring = ("0" + d.getDate()).slice(-2) + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + d.getFullYear() + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
-					updateText('lastFound-'+result, datestring);
-					var agostring = $.timeago(d);
-					updateText('ago-'+result, agostring);
-				}
-				totalHashrate += parseInt(data.pool.hashrate);
-				totalMiners += parseInt(data.pool.miners);
-				totalWorkers += parseInt(data.pool.workers);
-				updateText('totalPoolsHashrate', getReadableHashRateString(totalHashrate) + '/sec');
-				updateText('total_miners', totalMiners);
-				updateText('total_workers', totalWorkers);
-			}						
-		});
-		poolsRefreshed++;
-	});
-	
+
 	// nodes
 	nodesStat.forEach(function(node) {
 		

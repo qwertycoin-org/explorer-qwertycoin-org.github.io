@@ -16,7 +16,7 @@ var poolsStat =
 		["qwertycoin.fairhash.org","https://qwertycoin.fairhash.org/api/stats"],
 		["newpool.pw/qwc_b2b","https://minenice.newpool.pw:8205/stats"],
 		["dxpool.com","https://api.qwertycoin.org/pools/dxpool-com"],
-		["m2pool.eu","http://ro.qwc.m2pool.eu:9981"],
+		["m2pool.eu","http://ro.qwc.m2pool.eu:9981/stats"],
 		//["qwertycoin.herominers.com","https://qwertycoin.herominers.com/api/stats"]
 		//["qwertypool.com","https://qwertypool.com:7776/stats"]
     ];

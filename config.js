@@ -1,7 +1,7 @@
 var api = "https://api.qwertycoin.org/sslnode";
 var apiList = ["https://api.qwertycoin.org/sslnode"];
 var blockTargetInterval = 120;
-var coinUnits = 10000;
+var coinUnits = 100000000;
 var symbol = 'QWC';
 var refreshDelay = 30000;
 var addressPattern = new RegExp("^QWC[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{95}$");

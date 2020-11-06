@@ -28,6 +28,7 @@
 
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Current Base Reward (for last mined block)."><i class="fa fa-certificate"></i> Reward: <span id="currentReward" class="value"></span></li>
 
+						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Average Reward for last shown Blocks."><i class="fa fa-certificate"></i> Avg. Reward: <span id="avgReward" class="value"></span></li>
 					</ul>
 				</div>
 				<div class="col-sm-6 col-md-3">
@@ -522,6 +523,7 @@ $('#goto-height').keyup(function(e){
 		$("time.timeago").timeago();
 		calcAvgHashRate();
 		calcAvgSolveTime();
+		calcAvgReward();
     }
 
 	function calcAvgHashRate(){
@@ -548,6 +550,14 @@ $('#goto-height').keyup(function(e){
 		}
 		avg_solve_time = solveTime / (ts.length - 1);
 		updateText('avgSolveTime', getReadableTime(avg_solve_time));
+	}
+
+	function calcAvgReward(){
+		var sum = 0;
+		for (var i = 1; i<Rewards.length; i++) {
+			sum = sum + Rewards[i];
+		}
+		updateText('avgReward', addCommas(getReadableCoins((sum/Rewards.length)*100000000,4)));
 	}
 	
 //  Qwertycoin MemPool Transactions

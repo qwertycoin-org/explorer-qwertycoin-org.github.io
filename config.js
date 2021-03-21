@@ -1,5 +1,9 @@
 var api = "https://api.qwertycoin.org/sslnode";
-var apiList = ["https://api.qwertycoin.org/sslnode"];
+var apiList = [
+	"https://api.qwertycoin.org/sslnode",
+	"https://pr01.myqwertycoin.com/sync/",
+	"https://pr02.myqwertycoin.com/sync/"
+];
 var blockTargetInterval = 120;
 var coinUnits = 100000000;
 var symbol = 'QWC';
@@ -29,5 +33,6 @@ var nodesStat =
 		["node-04.qwertycoin.org:8197"],
 		["node-05.qwertycoin.org:8197"],
 		["node-06.qwertycoin.org:8197"],
-		["node-07.qwertycoin.org:8197"]
+		["node-07.qwertycoin.org:8197"],
+		["china-00.qwertycoin.org:8197"]
     ];

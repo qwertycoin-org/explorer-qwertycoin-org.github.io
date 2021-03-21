@@ -34,5 +34,6 @@ var nodesStat =
 		["node-05.qwertycoin.org:8197"],
 		["node-06.qwertycoin.org:8197"],
 		["node-07.qwertycoin.org:8197"],
-		["china-00.qwertycoin.org:8197"]
+		["china-00.qwertycoin.org:8197"],
+		["124.71.193.17:8197"] //chinese server
     ];

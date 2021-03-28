@@ -1,22 +1,19 @@
+<style>
+	#keys_container p {
+		color: black;
+	}
+</style>
 <div style="height: 10px; clear: both;"></div>
 <div class="row">
 	<div class="col s12">
 		<div class="card hoverable">
 			<div class="card-action grey lighten-5">
-				<h2 class="light-blue-text text-darken-4"><i class="fas fa-check-square"></i>  Validate Address</h2>
+				<h2 class="light-blue-text text-darken-4"><i class="fas fa-id-badge"></i>  Address</h2>
 			</div>
 			<div class="card-content">
 				<div class="row">
 					<div class="col s12 l12">
-						<form id="validate_address_form">
-							<div class="input-field col s12">
-								<input id="public_address" type="text" class="validate">
-								<label for="public_address">Address</label>
-							</div>
-							<div class="input-field col s12">
-								<a id="validate_address" class="waves-effect waves-light btn light-blue darken-4"><i class="fas fa-check"></i> Validate</a></p> 
-							</div>
-						</form>
+                        <strong id="address"></strong>
 					</div>
 				</div>
 			</div>
@@ -34,10 +31,29 @@
 		</div>
 	</div>
 </div>
+<div class="row">
+    <div class="col s12 s12">
+      <div class="card-panel">
+        <p>
+            This is all we can say about this address. If you wanted to check this address' balance 
+            or look up its history, we regret to upset you, but in Qwertycoin this is impossible thanks to CryptoNote technology.
+        </p>
+        <p> 
+            Balance and history of the particular address are hidden. Anonymity is implemented by <em>ring signatures</em> to hide the sender and <em>one-time addresses</em> that are hiding the recipient.
+        </p>
+        <p>
+            Unique one-time addresses and ring signatures of transactions are providing resistance to blockchain analysis.
+
+            Every transaction only increases entropy and creates additional obstacles for those who wish to dig into financial operations with Qwertycoin.
+        </p>
+    </div>
+  </div>
+</div>
 
 <script>
-	var xhrValidateAddress;
-	var publicAddress = $("#public_address");
+    var xhrValidateAddress;
+    var address = urlParam('address');
+    $('#address').text(address);
 	var viewPublicKey = $("#viewPublicKey");
 	var spendPublicKey = $("#spendPublicKey");
 	var result = $('#verified');
@@ -57,19 +73,7 @@
 		update: function () {}
 	};
 
-	$("#validate_address").click(function () {
-		result_container.hide();
-		result_text.empty();
-		viewPublicKey.empty();
-		spendPublicKey.empty();
-
-		if (!publicAddress.val()) {
-			M.toast({html: 'Fill the address field!', classes: 'red'}, 5000);
-			return;
-		}
-
-		validateAddress();
-	});
+    validateAddress();
 
 	function validateAddress() {
 		if (xhrValidateAddress) xhrValidateAddress.abort();
@@ -81,7 +85,7 @@
 				id: "test",
 				method: "validateaddress",
 				params: {
-					address: publicAddress.val(),
+					address: address,
 				}
 			}),
 			dataType: 'json',

@@ -555,7 +555,7 @@
 			data: JSON.stringify({
 				jsonrpc: "2.0",
 				id: "test",
-				method: "checktransactionkey",
+				method: "check_tx_key",
 				params: {
 					transaction_id: transactionHash,
 					transaction_key: transactionKey.val(),
@@ -600,7 +600,7 @@
 			data: JSON.stringify({
 				jsonrpc: "2.0",
 				id: "test",
-				method: "checktransactionbyviewkey",
+				method: "check_tx_with_view_key",
 				params: {
 					transaction_id: transactionHash,
 					view_key: privateViewKey,
@@ -639,7 +639,7 @@
 			data: JSON.stringify({
 				jsonrpc: "2.0",
 				id: "test",
-				method: "checktransactionproof",
+				method: "check_tx_proof",
 				params: {
 					transaction_id: transactionHash,
 					signature: transactionKey.val(),

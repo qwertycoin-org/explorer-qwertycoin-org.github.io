@@ -557,8 +557,8 @@
 				id: "test",
 				method: "check_tx_key",
 				params: {
-					transaction_id: transactionHash,
-					transaction_key: transactionKey.val(),
+					txid: transactionHash,
+					txkey: transactionKey.val(),
 					address: publicAddress.val()
 				}
 			}),
@@ -602,7 +602,7 @@
 				id: "test",
 				method: "check_tx_with_view_key",
 				params: {
-					transaction_id: transactionHash,
+					txid: transactionHash,
 					view_key: privateViewKey,
 					address: publicAddress.val()
 				}
@@ -641,9 +641,9 @@
 				id: "test",
 				method: "check_tx_proof",
 				params: {
-					transaction_id: transactionHash,
+					tx_id: transactionHash,
 					signature: transactionKey.val(),
-					destination_address: publicAddress.val()
+					dest_address: publicAddress.val()
 				}
 			}),
 			dataType: 'json',

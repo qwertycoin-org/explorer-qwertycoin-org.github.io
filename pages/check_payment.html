@@ -55,7 +55,7 @@
 									</label>
 								</p>
 							</div>
-							<div class="input-field col s12">	
+							<div class="input-field col s12">
 								<input id="transaction_key" type="text">
 								<label for="transaction_key">Private view key, Secret transaction key or Proof of payment</label>
 							</div>
@@ -86,7 +86,7 @@
 			<div class="col s12">
 				<div class="card hoverable">
 					<div class="card-action grey lighten-5">
-						<h3 class="light-blue-text text-darken-4"><i class="fas fa-exchange-alt"></i> Transaction 
+						<h3 class="light-blue-text text-darken-4"><i class="fas fa-exchange-alt"></i> Transaction
 							<span class="tooltipped"
 							data-position="top" data-tooltip="Unique fingerprint of the transaction." id="transaction.hash"
 							style="word-break: break-all; word-wrap: break-word;"></span>
@@ -104,7 +104,7 @@
 										<i class="fas fa-bars fa-fw"></i> Block height: <span id="block.height"></span>
 									</li>
 									<li class="collection-item">
-										<i class="fas fa-unlock-alt fa-fw tooltipped" data-position="top" 
+										<i class="fas fa-unlock-alt fa-fw tooltipped" data-position="top"
 										data-tooltip="Unlock time allows you to send a transaction to someone, such that they can not spend it until after a certain number of blocks, or until a certain time."></i>
 										Unlock time: <span id="transaction.unlock_time"></span>
 									</li>
@@ -130,20 +130,20 @@
 									</li>
 								</ul>
 							</div>
-	
+
 							<div class="col s12 l8">
 								<ul class="collection">
 									<li class="tx_block collection-item">
 										<i class="fas fa-hashtag fa-fw"></i> Block hash: <span id="block.hash" style="word-break: break-all;"></span>
 									</li>
 									<li class="collection-item" id="confirmations" style="display: none;">
-										<i class="fas fa-check-double fa-fw tooltipped" data-position="top" data-tooltip="The number of network confirmations."></i> 
+										<i class="fas fa-check-double fa-fw tooltipped" data-position="top" data-tooltip="The number of network confirmations."></i>
 										Confirmations: <span
 										id="transaction.confirmations"></span> &bull; First confirmation time: <span
 										id="transaction.timestamp"></span> (<time class="transaction-timeago"></time>)
 									<li>
 									<li class="transaction_payment_id collection-item" style="display: none;">
-										<i class="fas fa-fingerprint fa-fw tooltipped" data-position="top" 
+										<i class="fas fa-fingerprint fa-fw tooltipped" data-position="top"
 										data-tooltip="Optional user-defined hexadecimal characters string. Can be used by anyone to distinguish the transactions easier."></i>
 										<span>Payment ID: <span id="transactionPaymentId"
 										style="word-break: break-all; word-wrap: break-word;"></span>
@@ -152,10 +152,10 @@
 										<i class="fas fa-comment fa-fw"></i> Decoded Payment ID: <code id="transaction.paymentIdDecifer"
 										style="word-break: break-all; word-wrap: break-word;"></code></span>
 									</li>
-									
+
 									<li class="collection-item">
 										<i class="fas fa-paperclip" fa-fw tooltipped" data-position="top" data-tooltip="An arbitrary amount of arbitrary data can be added in a transaction.
-										The extra field contains data with a high level structure. Several fields are predefined, such as public key, or extra nonce."></i> 
+										The extra field contains data with a high level structure. Several fields are predefined, such as public key, or extra nonce."></i>
 										Extra (raw): <span id="transaction.extra_raw"
 										style="word-break: break-all; word-wrap: break-word;"></span>
 									</li>
@@ -168,7 +168,7 @@
 										Extra nonce: <span id="transaction.extra_nonce"></span>
 									</li>
 								</ul>
-							</div>				
+							</div>
 						</div>
 					</div>
 				</div>
@@ -197,7 +197,7 @@
 										</tr>
 									</thead>
 									<tbody id="inputs_rows">
-				
+
 									</tbody>
 								</table>
 							</div>
@@ -214,7 +214,7 @@
 										</tr>
 									</thead>
 									<tbody id="outputs_rows">
-				
+
 									</tbody>
 								</table>
 							</div>
@@ -229,7 +229,7 @@
 										</tr>
 									</thead>
 									<tbody id="signature_rows">
-				
+
 									</tbody>
 								</table>
 							</div>
@@ -323,7 +323,7 @@
 			data: JSON.stringify({
 				jsonrpc: "2.0",
 				id: "test",
-				method: "checktransactionkey",
+				method: "check_tx_key",
 				params: {
 					transaction_id: transactionHash.val(),
 					transaction_key: transactionKey.val(),
@@ -370,7 +370,7 @@
 			data: JSON.stringify({
 				jsonrpc: "2.0",
 				id: "test",
-				method: "checktransactionbyviewkey",
+				method: "check_tx_with_view_key",
 				params: {
 					transaction_id: transactionHash.val(),
 					view_key: privateViewKey,
@@ -411,7 +411,7 @@
 			data: JSON.stringify({
 				jsonrpc: "2.0",
 				id: "test",
-				method: "checktransactionproof",
+				method: "check_tx_proof",
 				params: {
 					transaction_id: transactionHash.val(),
 					signature: transactionKey.val(),
@@ -479,7 +479,7 @@
 
 			$('#outputs_rows tr').each(function () {
 				$this = $(this);
-				$this.removeClass("teal lighten-5");	
+				$this.removeClass("teal lighten-5");
 			});
 
 			if (transactionKeyType === "tx_key") {

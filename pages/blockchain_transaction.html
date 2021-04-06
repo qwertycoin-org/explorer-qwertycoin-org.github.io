@@ -27,11 +27,11 @@
 <div class="row">
 	<div class="col s12">
 		<h2 class="light-blue-text text-darken-4">
-			<i class="fas fa-exchange-alt"></i> Transaction 
+			<i class="fas fa-exchange-alt"></i> Transaction
 			<small class="tooltipped" data-position="top" data-tooltip="Unique fingerprint of the transaction." id="transaction.hash" style="word-break: break-all; word-wrap: break-word;"></small>
 		</h2>
 	</div>
-</div>	
+</div>
 <div id="tx_details" style="display: none;">
 	<div class="row" id="tx_info">
 		<div class="col s12 l4">
@@ -44,7 +44,7 @@
 					<i class="fas fa-bars fa-fw"></i> Block height: <span id="block.height"></span>
 				</li>
 				<li class="collection-item">
-					<i class="fas fa-unlock-alt fa-fw tooltipped" data-position="top" 
+					<i class="fas fa-unlock-alt fa-fw tooltipped" data-position="top"
 					data-tooltip="Unlock time allows you to send a transaction to someone, such that they can not spend it until after a certain number of blocks, or until a certain time."></i>
 					Unlock time: <span id="transaction.unlock_time"></span>
 				</li>
@@ -76,13 +76,13 @@
 					<i class="fas fa-hashtag fa-fw"></i> Block hash: <span id="block.hash" style="word-break: break-all;"></span>
 				</li>
 				<li class="collection-item" id="confirmations" style="display: none;">
-					<i class="fas fa-check-double fa-fw tooltipped" data-position="top" data-tooltip="The number of network confirmations."></i> 
+					<i class="fas fa-check-double fa-fw tooltipped" data-position="top" data-tooltip="The number of network confirmations."></i>
 					Confirmations: <span
 					id="transaction.confirmations"></span> &bull; First confirmation time: <span
 					id="transaction.timestamp"></span> (<time class="transaction-timeago"></time>)
 				<li>
 				<li class="transaction_payment_id collection-item" style="display: none;">
-					<i class="fas fa-fingerprint fa-fw tooltipped" data-position="top" 
+					<i class="fas fa-fingerprint fa-fw tooltipped" data-position="top"
 					data-tooltip="Optional user-defined hexadecimal characters string. Can be used by anyone to distinguish the transactions easier."></i>
 					<span>Payment ID: <span id="transactionPaymentId"
 					style="word-break: break-all; word-wrap: break-word;"></span>
@@ -91,10 +91,10 @@
 					<i class="fas fa-comment fa-fw"></i> Decoded Payment ID: <code id="transaction.paymentIdDecifer"
 					style="word-break: break-all; word-wrap: break-word;"></code></span>
 				</li>
-				
+
 				<li class="collection-item">
 					<i class="fas fa-paperclip" fa-fw tooltipped" data-position="top" data-tooltip="An arbitrary amount of arbitrary data can be added in a transaction.
-					The extra field contains data with a high level structure. Several fields are predefined, such as public key, or extra nonce."></i> 
+					The extra field contains data with a high level structure. Several fields are predefined, such as public key, or extra nonce."></i>
 					Extra (raw): <span id="transaction.extra_raw"
 					style="word-break: break-all; word-wrap: break-word;"></span>
 				</li>
@@ -132,7 +132,7 @@
 									</tr>
 								</thead>
 								<tbody id="inputs_rows">
-			
+
 								</tbody>
 							</table>
 						</div>
@@ -149,7 +149,7 @@
 									</tr>
 								</thead>
 								<tbody id="outputs_rows">
-			
+
 								</tbody>
 							</table>
 						</div>
@@ -164,7 +164,7 @@
 									</tr>
 								</thead>
 								<tbody id="signature_rows">
-			
+
 								</tbody>
 							</table>
 						</div>
@@ -530,14 +530,14 @@
 		$('#receivedAmount').empty();
 		$('#outputs_rows tr').each(function () {
 			$this = $(this);
-			$this.removeClass("teal lighten-5");	
+			$this.removeClass("teal lighten-5");
 		});
 		transactionKeyType = $("[name=keyType]:checked").val();
 		if (!transactionKey.val() || !publicAddress.val()) {
 			M.toast({html: 'Fill all fields!', classes: 'red'}, 5000);
 			return;
 		}
-		
+
 		if (transactionKeyType === "tx_key") {
 			checkTxKey();
 		} else if (transactionKeyType === "view_key") {

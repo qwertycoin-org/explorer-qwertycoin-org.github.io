@@ -16,14 +16,12 @@ var addressPattern = new RegExp("^QWC[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghi
 // pools stats by MainCoins
 var poolsStat = 
 	[
-		["pool.qwertycoin.org","https://pool.qwertycoin.org:8119/stats"],
+		["pool.qwertycoin.org","https://mining.qwertycoin.org:8119/stats"],
 		["superblockchain.con-ip.com/qwc","https://superblockchain.con-ip.com:8333/stats"],
 		["easyhash.pro/qwc","https://easyhash.pro/qwc/api/stats"],
 		["qwertycoin.fairhash.org","https://qwertycoin.fairhash.org/api/stats"],
 		["newpool.pw/qwc_b2b","https://minenice.newpool.pw:8205/stats"],
-		["dxpool.com","https://api.qwertycoin.org/pools/dxpool-com"],
-		["m2pool.eu","http://ro.qwc.m2pool.eu:9981/stats"],
-		["qwertypool.com","https://qwertypool.com:7776/stats"]
+		["m2pool.eu","http://ro.qwc.m2pool.eu:9981/stats"]
     ];
 
 	

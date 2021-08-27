@@ -27,8 +27,6 @@
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="The number of transactions in the network (excluding coinbase, i.e. reward for mined blocks)."><i class="fa fa fa-exchange"></i> Transactions: <span id="networkTransactions" class="value"></span></li>
 
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Current Base Reward (for last mined block)."><i class="fa fa-certificate"></i> Reward: <span id="currentReward" class="value"></span></li>
-
-						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Average Reward for last shown Blocks."><i class="fa fa-certificate"></i> Avg. Reward: <span id="avgReward" class="value"></span></li>
 					</ul>
 				</div>
 				<div class="col-sm-6 col-md-3">
@@ -38,15 +36,23 @@
 						
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Percent of already emitted coins related to Initial supply before Tail emission."><i class="fa fa-university" aria-hidden="true"></i> Emission: <span id="emissionPercent" class="value"></span></li>
 
-						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Average solve time for the recent blocks listed below."><i class="fa fa-clock-o" aria-hidden="true"></i> Avg. solve time: <span id="avgSolveTime" class="value"></span></li>
-
-						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Estimated block solve time at estimated network speed and current difficulty."><i class="fa fa-clock-o" aria-hidden="true"></i> Est. solve time: <span id="blockSolveTime" class="value"></span></li>		
+						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Average Reward for last shown Blocks."><i class="fa fa-certificate"></i> Avg. Reward: <span id="avgReward" class="value"></span></li>
 					</ul>
 				</div>
 				<div class="col-sm-6 col-md-3">
 					<ul class="list-group" style="margin-bottom: 0px;">
 
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Difficulty for next block. Ratio at which at the current hashing speed blocks will be mined with 2 minutes interval."><i class="fa fa-unlock-alt"></i> Next Difficulty: <span id="networkDifficulty" class="value"></span></li>
+
+						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Average solve time for the recent blocks listed below."><i class="fa fa-clock-o" aria-hidden="true"></i> Avg. solve time: <span id="avgSolveTime" class="value"></span></li>
+
+						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Estimated block solve time at estimated network speed and current difficulty."><i class="fa fa-clock-o" aria-hidden="true"></i> Est. solve time: <span id="blockSolveTime" class="value"></span></li>
+
+					</ul>
+				</div>
+
+				<div class="col-sm-6 col-md-3">
+					<ul class="list-group" style="margin-bottom: 0px;">
 
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Average difficulty by last 30 blocks."><i class="fa fa-lock"></i> Average Difficulty: <span id="avgDifficulty" class="value"></span></li>
 						
@@ -55,11 +61,6 @@
 						<li class="list-group-item d-flex justify-content-between align-items-center" data-toggle="tooltip" data-placement="top" data-original-title="Current estimated network hash rate. Calculated by current difficulty."><i class="fa fa-tachometer"></i> Hash Rate: <span id="networkHashrate" class="value"></span></li>
 
 					</ul>
-				</div>
-
-				<div class="col-sm-6 col-md-3">
-				<script type="text/javascript" src="https://files.coinmarketcap.com/static/widget/currency.js"></script>
-				<div class="coinmarketcap-currency-widget" data-currencyid="3942" data-base="USD" data-secondary="" data-ticker="true" data-rank="true" data-marketcap="true" data-volume="true" data-stats="USD" data-statsticker="false"></div>
 				</div>
 
 			</div>

@@ -29,5 +29,6 @@ var nodesStat =
 		["node-04.qwertycoin.org:8197"],
 		["node-05.qwertycoin.org:8197"],
 		["node-06.qwertycoin.org:8197"],
-		["node-07.qwertycoin.org:8197"]
+		["node-07.qwertycoin.org:8197"],
+		["test512.qwertycoim.org:8197"]
     ];

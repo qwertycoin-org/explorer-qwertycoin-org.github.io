@@ -224,7 +224,7 @@ function getNodes() {
 				var datestring  = formatDate(data.start_time);
 				var agostring = $.timeago(dateTime);
 			}
-			$('#nodes_rows').append('<tr><td id=node-'+url+'><a target=blank href="http://'+url+'/getinfo">'+url+'</a></td><td class="height" id=nodeHeight-'+url+'>'+nodeHeight+'</td><td class="break-word hash" id=nodeHash-'+url+'>'+nodeHash+'</td><td id=known-'+url+'>'+data.last_known_block_index+'</td><td class="difficulty" id=diff-'+url+'>'+data.difficulty+'</td><td id=rpc-' + url + '>' + data.rpc_connections_count + '</td><td id=inc-'+url+'>'+ data.incoming_connections_count + '</td><td id=out-'+url+'>'+ data.outgoing_connections_count + '</td><td class="version" id=ver-'+url+'>'+ data.version + '</td><td class="date-time">' + formatDate(data.start_time) + ' (<span class="timeago">'+agostring+'</span>)</td></tr>');
+			$('#nodes_rows').append('<tr><td id=node-'+url+'><a target=blank href="http://'+url+'">'+url+'</a></td><td class="height" id=nodeHeight-'+url+'>'+nodeHeight+'</td><td class="break-word hash" id=nodeHash-'+url+'>'+nodeHash+'</td><td id=known-'+url+'>'+data.last_known_block_index+'</td><td class="difficulty" id=diff-'+url+'>'+data.difficulty+'</td><td id=rpc-' + url + '>' + data.rpc_connections_count + '</td><td id=inc-'+url+'>'+ data.incoming_connections_count + '</td><td id=out-'+url+'>'+ data.outgoing_connections_count + '</td><td class="version" id=ver-'+url+'>'+ data.version + '</td><td class="date-time">' + formatDate(data.start_time) + ' (<span class="timeago">'+agostring+'</span>)</td></tr>');
 			Versions.push(data.version);
 			nextDifficulties.push(parseInt(data.difficulty));
 			totalNodes++;

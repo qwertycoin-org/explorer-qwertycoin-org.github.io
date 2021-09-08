@@ -1,4 +1,4 @@
-var api = "https://node-2.qwertycoin.org/sslnode";
+var api = "https://node-02.qwertycoin.org/sslnode";
 var apiList = [
 	"https://node-00.qwertycoin.org/sslnode",
 	"https://node-01.qwertycoin.org/sslnode",
@@ -6,7 +6,10 @@ var apiList = [
 	"https://node-03.qwertycoin.org/sslnode",
 	"https://node-04.qwertycoin.org/sslnode",
 	"https://node-05.qwertycoin.org/sslnode",
-	"https://node-06.qwertycoin.org/sslnode"
+	"https://node-06.qwertycoin.org/sslnode",
+	"https://node-07.qwertycoin.org/sslnode",
+	"https://node-08.qwertycoin.org/sslnode",
+	"https://node-09.qwertycoin.org/sslnode"
 ];
 var blockTargetInterval = 120;
 var coinUnits = 100000000;

@@ -39,5 +39,6 @@ var nodesStat =
 		["node-06.qwertycoin.org:8197"],
 		["node-07.qwertycoin.org:8197"],
 		["node-08.qwertycoin.org:8197"],
-		["node-09.qwertycoin.org:8197"]
+		["node-09.qwertycoin.org:8197"],
+		["lmdb-01.qwertycoin.org:8197"]
     ];

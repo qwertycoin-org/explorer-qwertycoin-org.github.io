@@ -1,7 +1,7 @@
 var api = "https://node-02.qwertycoin.org/sslnode";
 var apiList = [
 	"https://node-00.qwertycoin.org/sslnode",
-	"https://node-01.qwertycoin.org/sslnode",
+	//"https://node-01.qwertycoin.org/sslnode",
 	"https://node-02.qwertycoin.org/sslnode"
 ];
 var blockTargetInterval = 120;

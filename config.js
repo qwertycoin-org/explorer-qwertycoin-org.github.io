@@ -1,8 +1,11 @@
 var api = "https://node-02.qwertycoin.org/sslnode";
 var apiList = [
 	"https://node-00.qwertycoin.org/sslnode",
-	//"https://node-01.qwertycoin.org/sslnode",
-	"https://node-02.qwertycoin.org/sslnode"
+	"https://node-01.qwertycoin.org/sslnode",
+	"https://node-02.qwertycoin.org/sslnode",
+	"https://node-03.qwertycoin.org/sslnode",
+	"https://node-04.qwertycoin.org/sslnode",
+	"https://node-06.qwertycoin.org/sslnode"
 ];
 var blockTargetInterval = 120;
 var coinUnits = 100000000;
@@ -17,9 +20,7 @@ var poolsStat =
 		["easyhash.pro/qwc","https://easyhash.pro/qwc/api/stats"],
 		["qwertycoin.fairhash.org","https://qwertycoin.fairhash.org/api/stats"],
 		["newpool.pw/qwc_b2b","https://minenice.newpool.pw:8205/stats"],
-		["digging.qwertycoin.org","https://mining.qwertycoin.org:8119/stats"],
-		//["dxpool.com","https://api.qwertycoin.org/pools/dxpool-com"],
-		//["m2pool.eu","http://ro.qwc.m2pool.eu:9981/stats"]
+		["digging.qwertycoin.org","https://mining.qwertycoin.org:8119/stats"]
     ];
 var nodesStat = 
 	[
@@ -32,6 +33,5 @@ var nodesStat =
 		["node-06.qwertycoin.org:8197"],
 		["node-07.qwertycoin.org:8197"],
 		["node-08.qwertycoin.org:8197"],
-		["node-09.qwertycoin.org:8197"],
-		["lmdb-01.qwertycoin.org:8197"]
+		["node-09.qwertycoin.org:8197"]
     ];

@@ -1,0 +1,104 @@
+FROM ubuntu:22.04 AS builder
+
+ARG NPROC=2
+ARG QWC_REPOSITORY=https://github.com/qwertycoin-org/qwertycoin.git
+ARG QWC_COMMIT=1c4c1bf10c387887a42243dc690a65abb6c6e786
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CFLAGS=-fPIC
+ENV CXXFLAGS=-fPIC
+ENV USE_SINGLE_BUILDDIR=1
+ENV BOOST_DEBUG=1
+
+RUN apt-get update && \
+    apt-get --no-install-recommends --yes install \
+      automake \
+      autotools-dev \
+      bsdmainutils \
+      build-essential \
+      ca-certificates \
+      cmake \
+      curl \
+      git \
+      gperf \
+      graphviz \
+      libboost-all-dev \
+      libcurl4-openssl-dev \
+      libgtest-dev \
+      libhidapi-dev \
+      libhidapi-libusb0 \
+      libreadline-dev \
+      libsodium-dev \
+      libssl-dev \
+      libtool \
+      libunbound-dev \
+      libunwind8-dev \
+      libzmq3-dev \
+      miniupnpc \
+      pkg-config \
+      zip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /root
+RUN git clone --filter=blob:none --no-checkout "${QWC_REPOSITORY}" /root/qwertycoin && \
+    git -C /root/qwertycoin checkout --detach "${QWC_COMMIT}" && \
+    git -C /root/qwertycoin submodule update --init --recursive
+
+RUN cd /root/qwertycoin && \
+    make -j"${NPROC}" depends target=x86_64-linux-gnu
+
+RUN apt-get update && \
+    apt-get --no-install-recommends --yes install \
+      libasio-dev \
+      liblzma-dev \
+      libusb-1.0-0-dev \
+      libminiupnpc-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY . /root/qwertycoin-explorer
+WORKDIR /root/qwertycoin-explorer/build
+
+RUN cmake \
+      -DCMAKE_LIBRARY_PATH="/root/qwertycoin/build/x86_64-linux-gnu/release;/root/qwertycoin/contrib/depends/x86_64-linux-gnu/lib" \
+      -DBOOST_ROOT=/root/qwertycoin/contrib/depends/x86_64-linux-gnu \
+      -DBOOST_INCLUDEDIR=/root/qwertycoin/contrib/depends/x86_64-linux-gnu/include \
+      -DBOOST_LIBRARYDIR=/root/qwertycoin/contrib/depends/x86_64-linux-gnu/lib \
+      -DBoost_NO_BOOST_CMAKE=ON \
+      -DBoost_NO_SYSTEM_PATHS=ON \
+      -DMONERO_DIR=/root/qwertycoin \
+      -DMONERO_SOURCE_DIR=/root/qwertycoin \
+      -DMONERO_BUILD_DIR=/root/qwertycoin/build/x86_64-linux-gnu/release \
+      .. && \
+    make -j"${NPROC}"
+
+RUN zip /lib.zip $(ldd qwertycoin-explorer | grep -E '/[^ ]*' -o)
+
+FROM ubuntu:22.04 AS final
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get --no-install-recommends --yes install ca-certificates unzip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /lib.zip /tmp/lib.zip
+RUN unzip -o /tmp/lib.zip -d / && \
+    rm -f /tmp/lib.zip && \
+    apt-get purge --yes unzip && \
+    apt-get autoremove --yes && \
+    useradd --system --uid 101 --create-home --home-dir /home/qwertycoin qwertycoin && \
+    mkdir -p /home/qwertycoin/.qwertycoin && \
+    chown -R qwertycoin:qwertycoin /home/qwertycoin
+
+USER qwertycoin
+WORKDIR /home/qwertycoin
+
+COPY --chown=qwertycoin:qwertycoin --from=builder /root/qwertycoin-explorer/build/qwertycoin-explorer ./qwertycoin-explorer
+COPY --chown=qwertycoin:qwertycoin --from=builder /root/qwertycoin-explorer/build/templates ./templates
+
+EXPOSE 8081
+
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["./qwertycoin-explorer --port 8081 --bindaddr 0.0.0.0 --bc-path /home/qwertycoin/.qwertycoin/lmdb --daemon-url http://qwertycoin-mainnet:8197 --enable-json-api --enable-autorefresh-option"]

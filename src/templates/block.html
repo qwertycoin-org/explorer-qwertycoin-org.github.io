@@ -1,0 +1,116 @@
+
+<section class="center explorer-panel block-detail-panel">
+
+    <div class="block-identity">
+        <div class="block-identity-item block-identity-primary">
+            <span class="metric-label">Block hash</span>
+            <code>{{blk_hash}}</code>
+            <span class="block-height-pill">Height {{blk_height}}</span>
+        </div>
+
+
+    {{#have_prev_hash}}
+        <div class="block-identity-item">
+            <span class="metric-label">Previous block</span>
+            <a href="/block/{{prev_hash}}"><code>{{prev_hash}}</code></a>
+        </div>
+    {{/have_prev_hash}}
+
+    {{#have_next_hash}}
+        <div class="block-identity-item">
+            <span class="metric-label">Next block</span>
+            <a href="/block/{{next_hash}}"><code>{{next_hash}}</code></a>
+        </div>
+    {{/have_next_hash}}
+    </div>
+
+
+
+    <div class="table-wrap">
+    <table class="center responsive-table block-meta-table">
+        <tr>
+            <td data-label="Timestamp UTC"><span class="desktop-label">Timestamp [UTC] (epoch): </span>{{blk_timestamp}} ({{blk_timestamp_epoch}})</td>
+            <td data-label="Age"><span class="desktop-label">Age {{age_format}}: </span>{{blk_age}}</td>
+            <td data-label="Delta"><span class="desktop-label">&Delta; [h:m:s]: </span>{{delta_time}}</td>
+        </tr>
+        <tr>
+            <td data-label="Version"><span class="desktop-label">Major.minor version: </span>{{major_ver}}.{{minor_ver}}</td>
+            <td data-label="Block reward"><span class="desktop-label">Block reward: </span>{{blk_reward}}</td>
+            <td data-label="Block size"><span class="desktop-label">Block size [kB]: </span>{{blk_size}}</td>
+        </tr>
+        <tr>
+            <td data-label="Nonce"><span class="desktop-label">Nonce: </span>{{blk_nonce}}</td>
+            <td data-label="Total fees"><span class="desktop-label">Total fees: </span>{{sum_fees}}</td>
+            <td data-label="Transactions"><span class="desktop-label">No of txs: </span>{{no_txs}}</td>
+        </tr>
+        <tr>
+            <td data-label="PoW hash"><span class="desktop-label">PoW hash: </span><code>{{blk_pow_hash}}</code></td>
+            <td data-label="Difficulty"><span class="desktop-label">Difficulty: </span>{{blk_difficulty}}</td>
+            {{#is_randomx}}
+                <td data-label="RandomX"><a href="/randomx/{{blk_height}}">RandomX source code</a></td>
+            {{/is_randomx}}
+            {{^is_randomx}}
+                <td data-label="RandomX"></td>
+            {{/is_randomx}}
+        </tr>
+    </table>
+    </div>
+
+    <h3 class="tx-section-heading">Miner reward transaction</h3>
+    <div class="table-wrap">
+    <table class="center responsive-table block-reward-table">
+        <tr class="table-header-row">
+            <td>hash</td>
+            <td>outputs</td>
+            <td>size [kB]</td>
+            <td>version</td>
+        </tr>
+        {{#coinbase_txs}}
+            <tr>
+                <td data-label="Hash"><a href="/tx/{{hash}}">{{hash}}</a></td>
+                <td data-label="Outputs">{{sum_outputs}}</td>
+                <td data-label="Size">{{tx_size}}</td>
+                <td data-label="Version">{{version}}</td>
+            </tr>
+        {{/coinbase_txs}}
+
+    </table>
+    </div>
+
+
+
+    <h3 class="tx-section-heading">Transactions ({{no_txs}})</h3>
+    {{#have_txs}}
+        <div class="table-wrap">
+        <table class="center responsive-table block-transactions-table" style="width:80%">
+            <tr class="table-header-row">
+                <td>hash</td>
+                <td>outputs</td>
+                <td>fee [QWC]</td>
+                <td>in/out</td>
+                <td>size [kB]</td>
+                <td>version</td>
+            </tr>
+            {{#blk_txs}}
+                <tr>
+                    <td data-label="Hash"><a href="/tx/{{hash}}">{{hash}}</a></td>
+                    <td data-label="Outputs">{{sum_outputs}}</td>
+                    <td data-label="Fee">{{fee_micro}}</td>
+                    <td data-label="In / out">{{no_inputs}}/{{no_outputs}}</td>
+                    <td data-label="Size">{{tx_size}}</td>
+                    <td data-label="Version">{{version}}</td>
+                </tr>
+            {{/blk_txs}}
+        </table>
+        </div>
+    {{/have_txs}}
+
+
+    {{#enable_as_hex}}
+        <h5 style="margin-top:1px">
+            <a href="/blockhex/{{blk_height}}">Block as hex</a>
+            | <a href="/blockhexcomplete/{{blk_height}}">Complete block as hex</a>
+        </h5>
+    {{/enable_as_hex}}
+
+</section>

@@ -1,0 +1,48 @@
+<section class="center explorer-panel mempool-panel">
+    <div class="panel-heading">
+        <div>
+            <p class="eyebrow">Transactions</p>
+            <h2>Transaction Pool</h2>
+        </div>
+        <span class="status-pill">{{mempool_size}} pending</span>
+    </div>
+    <h4 class="section-subtitle in-panel">Size {{mempool_size_kB}} kB · updated every {{ mempool_refresh_time }} seconds</h4>
+    <div class="table-wrap">
+      <table class="responsive-table mempool-table">
+            <tr class="table-header-row">
+                <td>age [h:m:s]</td>
+                <td>transaction hash</td>
+                <td>fee/per_kB [QWC]</td>
+                <!--<td>outputs</td>-->
+                <td>in/out</td>
+                <td>tx size [kB]</td>
+            </tr>
+            {{#mempooltxs}}
+            <tr>
+                <td data-label="Age">{{age}}</td>
+                <td data-label="Transaction hash"><a href="/tx/{{hash}}">{{hash}}</a></td>
+                <td data-label="Fee per kB">{{fee}}/{{payed_for_kB}}</td>
+                <!--<td>{{xmr_outputs}}</td>-->
+                <td data-label="In / out">{{no_inputs}}/{{no_outputs}}</td>
+                <td data-label="TX size">{{txsize}}</td>
+            </tr>
+            {{/mempooltxs}}
+            {{^mempooltxs}}
+            <tr>
+                <td class="empty-table-message" colspan="5">No pending transactions in the pool.</td>
+            </tr>
+            {{/mempooltxs}}
+      </table>
+
+    {{^mempool_fits_on_front_page}}
+      {{#partial_mempool_shown}}
+      <div class="center" style="text-align: center; margin-bottom: 10px">
+          <a href="/txpool">Only {{no_of_mempool_tx_of_frontpage}} txs shown. Click here to see all of them</a>
+      </div>
+      {{/partial_mempool_shown}}
+
+    {{/mempool_fits_on_front_page}}
+
+
+</div>
+</section>

@@ -1,6 +1,8 @@
 :root {
     --color-ink: #071327;
     --color-ink-soft: #0f274c;
+    --color-chrome: #071327;
+    --color-chrome-soft: #0f274c;
     --color-panel: #10294f;
     --color-panel-raised: #173762;
     --color-surface: #ffffff;
@@ -107,7 +109,7 @@ code {
     position: relative;
     z-index: 20;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-    background: var(--color-ink);
+    background: var(--color-chrome);
 }
 
 .nav {
@@ -952,7 +954,7 @@ table tr:not(:first-child):hover {
 
 .site-footer {
     color: var(--color-text);
-    background: linear-gradient(90deg, var(--color-ink), var(--color-ink-soft));
+    background: linear-gradient(90deg, var(--color-chrome), var(--color-chrome-soft));
 }
 
 .footer-grid {

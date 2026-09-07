@@ -78,6 +78,7 @@ COPY . /root/qwertycoin-explorer
 WORKDIR /root/qwertycoin-explorer/build
 
 RUN cmake \
+      -DCMAKE_CXX_FLAGS="-include /tmp/boost_pthread_compat.h" \
       -DCMAKE_LIBRARY_PATH="/root/qwertycoin/build/x86_64-linux-gnu/release;/root/qwertycoin/contrib/depends/x86_64-linux-gnu/lib" \
       -DBOOST_ROOT=/root/qwertycoin/contrib/depends/x86_64-linux-gnu \
       -DBOOST_INCLUDEDIR=/root/qwertycoin/contrib/depends/x86_64-linux-gnu/include \

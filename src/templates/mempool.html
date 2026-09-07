@@ -2,27 +2,28 @@
     <div class="panel-heading">
         <div>
             <p class="eyebrow">Transactions</p>
-            <h2>Transaction Pool</h2>
+            {{#partial_mempool_shown}}<h2>Transaction Pool</h2>{{/partial_mempool_shown}}
+            {{^partial_mempool_shown}}<h1>Transaction Pool</h1>{{/partial_mempool_shown}}
         </div>
         <span class="status-pill">{{mempool_size}} pending</span>
     </div>
     <h4 class="section-subtitle in-panel">Size {{mempool_size_kB}} kB · updated every {{ mempool_refresh_time }} seconds</h4>
     <div class="table-wrap">
       <table class="responsive-table mempool-table">
-            <tr class="table-header-row">
-                <td>age [h:m:s]</td>
-                <td>transaction hash</td>
-                <td>fee/per_kB [QWC]</td>
-                <!--<td>outputs</td>-->
-                <td>in/out</td>
-                <td>tx size [kB]</td>
-            </tr>
+            <caption class="sr-only">Transactions in the observer's bounded mempool snapshot.</caption>
+            <thead><tr class="table-header-row">
+                <th scope="col">Age [h:m:s]</th>
+                <th scope="col">Transaction hash</th>
+                <th scope="col">Fee [QWC]</th>
+                <th scope="col">Inputs / outputs</th>
+                <th scope="col">Size [kB]</th>
+            </tr></thead>
+            <tbody>
             {{#mempooltxs}}
             <tr>
                 <td data-label="Age">{{age}}</td>
                 <td data-label="Transaction hash"><a href="/tx/{{hash}}">{{hash}}</a></td>
-                <td data-label="Fee per kB">{{fee}}/{{payed_for_kB}}</td>
-                <!--<td>{{xmr_outputs}}</td>-->
+                <td data-label="Fee">{{fee}}</td>
                 <td data-label="In / out">{{no_inputs}}/{{no_outputs}}</td>
                 <td data-label="TX size">{{txsize}}</td>
             </tr>
@@ -32,6 +33,7 @@
                 <td class="empty-table-message" colspan="5">No pending transactions in the pool.</td>
             </tr>
             {{/mempooltxs}}
+            </tbody>
       </table>
 
     {{^mempool_fits_on_front_page}}

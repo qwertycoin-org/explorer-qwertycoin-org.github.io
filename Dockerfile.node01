@@ -1,8 +1,9 @@
-FROM ubuntu:22.04 AS builder
+ARG UBUNTU_IMAGE
+FROM ${UBUNTU_IMAGE} AS builder
 
 ARG NPROC=2
 ARG QWC_REPOSITORY=https://github.com/qwertycoin-org/qwertycoin.git
-ARG QWC_COMMIT=1c4c1bf10c387887a42243dc690a65abb6c6e786
+ARG QWC_COMMIT
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CFLAGS=-fPIC
 ENV CXXFLAGS=-fPIC
@@ -40,12 +41,21 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root
+RUN expr "${QWC_COMMIT}" : '[0-9a-fA-F]\{40\}$' >/dev/null
 RUN git clone --filter=blob:none --no-checkout "${QWC_REPOSITORY}" /root/qwertycoin && \
     git -C /root/qwertycoin checkout --detach "${QWC_COMMIT}" && \
     git -C /root/qwertycoin submodule update --init --recursive
 
+COPY deploy/boost_pthread_compat.h /tmp/boost_pthread_compat.h
 RUN cd /root/qwertycoin && \
-    make -j"${NPROC}" depends target=x86_64-linux-gnu
+    make -j"${NPROC}" \
+      boost_cxxflags="-std=c++11 -fPIC -include /tmp/boost_pthread_compat.h" \
+      depends target=x86_64-linux-gnu
+
+ARG EXPLORER_SOURCE_SHA
+ARG EXPLORER_SOURCE_DATE=unknown
+ARG EXPLORER_SOURCE_BRANCH=detached
+RUN expr "${EXPLORER_SOURCE_SHA}" : '[0-9a-fA-F]\{40\}$' >/dev/null
 
 RUN apt-get update && \
     apt-get --no-install-recommends --yes install \
@@ -69,17 +79,28 @@ RUN cmake \
       -DMONERO_DIR=/root/qwertycoin \
       -DMONERO_SOURCE_DIR=/root/qwertycoin \
       -DMONERO_BUILD_DIR=/root/qwertycoin/build/x86_64-linux-gnu/release \
+      -DEXPLORER_SOURCE_SHA="${EXPLORER_SOURCE_SHA}" \
+      -DEXPLORER_SOURCE_DATE="${EXPLORER_SOURCE_DATE}" \
+      -DEXPLORER_SOURCE_BRANCH="${EXPLORER_SOURCE_BRANCH}" \
+      -DQWC_SOURCE_SHA="${QWC_COMMIT}" \
       .. && \
-    make -j"${NPROC}"
+    make -j"${NPROC}" && \
+    ctest --output-on-failure
 
 RUN zip /lib.zip $(ldd qwertycoin-explorer | grep -E '/[^ ]*' -o)
 
-FROM ubuntu:22.04 AS final
+FROM ${UBUNTU_IMAGE} AS final
+
+ARG QWC_COMMIT
+ARG EXPLORER_SOURCE_SHA
+LABEL org.opencontainers.image.source="https://github.com/qwertycoin-org/explorer-qwertycoin-org.github.io" \
+      org.opencontainers.image.revision="${EXPLORER_SOURCE_SHA}" \
+      org.qwertycoin.core.revision="${QWC_COMMIT}"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get --no-install-recommends --yes install ca-certificates unzip && \
+    apt-get --no-install-recommends --yes install ca-certificates curl unzip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -100,5 +121,6 @@ COPY --chown=qwertycoin:qwertycoin --from=builder /root/qwertycoin-explorer/buil
 
 EXPOSE 8081
 
-ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["./qwertycoin-explorer --port 8081 --bindaddr 0.0.0.0 --bc-path /home/qwertycoin/.qwertycoin/lmdb --daemon-url http://qwertycoin-mainnet:8197 --enable-json-api --enable-autorefresh-option"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8081/readyz"]
+ENTRYPOINT ["./qwertycoin-explorer"]
+CMD ["--port", "8081", "--bindaddr", "0.0.0.0", "--bc-path", "/home/qwertycoin/.qwertycoin/lmdb", "--daemon-url", "http://qwertycoin-mainnet:8198", "--enable-json-api"]

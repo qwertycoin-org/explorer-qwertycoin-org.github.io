@@ -5,26 +5,56 @@ services:
       dockerfile: Dockerfile.node01
       args:
         NPROC: "2"
+        UBUNTU_IMAGE: "${UBUNTU_IMAGE:?digest-pinned Ubuntu image required}"
+        QWC_COMMIT: "${QWC_COMMIT:?full QWC core SHA required}"
+        EXPLORER_SOURCE_SHA: "${EXPLORER_SOURCE_SHA:?full explorer SHA required}"
     image: qwertycoin-explorer:local
-    container_name: qwertycoin-explorer
+    container_name: "${QWC_EXPLORER_CONTAINER_NAME:?container name required}"
     restart: unless-stopped
-    user: "0:0"
+    user: "${QWC_EXPLORER_UID:?uid required}:${QWC_EXPLORER_GID:?gid required}"
     command:
-      - ./qwertycoin-explorer --port 8081 --bindaddr 0.0.0.0 --bc-path /home/qwertycoin/.qwertycoin/lmdb --daemon-url http://qwertycoin-mainnet:8197 --enable-json-api --enable-autorefresh-option
+      - --port
+      - "8081"
+      - --bindaddr
+      - 0.0.0.0
+      - --bc-path
+      - /home/qwertycoin/.qwertycoin/lmdb
+      - --daemon-url
+      - "${QWC_DAEMON_URL:?restricted observer RPC URL required}"
+      - --enable-json-api
     ports:
-      - "127.0.0.1:29982:8081"
+      - "127.0.0.1:${QWC_EXPLORER_HOST_PORT:?loopback host port required}:8081"
     volumes:
       - qwertycoin-chain:/home/qwertycoin/.qwertycoin:ro
     networks:
       - default
       - qwertycoin-mainnet
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8081/readyz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
 volumes:
   qwertycoin-chain:
     external: true
-    name: qwertycoin-mainnet-chain
+    name: "${QWC_CHAIN_VOLUME:?verified existing chain volume required}"
 
 networks:
   qwertycoin-mainnet:
     external: true
-    name: qwertycoin-mainnet-net
+    name: "${QWC_DOCKER_NETWORK:?verified existing daemon network required}"

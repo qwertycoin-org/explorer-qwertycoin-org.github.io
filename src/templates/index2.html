@@ -1,657 +1,181 @@
+<section class="center rehearsal-banner" role="status">
+    <strong>Mainnet rehearsal</strong>
+    <span>This public chain is under launch rehearsal and is planned to be reset before final launch.</span>
+</section>
 
 <div class="center page-tools">
-    <span class="tool-status">Server time: {{server_timestamp}}</span>
-    <a href="/txpool">Transaction pool</a>
-    {{#enable_pusher}}
-        <a href="/rawtx">Transaction pusher</a>
-    {{/enable_pusher}}
-    {{#enable_key_image_checker}}
-        <a href="/rawkeyimgs">Key images checker</a>
-    {{/enable_key_image_checker}}
-    {{#enable_output_key_checker}}
-        <a href="/rawoutputkeys">Output keys checker</a>
-    {{/enable_output_key_checker}}
-    {{#enable_autorefresh_option}}
-        {{#refresh}}
-            <a href="/">Autorefresh on</a>
-        {{/refresh}}
-        {{^refresh}}
-           <a href="/autorefresh">Autorefresh off</a>
-        {{/refresh}}
-    {{/enable_autorefresh_option}}
+    <span class="tool-status">Observer snapshot: {{server_timestamp}} UTC</span>
+    <a href="" aria-label="Refresh explorer data">Refresh</a>
 </div>
 
-{{#network_info}}
-<section class="center explorer-panel chain-chart-panel">
+{{#show_network}}{{#network_info}}
+<section class="center explorer-panel overview-panel" id="network" aria-labelledby="overview-title">
     <div class="panel-heading">
         <div>
-            <p class="eyebrow">Qwertycoin v2 Mainnet</p>
-            <h2>Network Overview</h2>
+            <p class="eyebrow">Qwertycoin HF17 · EPoSE v2</p>
+            <h1 id="overview-title">Network observer</h1>
         </div>
         <span class="status-pill {{#is_current_info}}ok{{/is_current_info}}{{^is_current_info}}warning{{/is_current_info}}">
-            {{#is_current_info}}Live{{/is_current_info}}{{^is_current_info}}Stale{{/is_current_info}}
+            {{#is_current_info}}RPC/DB anchor current{{/is_current_info}}{{^is_current_info}}RPC/DB anchor stale or inconsistent{{/is_current_info}}
         </span>
     </div>
-
-    <div class="fact-grid">
-        <div class="fact-card">
-            <span>Height</span>
-            <strong>{{height}}</strong>
-        </div>
-        <div class="fact-card">
-            <span>Transactions</span>
-            <strong>{{tx_count}}</strong>
-        </div>
-        <div class="fact-card">
-            <span>Unlocked Supply</span>
-            <strong id="fact-unlocked-supply">-</strong>
-        </div>
-        <div class="fact-card">
-            <span>Difficulty</span>
-            <strong>{{difficulty}}</strong>
-        </div>
-        <div class="fact-card">
-            <span>Hashrate</span>
-            <strong>{{hash_rate}}</strong>
-        </div>
-        <div class="fact-card">
-            <span>Reward</span>
-            <strong id="fact-block-reward">-</strong>
-        </div>
-        <div class="fact-card">
-            <span>Tx Pool</span>
-            <strong>{{tx_pool_size}}</strong>
-        </div>
-        <div class="fact-card">
-            <span>Block Target</span>
-            <strong>{{target}}s</strong>
-        </div>
-        <div class="fact-card">
-            <span>Peers</span>
-            <strong>{{total_connections}}</strong>
-        </div>
+    <div class="fact-grid compact-facts">
+        <div class="fact-card"><span>Tip height</span><strong>{{tip_height}}</strong></div>
+        <div class="fact-card"><span>Block count</span><strong>{{block_count}}</strong></div>
+        <div class="fact-card"><span>Mempool transactions</span><strong>{{tx_pool_size}}</strong></div>
+        <div class="fact-card"><span>Target block interval</span><strong>{{target}} s</strong></div>
     </div>
-
-    <div class="network-detail-grid top-details">
-        <div>
-            <span class="metric-label">Top block hash</span>
-            <code>{{top_block_hash}}</code>
-        </div>
-        <div>
-            <span class="metric-label">Cumulative difficulty</span>
-            <code>{{cumulative_difficulty}}</code>
-        </div>
-        <div>
-            <span class="metric-label">Connections</span>
-            <code>{{incoming_connections}} incoming / {{outgoing_connections}} outgoing</code>
-        </div>
-    </div>
-
-    {{^is_current_info}}
-    <p class="status-note warning-text">Network data is {{age}} {{age_format}} old.</p>
-    {{/is_current_info}}
-
-    <div class="chart-grid">
-        <div class="chain-chart trend-chart">
-            <div class="chart-head">
-                <span class="metric-label">Hashrate, Difficulty and Reward</span>
-                <div class="chart-legend">
-                    <span><i class="legend-swatch hashrate"></i>Hashrate</span>
-                    <span><i class="legend-swatch difficulty"></i>Difficulty</span>
-                    <span><i class="legend-swatch reward"></i>Reward</span>
-                </div>
-            </div>
-            <div class="chart-current-grid">
-                <div>
-                    <span class="metric-label">Hashrate</span>
-                    <strong id="chart-current-hashrate">-</strong>
-                </div>
-                <div>
-                    <span class="metric-label">Difficulty</span>
-                    <strong id="chart-current-difficulty">-</strong>
-                </div>
-                <div>
-                    <span class="metric-label">Block reward</span>
-                    <strong id="chart-current-reward">-</strong>
-                </div>
-            </div>
-            <svg id="chart-network-trend" viewBox="0 0 720 220" role="img" aria-label="Recent hashrate difficulty and reward chart"></svg>
-        </div>
-        <div class="chain-chart supply-chart" data-metric="supply">
-            <div class="chart-head">
-                <span class="metric-label">Unlocked supply</span>
-                <strong id="chart-current-supply">-</strong>
-            </div>
-            <svg id="chart-supply" viewBox="0 0 720 220" role="img" aria-label="Unlocked supply chart"></svg>
-        </div>
-    </div>
+    <dl class="network-detail-grid top-details">
+        <div><dt>Observed chain tip</dt><dd><code class="hash-value">{{top_block_hash}}</code></dd></div>
+        <div><dt>Network</dt><dd>{{network_name}}</dd></div>
+        <div><dt>Snapshot age</dt><dd>{{age}} {{age_format}}</dd></div>
+    </dl>
+    <p class="data-note">This page reports one validating observer. “Current” requires a matching RPC/LMDB tip during rendering and describes snapshot freshness; it is not a network-wide health certificate. Peer counts and issued supply are omitted until their availability and semantics are auditable.</p>
 </section>
-{{/network_info}}
+{{/network_info}}{{/show_network}}
 
-    {{{mempool_info}}}
-
-    {{#is_page_zero}}
-      <h2 class="section-title">Recent Blocks</h2>
-    {{/is_page_zero}}
-    {{^is_page_zero}}
-      <h2 class="section-title">Older Blocks<!--(height: {{height}})--></h2>
-    {{/is_page_zero}}
-
-    <h4 class="section-subtitle">Last {{no_of_last_blocks}} blocks · median block size {{blk_size_median}} kB</h4>
-
-    <section class="center explorer-panel transaction-panel">
-        <div class="table-wrap">
-
-            <table class="responsive-table transaction-table">
-                <tr class="table-header-row">
-                    <td>height</td>
-                    <td>age {{age_format}}<!--(Δm)--></td>
-                    <td>size [kB]<!--(Δm)--></td>
-                    <td>no txs</td>
-                    <td>transaction hash</td>
-                    <td>fee [QWC]</td>
-                    <td>outputs</td>
-                    <td>in/out</td>
-                    <td>tx size [kB]</td>
-                </tr>
-                {{#txs}}
-                <tr>
-                    <td data-label="Height"><a href="/block/{{height}}">{{height}}</a></td>
-                    <td data-label="Age">{{age}}<!--{{time_delta}}--></td>
-                    <td data-label="Block size">{{blk_size}}</td>
-                    <td data-label="Transactions">{{no_txs}}</td>
-                    <td data-label="Transaction hash"><a href="/tx/{{hash}}">{{hash}}</a></td>
-                    <td data-label="Fee">{{fee_micro}}</td>
-                    <td data-label="Outputs">{{sum_outputs_short}}</td>
-                    <td data-label="In / out">{{no_inputs}}/{{no_outputs}}</td>
-                    <td data-label="TX size">{{tx_size_short}}</td>
-                </tr>
-                {{/txs}}
-            </table>
-
-            <div id="pages" class="pager">
-             {{^is_page_zero}}
-               <a href="/page/{{prev_page}}">previous page</a> |
-               <a href="/">first page</a> |
-             {{/is_page_zero}}
-                current page: {{page_no}}/<a href="/page/{{total_page_no}}">{{total_page_no}}</a>
-                | <a href="/page/{{next_page}}">next page</a>
-            </div>
-
-        </div>
-    </section>
-
-<section class="center explorer-panel epose-panel" id="epose-panel">
+{{#show_blocks}}
+<section class="center explorer-panel blocks-panel" id="blocks" aria-labelledby="blocks-title">
     <div class="panel-heading">
         <div>
-            <p class="eyebrow">EPoSE service network</p>
-            <h2>EPoSE Network Health</h2>
+            <p class="eyebrow">Canonical observer view</p>
+            {{#is_blocks_page}}<h1 id="blocks-title">{{#is_page_zero}}Recent blocks{{/is_page_zero}}{{^is_page_zero}}Older blocks{{/is_page_zero}}</h1>{{/is_blocks_page}}
+            {{^is_blocks_page}}<h2 id="blocks-title">{{#is_page_zero}}Recent blocks{{/is_page_zero}}{{^is_page_zero}}Older blocks{{/is_page_zero}}</h2>{{/is_blocks_page}}
         </div>
-        <span class="status-pill" id="epose-rpc-status">Loading RPC data</span>
+        <span>{{no_of_last_blocks}} blocks</span>
     </div>
-
-    <div class="status-grid compact">
-        <div class="metric">
-            <span class="metric-label">Online Nodes</span>
-            <strong id="epose-online-nodes">-</strong>
-            <span id="epose-online-summary">registered service nodes</span>
-        </div>
-        <div class="metric">
-            <span class="metric-label">Current Epoch Qualified</span>
-            <strong id="epose-current-qualified">-</strong>
-            <span id="epose-current-qualified-detail">current committee state</span>
-        </div>
-        <div class="metric">
-            <span class="metric-label">Reward Epoch Qualified</span>
-            <strong id="epose-reward-qualified">-</strong>
-            <span id="epose-reward-qualified-detail">used for current payouts</span>
-        </div>
-        <div class="metric">
-            <span class="metric-label">Current Epoch</span>
-            <strong id="epose-epoch">-</strong>
-            <span id="epose-epoch-range">-</span>
-        </div>
-        <div class="metric">
-            <span class="metric-label">Next Reward</span>
-            <strong id="epose-next-reward">-</strong>
-            <span id="epose-next-reward-detail">expected payee</span>
-        </div>
-        <div class="metric">
-            <span class="metric-label">Local Seed Node</span>
-            <strong id="epose-local-seed-node">-</strong>
-            <span id="epose-local-seed-detail">P2P endpoint</span>
-        </div>
-    </div>
-
-    <details class="advanced-details epose-advanced">
-        <summary>Advanced details</summary>
-        <div class="epose-detail-grid">
-        <div>
-            <span class="metric-label">Protocol</span>
-            <code id="epose-protocol">-</code>
-        </div>
-        <div>
-            <span class="metric-label">State hash</span>
-            <code id="epose-state-hash">-</code>
-        </div>
-        <div>
-            <span class="metric-label">Local node state</span>
-            <code id="epose-local-node">-</code>
-        </div>
-        <div>
-            <span class="metric-label">Reward status</span>
-            <code id="epose-reward-status">-</code>
-        </div>
-        <div>
-            <span class="metric-label">Next reward payee</span>
-            <code id="epose-next-payee">-</code>
-        </div>
-        <div>
-            <span class="metric-label">Reward share</span>
-            <code id="epose-reward-bps">-</code>
-        </div>
-        </div>
-    </details>
-
     <div class="table-wrap">
-        <table class="center responsive-table epose-table">
-            <thead>
+        <table class="responsive-table blocks-table">
+            <caption class="sr-only">Blocks observed by this explorer. Transaction count includes the coinbase transaction.</caption>
+            <thead><tr>
+                <th scope="col">Height</th><th scope="col">Age</th><th scope="col">Transactions</th>
+                <th scope="col">Fees (QWC)</th><th scope="col">Coinbase total (QWC)</th><th scope="col">Weight (kB)</th><th scope="col">Block hash</th>
+            </tr></thead>
+            <tbody>
+            {{#blocks}}
             <tr>
-                <td>host / p2p endpoint</td>
-                <td>status</td>
-                <td>current eligible</td>
-                <td>last / next reward</td>
+                <td data-label="Height"><a href="/block/{{height}}">{{height}}</a></td>
+                <td data-label="Age"><time title="{{timestamp}} UTC">{{age}}</time></td>
+                <td data-label="Transactions">{{total_tx_count}} <small>({{regular_tx_count}} regular + coinbase)</small></td>
+                <td data-label="Fees">{{fees}}</td>
+                <td data-label="Coinbase total">{{coinbase_total}}</td>
+                <td data-label="Weight">{{weight_kb}}</td>
+                <td data-label="Block hash"><a class="hash-link" href="/block/{{hash}}"><span aria-hidden="true">{{hash}}</span><span class="sr-only">{{hash}}</span></a></td>
             </tr>
-            </thead>
-            <tbody id="epose-service-node-rows">
-            <tr>
-                <td colspan="4">Loading service-node list...</td>
-            </tr>
+            {{/blocks}}
             </tbody>
         </table>
+        <nav id="pages" class="pager" aria-label="Block pages">
+            {{^is_page_zero}}<a href="{{prev_page_url}}">Previous</a> · <a href="{{first_page_url}}">First</a> ·{{/is_page_zero}}
+            <span>Page {{page_no}} of {{total_page_no}}</span>
+            {{^is_last_page}} · <a href="{{next_page_url}}">Next</a>{{/is_last_page}}
+        </nav>
     </div>
 </section>
+{{/show_blocks}}
 
+{{#show_epose}}
+<section class="center explorer-panel epose-panel" id="service-nodes" aria-labelledby="epose-title">
+    <div class="panel-heading">
+        <div><p class="eyebrow">Evidence-based participation</p>
+            {{#is_service_nodes_page}}<h1 id="epose-title">EPoSE service nodes</h1>{{/is_service_nodes_page}}
+            {{#is_epochs_page}}<h1 id="epose-title">EPoSE epoch context</h1>{{/is_epochs_page}}
+            {{^is_service_nodes_page}}{{^is_epochs_page}}<h2 id="epose-title">EPoSE service nodes</h2>{{/is_epochs_page}}{{/is_service_nodes_page}}
+        </div>
+        <span class="status-pill" id="epose-status" aria-live="polite">Loading</span>
+    </div>
+    <div class="status-grid compact">
+        <div class="metric"><span>Source epoch</span><strong id="epose-epoch">—</strong></div>
+        <div class="metric"><span>Current descriptors</span><strong id="epose-node-count">—</strong></div>
+        <div class="metric"><span>Qualified for source epoch</span><strong id="epose-qualified">—</strong></div>
+        <div class="metric"><span>Reward preview</span><strong id="epose-reward-preview">—</strong></div>
+    </div>
+    <p class="data-note">Lifecycle-active and qualified are protocol observations for the stated epoch. They do not prove endpoint reachability. Reachability is currently unsupported. The available core calls are not block-anchored as one atomic snapshot, so independently loaded EPoSE sections are explicitly marked unanchored.</p>
+    <div class="table-wrap">
+        <table class="responsive-table epose-table">
+            <caption class="sr-only">Current service-node descriptors keyed by stable identity.</caption>
+            <thead><tr><th scope="col">Stable identity</th><th scope="col">Current service key</th><th scope="col">Descriptor</th><th scope="col">Protocol state</th><th scope="col">Reachability</th></tr></thead>
+            <tbody id="epose-service-node-rows"><tr><td colspan="5">Loading service-node data…</td></tr></tbody>
+        </table>
+    </div>
+    <details class="advanced-details" id="epochs" {{#show_epoch_details}}open{{/show_epoch_details}}>
+        <summary>Epoch and capability details</summary>
+        <dl class="epose-detail-grid">
+            <div><dt>Epoch range</dt><dd id="epose-range">—</dd></div>
+            <div><dt>Protocol version</dt><dd id="epose-protocol">—</dd></div>
+            <div><dt>State commitment</dt><dd><code id="epose-state-hash">—</code></dd></div>
+            <div><dt>Observation</dt><dd id="epose-observed-at">—</dd></div>
+        </dl>
+    </details>
+</section>
+{{/show_epose}}
+
+{{#show_mempool}}
+<div id="mempool">{{{mempool_info}}}</div>
+{{/show_mempool}}
+
+{{#show_epose}}
 <script>
 (function () {
-    var chartPoints = {{{chain_chart_points_json}}};
-
-    function byId(id) {
-        return document.getElementById(id);
-    }
-
-    function setText(id, value) {
-        var node = byId(id);
-        if (node) {
-            node.textContent = value === undefined || value === null || value === "" ? "-" : String(value);
-        }
-    }
-
-    function shortHash(value) {
-        if (!value) {
-            return "-";
-        }
-        return value.length > 18 ? value.slice(0, 10) + "..." + value.slice(-8) : value;
-    }
-
-    function boolLabel(value) {
-        return value ? "yes" : "no";
-    }
-
-    function statusLabel(value) {
-        return value ? "online" : "offline";
-    }
-
-    function nodeNameForPublicKey(publicKey) {
-        var names = {
-            "c05ca2e8e80fcda06b95b3424bcaa23bc0e9bc5f6db1398befc0f6c00abad719": "seed-00",
-            "afdd4a97ee86df446984af090f82077c4daae4040a4963f583ff44e095521293": "seed-00",
-            "ef28acc57531a6fccbaafd2ea169dbbc8558fbd1979423b24a2bb4bca1479ea2": "seed-01",
-            "8eedf93ffbb63ff913dec27177c35da419e37674f774949cc477f79223c38301": "seed-01",
-            "245cde2ca5ea6c393bd0d227425ee19124c7732b303b1402a415294c54dc833c": "seed-02",
-            "d83e5eff4d26d8c2f15755fe9d2b5e401008809843c01997e4b35f9b1aa3eaf0": "seed-02",
-            "09cbd8bdf57da129fdd0fe4a1ff74dc958e89bd1bbcd01d547ad73fb622196f0": "seed-00",
-            "0822c57a18cfbe23cc1a7ee5526e3082456e7b0e82a2c5fb6c607735954293e1": "seed-01",
-            "dd02d835223816e7c7da6240b26ee49e727d7c0848806f62f4addb40fc742659": "seed-02",
-            "02781373c92caac6ddb60f2a5a7134b49d6c75b62a1d1fccb35e795fe604b7e2": "operator-smoke"
-        };
-
-        return names[publicKey] || "";
-    }
-
-    function knownEndpointForPublicKey(publicKey) {
-        var endpoints = {
-            "c05ca2e8e80fcda06b95b3424bcaa23bc0e9bc5f6db1398befc0f6c00abad719": "seed-00.qwertycoin.org:8196",
-            "afdd4a97ee86df446984af090f82077c4daae4040a4963f583ff44e095521293": "seed-00.qwertycoin.org:8196",
-            "ef28acc57531a6fccbaafd2ea169dbbc8558fbd1979423b24a2bb4bca1479ea2": "seed-01.qwertycoin.org:8196",
-            "8eedf93ffbb63ff913dec27177c35da419e37674f774949cc477f79223c38301": "seed-01.qwertycoin.org:8196",
-            "245cde2ca5ea6c393bd0d227425ee19124c7732b303b1402a415294c54dc833c": "seed-02.qwertycoin.org:8196",
-            "d83e5eff4d26d8c2f15755fe9d2b5e401008809843c01997e4b35f9b1aa3eaf0": "seed-02.qwertycoin.org:8196",
-            "09cbd8bdf57da129fdd0fe4a1ff74dc958e89bd1bbcd01d547ad73fb622196f0": "seed-00.qwertycoin.org:8196",
-            "0822c57a18cfbe23cc1a7ee5526e3082456e7b0e82a2c5fb6c607735954293e1": "seed-01.qwertycoin.org:8196",
-            "dd02d835223816e7c7da6240b26ee49e727d7c0848806f62f4addb40fc742659": "seed-02.qwertycoin.org:8196"
-        };
-
-        return endpoints[publicKey] || "";
-    }
-
-    function knownEndpointForCommitment(commitment) {
-        var endpoints = {
-            "909b0c5c83399b0f1b0ed51ac58489459a0b7e1aa275dcb6c5248efcd24a46a5": "seed-00.qwertycoin.org:8196",
-            "b507c2ead60574f4a59c4b79e89409aab3d7effbf96afcb338b9cb8995cce277": "seed-01.qwertycoin.org:8196",
-            "6197f570b120f60c89bf33a825152ebeeea1139590b3b62939f920798543aabe": "seed-02.qwertycoin.org:8196"
-        };
-
-        return endpoints[commitment] || "";
-    }
-
-    function endpointLabel(endpoint) {
-        return endpoint ? endpoint.replace(/:8196$/, "") : "not publicly advertised";
-    }
-
-    function endpointForNode(node, epose) {
-        var publicKey = node.service_public_key || node.public_key || node.key || "";
-        if (node.endpoint || node.p2p_endpoint || node.advertised_endpoint) {
-            return node.endpoint || node.p2p_endpoint || node.advertised_endpoint;
-        }
-        if (epose && publicKey && publicKey === epose.local_service_public_key && epose.local_service_advertised_endpoint) {
-            return epose.local_service_advertised_endpoint;
-        }
-        return knownEndpointForPublicKey(publicKey) || knownEndpointForCommitment(node.endpoint_commitment || "");
-    }
-
-    function groupServiceNodes(nodes, epose) {
-        var groups = {};
-
-        nodes.forEach(function (node) {
-            var publicKey = node.service_public_key || node.public_key || node.key || "";
-            var endpoint = endpointForNode(node, epose);
-            var key = endpoint || publicKey || node.endpoint_commitment || "unknown";
-
-            if (!groups[key]) {
-                groups[key] = {
-                    endpoint: endpoint,
-                    nodes: [],
-                    active: false,
-                    registered: false,
-                    qualified: false
-                };
-            }
-
-            groups[key].nodes.push(node);
-            groups[key].active = groups[key].active || (node.active !== undefined ? node.active : true);
-            groups[key].registered = groups[key].registered || (node.registered !== undefined ? node.registered : true);
-            groups[key].qualified = groups[key].qualified || Boolean(node.qualified !== undefined ? node.qualified : node.active);
-        });
-
-        return Object.keys(groups).map(function (key) {
-            return groups[key];
-        }).sort(function (left, right) {
-            return endpointLabel(left.endpoint).localeCompare(endpointLabel(right.endpoint));
+    "use strict";
+    function byId(id) { return document.getElementById(id); }
+    function text(id, value) { var el = byId(id); if (el) el.textContent = value === null || value === undefined || value === "" ? "—" : String(value); }
+    function short(value) { value = String(value || ""); return value.length > 22 ? value.slice(0, 12) + "…" + value.slice(-8) : (value || "—"); }
+    function state(value) { return value === true ? "yes" : value === false ? "no" : "unknown"; }
+    function request(path) {
+        return fetch(path, {headers: {"Accept": "application/json"}, credentials: "same-origin"}).then(function (response) {
+            return response.json().catch(function () { throw new Error("Malformed JSON response"); }).then(function (body) {
+                if (!response.ok || !body || body.status !== "success" || !body.data) throw new Error(body && (body.message || (body.data && body.data.title)) || "Explorer API unavailable");
+                return body.data;
+            });
         });
     }
-
-    function unwrap(response) {
-        if (!response) {
-            return {};
-        }
-        return response.data || response;
-    }
-
-    function escapeHtml(value) {
-        return String(value === undefined || value === null || value === "" ? "-" : value)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#39;");
-    }
-
-    function formatCompact(value, suffix) {
-        var numeric = Number(value || 0);
-        var units = ["", "k", "M", "G", "T", "P"];
-        var unitIndex = 0;
-        while (Math.abs(numeric) >= 1000 && unitIndex < units.length - 1) {
-            numeric = numeric / 1000;
-            unitIndex += 1;
-        }
-        var decimals = numeric >= 100 || unitIndex === 0 ? 0 : numeric >= 10 ? 1 : 2;
-        return numeric.toFixed(decimals) + " " + units[unitIndex] + suffix;
-    }
-
-    function formatQwc(value) {
-        return Number(value || 0).toFixed(8).replace(/\.?0+$/, "") + " QWC";
-    }
-
-    function metricValues(points, key) {
-        return points.map(function (point) { return Number(point[key] || 0); });
-    }
-
-    function pointString(points, values, min, range, width, height, padX, padY) {
-        var innerWidth = width - padX * 2;
-        var innerHeight = height - padY * 2;
-
-        return values.map(function (value, index) {
-            var x = padX + (points.length === 1 ? innerWidth : (index / (points.length - 1)) * innerWidth);
-            var y = padY + innerHeight - ((value - min) / range) * innerHeight;
-            return x.toFixed(1) + "," + y.toFixed(1);
-        }).join(" ");
-    }
-
-    function renderMultiMetricChart(svgId, points) {
-        var svg = byId(svgId);
-        if (!svg || !points.length) {
-            return;
-        }
-
-        var width = 720;
-        var height = 220;
-        var padX = 34;
-        var padY = 28;
-        var firstHeight = points[0].height;
-        var lastHeight = points[points.length - 1].height;
-        var metrics = [
-            {key: "hashrate", className: "hashrate"},
-            {key: "difficulty", className: "difficulty"},
-            {key: "reward", className: "reward"}
-        ];
-
-        var lines = metrics.map(function (metric) {
-            var values = metricValues(points, metric.key);
-            var min = Math.min.apply(Math, values);
-            var max = Math.max.apply(Math, values);
-            var range = max - min || 1;
-            return "<polyline class=\"chart-line " + metric.className + "\" points=\"" +
-                pointString(points, values, min, range, width, height, padX, padY) + "\"></polyline>";
-        }).join("");
-
-        svg.innerHTML =
-            lines +
-            "<text class=\"chart-axis\" x=\"" + padX + "\" y=\"" + (height - 8) + "\">" + escapeHtml(firstHeight) + "</text>" +
-            "<text class=\"chart-axis\" x=\"" + (width - padX) + "\" y=\"" + (height - 8) + "\" text-anchor=\"end\">" + escapeHtml(lastHeight) + "</text>";
-    }
-
-    function renderLineChart(svgId, points, key, formatter, currentId) {
-        var svg = byId(svgId);
-        if (!svg || !points.length) {
-            return;
-        }
-
-        var values = metricValues(points, key);
-        var min = Math.min.apply(Math, values);
-        var max = Math.max.apply(Math, values);
-        var range = max - min || 1;
-        var width = 720;
-        var height = 220;
-        var padX = 28;
-        var padY = 22;
-        var polyline = pointString(points, values, min, range, width, height, padX, padY);
-        var area = padX + "," + (height - padY) + " " + polyline + " " + (width - padX) + "," + (height - padY);
-        var latest = values[values.length - 1];
-        var firstHeight = points[0].height;
-        var lastHeight = points[points.length - 1].height;
-
-        svg.innerHTML =
-            "<polygon class=\"chart-area\" points=\"" + area + "\"></polygon>" +
-            "<polyline class=\"chart-line\" points=\"" + polyline + "\"></polyline>" +
-            "<text class=\"chart-axis\" x=\"" + padX + "\" y=\"" + (height - 6) + "\">" + escapeHtml(firstHeight) + "</text>" +
-            "<text class=\"chart-axis\" x=\"" + (width - padX) + "\" y=\"" + (height - 6) + "\" text-anchor=\"end\">" + escapeHtml(lastHeight) + "</text>" +
-            "<text class=\"chart-axis\" x=\"" + (width - padX) + "\" y=\"16\" text-anchor=\"end\">" + escapeHtml(formatter(max)) + "</text>" +
-            "<text class=\"chart-axis\" x=\"" + padX + "\" y=\"16\">" + escapeHtml(formatter(min)) + "</text>";
-        setText(currentId, formatter(latest));
-    }
-
-    chartPoints = chartPoints.slice().sort(function (left, right) {
-        return Number(left.height || 0) - Number(right.height || 0);
-    });
-    renderMultiMetricChart("chart-network-trend", chartPoints);
-    setText("chart-current-hashrate", chartPoints.length ? formatCompact(chartPoints[chartPoints.length - 1].hashrate, "H/s") : "-");
-    setText("chart-current-difficulty", chartPoints.length ? formatCompact(chartPoints[chartPoints.length - 1].difficulty, "") : "-");
-    setText("chart-current-reward", chartPoints.length ? formatQwc(chartPoints[chartPoints.length - 1].reward) : "-");
-    setText("fact-block-reward", chartPoints.length ? formatQwc(chartPoints[chartPoints.length - 1].reward) : "-");
-    renderLineChart("chart-supply", chartPoints, "unlocked_supply", function (value) {
-        return formatQwc(value);
-    }, "chart-current-supply");
-    setText("fact-unlocked-supply", chartPoints.length ? formatQwc(chartPoints[chartPoints.length - 1].unlocked_supply) : "-");
-
-    function fetchRpc(method) {
-        return fetch("/qwc-rpc/json_rpc", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({jsonrpc: "2.0", id: "0", method: method})
-        }).then(function (res) {
-            if (!res.ok) {
-                throw new Error(method + " returned HTTP " + res.status);
-            }
-            return res.json();
-        }).then(function (response) {
-            return response.result || {};
-        });
-    }
-
-    function renderNodes(response, epose, rewards) {
+    function renderNodes(payload) {
         var tbody = byId("epose-service-node-rows");
-        if (!tbody) {
-            return;
-        }
-
-        var nodes = response.service_nodes || response.nodes || [];
+        var nodes = Array.isArray(payload.service_nodes) ? payload.service_nodes : [];
+        tbody.textContent = "";
         if (!nodes.length) {
-            tbody.innerHTML = "<tr><td colspan=\"4\">No registered service nodes yet.</td></tr>";
-            return;
+            var emptyRow = tbody.insertRow(); var emptyCell = emptyRow.insertCell(); emptyCell.colSpan = 5; emptyCell.textContent = "Successful empty set for source epoch " + payload.source_epoch + "."; return;
         }
-
-        tbody.innerHTML = groupServiceNodes(nodes, epose).map(function (group) {
-            var node = group.nodes[0] || {};
-            var publicKey = node.service_public_key || node.public_key || node.key || "-";
-            var nodeName = node.name || node.label || nodeNameForPublicKey(publicKey);
-            var endpoint = group.endpoint || endpointForNode(node, epose);
-            var qualified = group.qualified;
-            var registered = group.registered;
-            var active = group.active || registered;
-            var status = active ? "online" : registered ? "registered" : "pending";
-            var eligible = qualified ? "yes" : "not yet";
-            var rewardTiming = rewards && group.nodes.some(function (entry) {
-                return (entry.service_public_key || entry.public_key || entry.key || "") === rewards.expected_payee_service_public_key;
-            })
-                ? "next reward"
-                : "waiting";
-            var hostLabel = endpointLabel(endpoint);
-            var endpointTitle = nodeName ? nodeName + " / " + hostLabel : hostLabel;
-            var detailRows = group.nodes.map(function (entry, index) {
-                var entryPublicKey = entry.service_public_key || entry.public_key || entry.key || "-";
-                var registration = "epoch " + (entry.registration_epoch || 0) + " - " + (entry.expiry_epoch || 0);
-                return "<div><span class=\"metric-label\">Service public key " + (index + 1) + "</span><code>" + escapeHtml(entryPublicKey) + "</code></div>" +
-                    "<div><span class=\"metric-label\">Endpoint commitment " + (index + 1) + "</span><code>" + escapeHtml(entry.endpoint_commitment || "-") + "</code></div>" +
-                    "<div><span class=\"metric-label\">Admission hash " + (index + 1) + "</span><code>" + escapeHtml(entry.admission_hash || "-") + "</code></div>" +
-                    "<div><span class=\"metric-label\">Registration " + (index + 1) + "</span><code>" + escapeHtml(registration) + "</code></div>" +
-                    "<div><span class=\"metric-label\">Reward spend key " + (index + 1) + "</span><code>" + escapeHtml(entry.reward_spend_public_key || "-") + "</code></div>" +
-                    "<div><span class=\"metric-label\">Reward view key " + (index + 1) + "</span><code>" + escapeHtml(entry.reward_view_public_key || "-") + "</code></div>";
-            }).join("");
-
-            return "<tr>" +
-                "<td data-label=\"Host / P2P\"><strong class=\"node-label\">" + escapeHtml(endpointTitle) + "</strong><code>" + escapeHtml(endpoint || "-") + "</code></td>" +
-                "<td data-label=\"Status\">" + escapeHtml(status) + "</td>" +
-                "<td data-label=\"Current eligible\">" + escapeHtml(eligible) + "</td>" +
-                "<td data-label=\"Last / next reward\">" + escapeHtml(rewardTiming) + "</td>" +
-                "</tr>" +
-                "<tr class=\"advanced-row\">" +
-                "<td colspan=\"4\">" +
-                "<details class=\"node-advanced\">" +
-                "<summary>Advanced details</summary>" +
-                "<div class=\"node-advanced-grid\">" +
-                detailRows +
-                "</div>" +
-                "</details>" +
-                "</td>" +
-                "</tr>";
-        }).join("");
+        nodes.forEach(function (node) {
+            var row = tbody.insertRow();
+            var identity = row.insertCell(); identity.dataset.label = "Stable identity"; var identityCode = document.createElement("code"); identityCode.className = "hash-value"; identityCode.textContent = node.identity_id || "—"; identity.appendChild(identityCode);
+            var service = row.insertCell(); service.dataset.label = "Current service key"; var serviceCode = document.createElement("code"); serviceCode.className = "hash-value"; serviceCode.textContent = node.service_public_key || "—"; service.appendChild(serviceCode);
+            var descriptor = row.insertCell(); descriptor.dataset.label = "Descriptor"; descriptor.textContent = "sequence " + node.descriptor_sequence + ", epochs " + node.effective_epoch + "–" + node.expiry_epoch;
+            var protocol = row.insertCell(); protocol.dataset.label = "Protocol state"; protocol.textContent = "active: " + state(node.protocol_active) + "; qualified: " + state(node.qualified_for_source_epoch);
+            var reachability = row.insertCell(); reachability.dataset.label = "Reachability"; reachability.textContent = node.reachability || "unavailable";
+        });
     }
-
-    Promise.all([
-        fetchRpc("get_epose_info"),
-        fetchRpc("get_service_nodes").catch(function () { return {}; }),
-        fetchRpc("get_service_rewards").catch(function () { return {}; })
-    ]).then(function (responses) {
-        var epose = responses[0] || {};
-        var serviceNodes = responses[1] || {};
-        var rewards = responses[2] || {};
-        var nodes = serviceNodes.service_nodes || serviceNodes.nodes || [];
-        var onlineCount = nodes.filter(function (node) {
-            return node.active !== undefined ? node.active : true;
-        }).length;
-
-        setText("epose-protocol", epose.protocol_version);
-        setText("epose-online-nodes", onlineCount + "/" + (epose.service_node_count || nodes.length || 0));
-        setText("epose-online-summary", "online / registered service nodes");
-        setText("epose-current-qualified", epose.qualified_count === undefined ? "-" : epose.qualified_count);
-        setText("epose-current-qualified-detail", "epoch " + (epose.current_epoch === undefined ? "-" : epose.current_epoch));
-        setText("epose-reward-qualified", rewards.qualified_count === undefined ? "-" : rewards.qualified_count);
-        setText("epose-reward-qualified-detail", "reward source epoch " + (rewards.epoch === undefined ? "-" : rewards.epoch));
-        setText("epose-epoch", epose.current_epoch);
-        setText("epose-epoch-range", "blocks " + epose.epoch_start_height + " - " + epose.epoch_end_height);
-        setText("epose-reward-bps", epose.service_reward_bps);
-        setText("epose-state-hash", shortHash(epose.state_hash));
-        var nextRewardPublicKey = rewards.expected_payee_service_public_key || "";
-        var nextRewardEndpoint = knownEndpointForPublicKey(nextRewardPublicKey);
-        setText("epose-next-reward", endpointLabel(nextRewardEndpoint || nodeNameForPublicKey(nextRewardPublicKey)));
-        setText("epose-next-reward-detail", nextRewardPublicKey
-            ? "service key " + shortHash(nextRewardPublicKey)
-            : "no qualified payee");
-        var localEndpoint = epose.local_service_advertised_endpoint || knownEndpointForPublicKey(epose.local_service_public_key || "");
-        setText("epose-local-seed-node", endpointLabel(localEndpoint || nodeNameForPublicKey(epose.local_service_public_key || "")));
-        setText("epose-local-seed-detail", localEndpoint || "not publicly advertised");
-        setText("epose-local-node", "configured: " + boolLabel(epose.local_service_node) +
-            " / " + statusLabel(epose.local_service_node_active) +
-            " / registered: " + boolLabel(epose.local_service_node_registered) +
-            " / eligible: " + boolLabel(epose.local_service_node_qualified));
-        setText("epose-reward-status", "active: " + boolLabel(rewards.service_reward_active) +
-            " / reward source epoch: " + (rewards.epoch === undefined ? "-" : rewards.epoch) +
-            " / qualified: " + (rewards.qualified_count === undefined ? "-" : rewards.qualified_count));
-        setText("epose-next-payee", nextRewardPublicKey
-            ? (nextRewardEndpoint || nodeNameForPublicKey(nextRewardPublicKey) || "unlabeled") + " / " + shortHash(nextRewardPublicKey)
-            : "-");
-
-        var rpcStatus = byId("epose-rpc-status");
-        if (rpcStatus) {
-            rpcStatus.textContent = epose.enabled ? "EPoSE online" : "EPoSE unavailable";
-            rpcStatus.className = epose.enabled ? "status-pill ok" : "status-pill warning";
+    Promise.allSettled([request("/api/v1/epose"), request("/api/v1/epose/service-nodes"), request("/api/v1/epose/rewards")]).then(function (results) {
+        var infoResult = results[0], nodesResult = results[1], rewardsResult = results[2];
+        text("epose-status", "Unanchored observer data"); byId("epose-status").classList.add("warning");
+        if (infoResult.status === "fulfilled") {
+            var info = infoResult.value;
+            text("epose-qualified", info.qualified_count);
+            text("epose-range", info.epoch_start_height + "–" + info.epoch_end_height);
+            text("epose-protocol", "v" + info.protocol_version);
+            text("epose-state-hash", info.state_hash);
+        } else {
+            text("epose-qualified", "unavailable"); text("epose-range", "unavailable");
+            text("epose-protocol", "unavailable"); text("epose-state-hash", "unavailable");
         }
-
-        renderNodes(serviceNodes, epose, rewards);
-    }).catch(function () {
-        var rpcStatus = byId("epose-rpc-status");
-        if (rpcStatus) {
-            rpcStatus.textContent = "EPoSE RPC unavailable";
-            rpcStatus.className = "status-pill warning";
+        if (nodesResult.status === "fulfilled") {
+            var nodes = nodesResult.value;
+            text("epose-epoch", nodes.source_epoch); text("epose-node-count", nodes.returned_count);
+            var observed = Number(nodes.observed_at_unix);
+            text("epose-observed-at", Number.isFinite(observed) && observed > 0 ? new Date(observed * 1000).toISOString() : "unavailable");
+            renderNodes(nodes);
+        } else {
+            text("epose-epoch", "unavailable"); text("epose-node-count", "unavailable"); text("epose-observed-at", "unavailable");
+            var tbody = byId("epose-service-node-rows"); tbody.textContent = ""; var row = tbody.insertRow(); var cell = row.insertCell(); cell.colSpan = 5; cell.textContent = nodesResult.reason.message;
         }
-        setText("epose-online-nodes", "-");
-        setText("epose-online-summary", "RPC data unavailable");
-        setText("epose-local-seed-node", "-");
-        setText("epose-local-seed-detail", "RPC data unavailable");
-        setText("epose-local-node", "RPC data unavailable");
-        setText("epose-reward-status", "RPC data unavailable");
-        setText("epose-next-payee", "RPC data unavailable");
+        if (rewardsResult.status === "fulfilled") {
+            var rewards = rewardsResult.value;
+            text("epose-reward-preview", rewards.preview_available === true ? "available" : rewards.availability || "unavailable");
+        } else {
+            text("epose-reward-preview", "unavailable");
+        }
     });
 }());
 </script>
+{{/show_epose}}

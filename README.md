@@ -8,16 +8,16 @@ qualify service nodes, and must not be treated as an EPoSE authority.
 
 ## Privacy and Security
 
-The public explorer does not use analytics or third-party tracking scripts. Some
-inherited diagnostic features can process a private view key or transaction
-private key on the server. Use those features only if you trust the explorer
-operator; prefer wallet-side verification when available. Sensitive keys are
-accepted only in POST bodies, are redacted from rendered responses and error
-logs, and must never be sent in URLs.
+The public explorer does not use analytics or third-party tracking scripts. It
+does not accept wallet private view keys, transaction private keys, operator
+keys, service keys, seeds, or other secrets in URLs, request bodies, or browser
+messages. Output decoding and transaction-proof creation belong in a trusted
+wallet and are deliberately unavailable here.
 
-The sensitive JSON helpers `/api/outputs` and `/api/outputsblocks` therefore
-accept URL-encoded `POST` bodies only. They intentionally do not support their
-inherited `GET` query-string form.
+Inherited secret-processing routes, including `/myoutputs`, `/prove`,
+`/api/outputs`, `/api/outputsblocks`, and the server-side key-file checkers, are
+not registered by the public explorer binary. Reverse proxies must not retain
+compatibility routes for them and should avoid logging query strings.
 
 The deployment profiles bind the explorer to loopback on the host. Keep the
 daemon's administrative RPC private; expose only the explorer and a separately
@@ -27,12 +27,14 @@ never a consensus source of truth.
 ## Current Scope
 
 - Qwertycoin block and transaction views
-- JSON API for block, transaction, mempool, network, fee, emission, and EPoSE
-  observer data
-- EPoSE dashboard for registry, attestation, qualification, snapshot, and reward
-  visibility
-- Optional autorefresh for monitoring deployments
-- Optional emission monitor based on local LMDB access
+- Versioned, allowlisted JSON reads for bounded block/mempool, network, build,
+  and EPoSE observer data
+- Stable-identity EPoSE views with explicit unsupported/unavailable states
+- Exact eight-decimal QWC formatting and one-row-per-block navigation
+- Persistent light/dark theme and responsive, keyboard-accessible layouts
+
+See [the metric dictionary](docs/METRICS.md), [API v1](docs/API_V1.md), and
+[bounded core dependencies](docs/CORE_API_DEPENDENCIES.md).
 
 ## node01 Docker Run
 
@@ -40,23 +42,21 @@ The node01 deployment uses `Dockerfile.node01` and
 `docker-compose.node01.yml`. It mounts the existing Qwertycoin node chain volume
 and connects to the Qwertycoin mainnet-mode daemon RPC.
 
-```bash
-docker compose -f docker-compose.node01.yml up -d --build
-```
+The build requires explicit full explorer/core SHAs and a digest-pinned base
+image; see `deploy/BUILD.env.example`. Do not use this profile as the production
+switch procedure.
 
 Default node01 explorer settings:
 
 ```text
 HTTP:        127.0.0.1:29982 -> 8081
 Chain path:  /home/qwertycoin/.qwertycoin/lmdb
-Daemon RPC:  http://qwertycoin-mainnet:8197
+Daemon RPC:  verified restricted observer endpoint
 ```
 
-The node01 mainnet-mode daemon currently writes its Docker volume as root. The
-explorer compose file therefore runs the explorer container as root for this
-deployment profile so LMDB lock handling can open the mounted chain database.
-The chain volume is mounted read-only so the explorer cannot modify canonical
-node state.
+The chain volume remains read-only. Supply the verified deployment UID/GID and
+grant only the read access needed for LMDB; do not run the explorer as root to
+work around an access failure.
 
 ## explorer.qwertycoin.org Docker Run
 
@@ -64,30 +64,28 @@ The production profile for `explorer.qwertycoin.org` is prepared in
 `docker-compose.production.yml`. It is meant for a host where the Qwertycoin
 daemon already runs on the server and nginx terminates public HTTP/TLS traffic.
 
-```bash
-cp deploy/explorer.qwertycoin.org.env.example .env
-docker compose -f docker-compose.production.yml --env-file .env up -d --build
-```
+Production consumes one already-tested immutable image digest. Copy
+`deploy/explorer.qwertycoin.org.env.example` outside the repository, fill every
+required value from the live inventory, and follow `deploy/RUNBOOK.md` for the
+parallel preview, public switch, and rollback. The live host's existing named
+chain volume is consumed only through `docker-compose.preview.yml`, where it is
+declared `external: true` so a typo cannot silently create a replacement chain.
 
 Default production settings:
 
 ```text
 HTTP:        127.0.0.1:29982 -> 8081
 Chain path:  /var/lib/qwertycoin/.qwertycoin/lmdb
-Daemon RPC:  http://host.docker.internal:8197
+Daemon RPC:  verified restricted observer endpoint (currently port 8198 on the reviewed host)
 ```
 
-If the daemon stores the chain elsewhere, set `QWC_CHAIN_PATH` in `.env` to the
-directory containing the `lmdb` folder. If the daemon is also running in Docker,
-prefer connecting both containers to the same Docker network and set
-`QWC_DAEMON_URL` to the daemon container name, as done in the node01 profile.
-The production profile runs as the image's unprivileged UID/GID 101 by default;
-grant that account read access to the chain directory instead of running the
-container as root.
+`QWC_CHAIN_PATH`, daemon URL, UID/GID, loopback port, container name, and image
+digest have no operational defaults. Resolve them from the actual host. Never
+replace the existing chain mount with an empty directory or new volume.
 
-An nginx vhost template is available at
-`deploy/explorer.qwertycoin.org.nginx.conf`. After the DNS A record points to the
-server, enable TLS with certbot or the server's existing certificate workflow.
+The nginx file is a mergeable reference, not a replacement for the real TLS
+vhost. Preserve the existing certificate workflow and explicitly retire legacy
+secret routes and the generic RPC proxy as documented in the runbook.
 
 ## Local Build
 
@@ -102,8 +100,10 @@ cmake \
   -DMONERO_DIR=/path/to/qwertycoin \
   -DMONERO_SOURCE_DIR=/path/to/qwertycoin \
   -DMONERO_BUILD_DIR=/path/to/qwertycoin/build/x86_64-linux-gnu/release \
+  -DQWC_SOURCE_SHA=full-compatible-core-sha \
   ..
 make -j2
+ctest --output-on-failure
 ```
 
 Run against a local Qwertycoin mainnet-mode daemon:
@@ -112,9 +112,8 @@ Run against a local Qwertycoin mainnet-mode daemon:
 ./qwertycoin-explorer \
   --port 8081 \
   --bc-path /home/qwertycoin/.qwertycoin/lmdb \
-  --daemon-url http://127.0.0.1:8197 \
-  --enable-json-api \
-  --enable-autorefresh-option
+  --daemon-url http://127.0.0.1:8198 \
+  --enable-json-api
 ```
 
 ## Branding Notes

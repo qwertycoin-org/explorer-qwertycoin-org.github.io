@@ -32,8 +32,12 @@
 #include <vector>
 #include <iterator>
 #include <algorithm>
+#include <iomanip>
+#include <sstream>
 #include <type_traits>
 #include <regex>
+
+#include "exact_amount.h"
 
 /**
  * Some helper functions used in the example.
@@ -283,21 +287,11 @@ xmr_amount_to_str(const uint64_t& xmr_amount,
                   string _format="{:0.12f}",
                   bool zero_to_question_mark=true)
 {
-    string amount_str = "?";
+    (void) _format;
+    if (zero_to_question_mark && xmr_amount == 0)
+        return "?";
 
-    if (!zero_to_question_mark)
-    {
-        amount_str = fmt::format(_format, XMR_AMOUNT(xmr_amount));
-    }
-    else
-    {
-        if (xmr_amount > 0 && zero_to_question_mark == true)
-        {
-            amount_str = fmt::format(_format, XMR_AMOUNT(xmr_amount));
-        }
-    }
-
-    return amount_str;
+    return format_atomic_amount(xmr_amount, COIN, CRYPTONOTE_DISPLAY_DECIMAL_POINT);
 }
 
 bool

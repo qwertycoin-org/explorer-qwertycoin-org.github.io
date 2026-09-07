@@ -18,7 +18,7 @@ namespace xmreg
         p.add("txhash", -1);
 
         options_description desc(
-                "Qwertycoin Testnet Explorer");
+                "Qwertycoin Blockchain Explorer");
 
         desc.add_options()
                 ("help,h", value<bool>()->default_value(false)->implicit_value(true),
@@ -33,18 +33,12 @@ namespace xmreg
                  "enable generation of randomx code")
                 ("enable-mixin-details", value<bool>()->default_value(false)->implicit_value(true),
                  "enable mixin details for key images, e.g., timescale, mixin of mixins, in tx context")
-                ("enable-key-image-checker", value<bool>()->default_value(false)->implicit_value(true),
-                 "enable key images file checker")
-                ("enable-output-key-checker", value<bool>()->default_value(false)->implicit_value(true),
-                 "enable outputs key file checker")
                 ("enable-json-api", value<bool>()->default_value(false)->implicit_value(true),
                  "enable JSON REST api")
                 ("enable-as-hex", value<bool>()->default_value(false)->implicit_value(true),
                  "enable links to provide hex represtations of a tx and a block")
                 ("enable-autorefresh-option", value<bool>()->default_value(false)->implicit_value(true),
                  "enable users to have the index page on autorefresh")
-                ("enable-emission-monitor", value<bool>()->default_value(false)->implicit_value(true),
-                 "enable Qwertycoin total emission monitoring thread")
                 ("port,p", value<string>()->default_value("8081"),
                  "default explorer port")
                 ("bindaddr,x", value<string>()->default_value("0.0.0.0"),

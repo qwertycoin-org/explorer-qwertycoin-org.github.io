@@ -6,6 +6,8 @@ set(PROJECT_NAME
 
 project(${PROJECT_NAME})
 
+include(CTest)
+
 set(CMAKE_CXX_STANDARD 17)
 
 if (WIN32)
@@ -70,9 +72,8 @@ find_package(Boost COMPONENTS
 find_package(Sanitizers)
 
 if(APPLE)
-    include_directories(/usr/local/opt/openssl@1.1/include)
-    link_directories(/usr/local/opt/openssl@1.1/lib)
-    link_directories(/usr/local/lib)
+    find_package(OpenSSL REQUIRED)
+    include_directories(${OPENSSL_INCLUDE_DIR})
 endif()
 
 MESSAGE(STATUS "Looking for libunbound") # FindUnbound.cmake from monero repo
@@ -127,6 +128,15 @@ add_executable(${PROJECT_NAME}
 add_sanitizers(${PROJECT_NAME})
 
 create_git_version()
+
+if(BUILD_TESTING)
+    add_executable(explorer_regression_tests tests/regression_tests.cpp)
+    target_include_directories(explorer_regression_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME explorer_regression_tests COMMAND explorer_regression_tests)
+    add_test(NAME privacy_routes
+            COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+                    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/privacy_routes.cmake)
+endif()
 
 configure_files(${CMAKE_CURRENT_SOURCE_DIR}/src/templates ${CMAKE_CURRENT_BINARY_DIR}/templates)
 configure_files(${CMAKE_CURRENT_SOURCE_DIR}/src/templates/assets ${CMAKE_CURRENT_BINARY_DIR}/templates/assets)

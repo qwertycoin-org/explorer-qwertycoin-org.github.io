@@ -47,10 +47,18 @@ RUN git clone --filter=blob:none --no-checkout "${QWC_REPOSITORY}" /root/qwertyc
     git -C /root/qwertycoin submodule update --init --recursive
 
 COPY deploy/boost_pthread_compat.h /tmp/boost_pthread_compat.h
-RUN cd /root/qwertycoin && \
+RUN cd /root/qwertycoin/contrib/depends && \
     make -j"${NPROC}" \
       boost_cxxflags="-std=c++11 -fPIC -include /tmp/boost_pthread_compat.h" \
-      depends target=x86_64-linux-gnu
+      HOST=x86_64-linux-gnu
+
+RUN mkdir -p /root/qwertycoin/build/x86_64-linux-gnu/release && \
+    cd /root/qwertycoin/build/x86_64-linux-gnu/release && \
+    cmake \
+      -DCMAKE_CXX_FLAGS="-include /tmp/boost_pthread_compat.h" \
+      -DCMAKE_TOOLCHAIN_FILE=/root/qwertycoin/contrib/depends/x86_64-linux-gnu/share/toolchain.cmake \
+      ../../.. && \
+    make -j"${NPROC}"
 
 ARG EXPLORER_SOURCE_SHA
 ARG EXPLORER_SOURCE_DATE=unknown

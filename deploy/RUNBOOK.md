@@ -24,8 +24,10 @@ wallet data, service identities, or blockchain storage.
      --build-arg EXPLORER_SOURCE_SHA="EXPLORER_SHA_RECORDED_IN_RELEASE" \
      --tag qwertycoin-explorer:candidate .
    ```
-4. Record the resulting image ID, repository digest, architecture, OCI source
-   labels, dependency versions, and `/api/v1/version` output. Do not claim
+4. Record the resulting image ID, repository digest when a registry push is
+   used, architecture, OCI source labels, dependency versions, and
+   `/api/v1/version` output. A local-only preview may use the immutable
+   `sha256:<64-hex-image-id>` directly. Do not claim
    byte-for-byte reproducibility while apt package snapshots remain unpinned.
 
 ## Read-only preflight
@@ -51,7 +53,7 @@ report.
 Use `docker-compose.preview.yml` with the exact project name
 `qwertycoin-explorer-preview` and `/etc/qwertycoin-explorer/preview.env`:
 
-- immutable candidate image digest;
+- immutable candidate repository digest or local image ID;
 - container name `qwertycoin-explorer-preview`;
 - loopback host port `29983`;
 - the verified current chain path, read-only;
@@ -61,7 +63,7 @@ Use `docker-compose.preview.yml` with the exact project name
 Validate all immutable/external inputs before `up`; these commands must succeed:
 
 ```sh
-grep -Eq '^QWC_EXPLORER_IMAGE=[^[:space:]]+@sha256:[0-9a-f]{64}$' /etc/qwertycoin-explorer/preview.env
+grep -Eq '^QWC_EXPLORER_IMAGE=([^[:space:]]+@)?sha256:[0-9a-f]{64}$' /etc/qwertycoin-explorer/preview.env
 docker volume inspect VERIFIED_CHAIN_VOLUME_NAME >/dev/null
 docker network inspect VERIFIED_DAEMON_NETWORK_NAME >/dev/null
 docker compose --project-name qwertycoin-explorer-preview \

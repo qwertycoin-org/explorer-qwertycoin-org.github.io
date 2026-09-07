@@ -1070,7 +1070,7 @@ input#toggle-1[type=checkbox]:checked ~ div#decoded-inputs {
 @media (max-width: 860px) {
     .site-header {
         position: relative;
-        background: var(--color-ink);
+        background: var(--color-chrome);
     }
 
     .nav,

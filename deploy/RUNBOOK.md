@@ -76,6 +76,17 @@ docker inspect qwertycoin-explorer-preview \
   --format '{{.Image}} {{range .Mounts}}{{if eq .Destination "/home/qwertycoin/.qwertycoin"}}{{.Name}} rw={{.RW}}{{end}}{{end}}'
 ```
 
+Check `docker compose version` before relying on those commands. If the
+verified host has neither the Compose plugin nor `docker-compose`, do not add a
+new package during cutover. Start the preview with an explicit `docker run`
+invocation carrying the same immutable image ID, name, loopback port, read-only
+chain mount, daemon network, UID/GID, read-only root, tmpfs, dropped
+capabilities, `no-new-privileges`, PID/CPU/RAM limits, restart policy, stop
+timeout, health check from the image, and bounded log rotation. Record the
+exact invocation in the release evidence. Validate the resulting container
+with the same `docker inspect` command above. Stop it with
+`docker stop --time 30 qwertycoin-explorer-preview` during rollback.
+
 The final inspection must show the recorded candidate image ID, the verified
 existing volume and `rw=false`. A different Compose project name is mandatory;
 changing only `container_name` is insufficient.
@@ -110,6 +121,11 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+If the live vhost did not previously use the shared snippet, back up the full
+enabled vhost before adding the include. Record that backup path. Its rollback
+is to restore the full vhost, run `nginx -t`, and reload only after the test
+succeeds; the previous vhost remains active until reload.
+
 Do not reload unless `nginx -t` succeeds. Do not restart nginx or the daemon.
 Verify the public HTTPS site in a fresh browser session and confirm that the
 footer and API report the tested source pair.
@@ -139,6 +155,8 @@ journeys, or material daemon impact.
      --env-file /etc/qwertycoin-explorer/preview.env \
      --file /opt/qwertycoin-explorer/docker-compose.preview.yml stop
    ```
+   On a host without Compose, use
+   `docker stop --time 30 qwertycoin-explorer-preview` instead.
 5. Invalidate only explorer frontend or derived caches.
 
 Never roll back or reset the blockchain, daemon, wallets, or service identities

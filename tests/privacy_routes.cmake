@@ -2,6 +2,7 @@ file(READ "${SOURCE_DIR}/main.cpp" MAIN_SOURCE)
 file(READ "${SOURCE_DIR}/src/templates/index2.html" OVERVIEW_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/templates/partials/tx_details.html" TX_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/page.h" PAGE_SOURCE)
+file(READ "${SOURCE_DIR}/deploy/explorer.qwertycoin.org.nginx.conf" NGINX_SOURCE)
 
 set(FORBIDDEN_ROUTES
     "CROW_ROUTE(app, \"/myoutputs\""
@@ -16,6 +17,25 @@ foreach(ROUTE IN LISTS FORBIDDEN_ROUTES)
         message(FATAL_ERROR "Retired secret route was registered: ${ROUTE}")
     endif()
 endforeach()
+
+foreach(REQUIRED_RPC_EDGE_TEXT
+        "restricted RPC listener"
+        "location ~ ^/qwc-rpc/"
+        "getblocks\\.bin"
+        "get_outs(?:\\.bin)?"
+        "send_raw_transaction"
+        "proxy_pass http://127.0.0.1:8198"
+        "location /qwc-rpc/")
+    string(FIND "${NGINX_SOURCE}" "${REQUIRED_RPC_EDGE_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Restricted wallet RPC edge contract is missing: ${REQUIRED_RPC_EDGE_TEXT}")
+    endif()
+endforeach()
+
+string(FIND "${NGINX_SOURCE}" "location ^~ /qwc-rpc/" GENERIC_RPC_BLOCK)
+if(NOT GENERIC_RPC_BLOCK EQUAL -1)
+    message(FATAL_ERROR "The wallet RPC path was replaced by a generic prefix handler")
+endif()
 
 foreach(REQUIRED_TEXT
         "{\"qualified_count\", info.qualified_count}"

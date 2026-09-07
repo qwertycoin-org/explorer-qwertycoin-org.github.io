@@ -97,8 +97,13 @@ loopback or an authenticated operator tunnel.
 
 Verify `/healthz`, `/readyz`, `/api/v1/version`, chain identity, overview, block,
 transaction, POST search, mempool, service nodes, epochs, both themes, keyboard
-navigation, 360/390/768/1440 layouts, retired secret routes, and absence of a
-generic RPC proxy. Observe two refresh intervals and a real block when available.
+navigation, 360/390/768/1440 layouts, retired secret routes, and absence of an
+unrestricted RPC proxy. The `/qwc-rpc/` compatibility adapter must forward only
+the explicit wallet path allowlist to the verified restricted daemon listener;
+unknown paths and non-POST requests must remain blocked. Verify the deployed web
+wallet can call `get_info`, fetch sync data, and receive a daemon-level rejection
+for a deliberately malformed transaction without logging any request body.
+Observe two refresh intervals and a real block when available.
 Record CPU/RAM, response latency, upstream RPC rate, and daemon impact under a
 declared traffic ceiling.
 

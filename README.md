@@ -85,7 +85,9 @@ replace the existing chain mount with an empty directory or new volume.
 
 The nginx file is a mergeable reference, not a replacement for the real TLS
 vhost. Preserve the existing certificate workflow and explicitly retire legacy
-secret routes and the generic RPC proxy as documented in the runbook.
+secret routes. The `/qwc-rpc/` compatibility adapter is intentionally limited to
+the web wallet's path allowlist and the verified restricted daemon listener; it
+must never point at the administrative RPC port or become a catch-all proxy.
 
 ## Local Build
 

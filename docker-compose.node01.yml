@@ -1,0 +1,30 @@
+services:
+  qwertycoin-explorer:
+    build:
+      context: .
+      dockerfile: Dockerfile.node01
+      args:
+        NPROC: "2"
+    image: qwertycoin-explorer:local
+    container_name: qwertycoin-explorer
+    restart: unless-stopped
+    user: "0:0"
+    command:
+      - ./qwertycoin-explorer --port 8081 --bindaddr 0.0.0.0 --bc-path /home/qwertycoin/.qwertycoin/lmdb --daemon-url http://qwertycoin-mainnet:8197 --enable-json-api --enable-autorefresh-option
+    ports:
+      - "127.0.0.1:29982:8081"
+    volumes:
+      - qwertycoin-chain:/home/qwertycoin/.qwertycoin:ro
+    networks:
+      - default
+      - qwertycoin-mainnet
+
+volumes:
+  qwertycoin-chain:
+    external: true
+    name: qwertycoin-mainnet-chain
+
+networks:
+  qwertycoin-mainnet:
+    external: true
+    name: qwertycoin-mainnet-net

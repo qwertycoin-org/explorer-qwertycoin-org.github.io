@@ -1,0 +1,15 @@
+build/
+.git/
+.github/
+.env
+*.key
+*.pem
+*.p12
+*.pfx
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.log

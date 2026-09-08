@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - name: Install focused-test build dependency
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends libboost-dev
       - name: Compile focused behavior tests with warnings as errors
         run: >-
           g++ -std=c++17 -Wall -Wextra -Werror -I.

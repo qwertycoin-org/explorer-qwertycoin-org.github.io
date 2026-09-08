@@ -6,6 +6,7 @@
         <div class="tx-identity-item">
             <span class="metric-label">Transaction hash</span>
             <code>{{tx_hash}}</code>
+            <button class="copy-hash" type="button" data-copy="{{tx_hash}}" aria-label="Copy transaction hash {{tx_hash}}">Copy</button>
         </div>
     {{#enable_mixins_details}}
         <div class="tx-identity-item">
@@ -16,6 +17,7 @@
         <div class="tx-identity-item">
             <span class="metric-label">Transaction public key</span>
             <code id="tx_pub_key">{{tx_pub_key}}</code>
+            <button class="copy-hash" type="button" data-copy="{{tx_pub_key}}" aria-label="Copy transaction public key {{tx_pub_key}}">Copy</button>
         </div>
     </div>
     <span id="add_tx_pub_keys" style="display: none;">{{add_tx_pub_keys}}</span>

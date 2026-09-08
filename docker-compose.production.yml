@@ -14,11 +14,16 @@ services:
       - /home/qwertycoin/.qwertycoin/lmdb
       - --daemon-url
       - "${QWC_DAEMON_URL:?restricted observer RPC URL required}"
+      - --derived-data-path
+      - /var/lib/qwertycoin-explorer
+      - --chain-reset-id
+      - "${QWC_CHAIN_RESET_ID:?chain reset context required}"
       - --enable-json-api
     ports:
       - "127.0.0.1:${QWC_EXPLORER_HOST_PORT:?loopback host port required}:8081"
     volumes:
       - "${QWC_CHAIN_PATH:?existing chain path required}:/home/qwertycoin/.qwertycoin:ro"
+      - "${QWC_EXPLORER_DERIVED_PATH:?existing writable explorer-derived path required}:/var/lib/qwertycoin-explorer"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     read_only: true

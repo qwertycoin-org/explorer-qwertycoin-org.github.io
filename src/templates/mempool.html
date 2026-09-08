@@ -5,9 +5,9 @@
             {{#partial_mempool_shown}}<h2>Transaction Pool</h2>{{/partial_mempool_shown}}
             {{^partial_mempool_shown}}<h1>Transaction Pool</h1>{{/partial_mempool_shown}}
         </div>
-        <span class="status-pill">{{mempool_size}} pending</span>
+        <span class="status-pill" id="mempool-count">{{mempool_size}} pending</span>
     </div>
-    <h4 class="section-subtitle in-panel">Size {{mempool_size_kB}} kB · updated every {{ mempool_refresh_time }} seconds</h4>
+    <h4 class="section-subtitle in-panel" id="mempool-freshness">Size {{mempool_size_kB}} kB · updated every {{ mempool_refresh_time }} seconds</h4>
     <div class="table-wrap">
       <table class="responsive-table mempool-table">
             <caption class="sr-only">Transactions in the observer's bounded mempool snapshot.</caption>
@@ -18,7 +18,7 @@
                 <th scope="col">Inputs / outputs</th>
                 <th scope="col">Size [kB]</th>
             </tr></thead>
-            <tbody>
+            <tbody id="mempool-rows">
             {{#mempooltxs}}
             <tr>
                 <td data-label="Age">{{age}}</td>

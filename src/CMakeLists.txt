@@ -5,8 +5,9 @@ project(myxrm)
 set(SOURCE_HEADERS
         MicroCore.h
 		tools.h
-		monero_headers.h
-		CurrentBlockchainStatus.h)
+		monero_headers.h)
+
+list(APPEND SOURCE_HEADERS SupplyIndex.h)
 
 set(SOURCE_FILES
 		MicroCore.cpp
@@ -15,9 +16,9 @@ set(SOURCE_FILES
 		page.h
 		rpccalls.cpp rpccalls.h
 		version.h.in
-        CurrentBlockchainStatus.cpp
         MempoolStatus.cpp
-        MempoolStatus.h)
+        MempoolStatus.h
+        SupplyIndex.cpp)
 
 add_subdirectory(crypto)
 

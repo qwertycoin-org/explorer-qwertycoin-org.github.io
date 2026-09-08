@@ -7,6 +7,29 @@
 namespace xmreg
 {
 
+bool
+rpccalls::proxy_wallet_request(const string& path,
+                               const string& body,
+                               const string& content_type,
+                               raw_response& response,
+                               size_t maximum_response_bytes)
+{
+    std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
+    if (!connect_to_monero_daemon())
+        return false;
+    const epee::net_utils::http::http_response_info* upstream {nullptr};
+    epee::net_utils::http::fields_list headers;
+    headers.emplace_back("Content-Type", content_type);
+    if (!m_http_client.invoke_post(path, body, timeout_time_ms, &upstream, headers)
+        || upstream == nullptr || upstream->m_body.size() > maximum_response_bytes)
+        return false;
+    response.status = upstream->m_response_code;
+    response.body = upstream->m_body;
+    response.content_type = upstream->m_mime_tipe.empty()
+            ? content_type : upstream->m_mime_tipe;
+    return true;
+}
+
 
 rpccalls::rpccalls(
          string _daemon_url,

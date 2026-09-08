@@ -28,7 +28,11 @@ never a consensus source of truth.
 
 - Qwertycoin block and transaction views
 - Versioned, allowlisted JSON reads for bounded block/mempool, network, build,
-  and EPoSE observer data
+  total mined supply, and EPoSE observer data
+- Estimated network hashrate from the paired next-block difficulty and target
+  interval
+- Reorg-aware, explorer-owned issuance checkpoints over actual canonical
+  coinbase outputs minus transaction fees
 - Stable-identity EPoSE views with explicit unsupported/unavailable states
 - Exact eight-decimal QWC formatting and one-row-per-block navigation
 - Persistent light/dark theme and responsive, keyboard-accessible layouts
@@ -79,15 +83,17 @@ Chain path:  /var/lib/qwertycoin/.qwertycoin/lmdb
 Daemon RPC:  verified restricted observer endpoint (currently port 8198 on the reviewed host)
 ```
 
-`QWC_CHAIN_PATH`, daemon URL, UID/GID, loopback port, container name, and image
-digest have no operational defaults. Resolve them from the actual host. Never
+`QWC_CHAIN_PATH`, the separate writable derived-data path, chain reset context,
+daemon URL, UID/GID, loopback port, container name, and image digest have no
+operational defaults. Resolve them from the actual host. Never
 replace the existing chain mount with an empty directory or new volume.
 
 The nginx file is a mergeable reference, not a replacement for the real TLS
 vhost. Preserve the existing certificate workflow and explicitly retire legacy
-secret routes. The `/qwc-rpc/` compatibility adapter is intentionally limited to
-the web wallet's path allowlist and the verified restricted daemon listener; it
-must never point at the administrative RPC port or become a catch-all proxy.
+secret routes. The `/qwc-rpc/` compatibility adapter terminates at the explorer's
+parser-based method/path policy before reaching the verified restricted daemon
+listener. Its upstream is independent from the frontend upstream so a frontend
+rollback does not disable wallet sync or reopen the historical generic proxy.
 
 ## Local Build
 
@@ -115,6 +121,8 @@ Run against a local Qwertycoin mainnet-mode daemon:
   --port 8081 \
   --bc-path /home/qwertycoin/.qwertycoin/lmdb \
   --daemon-url http://127.0.0.1:8198 \
+  --derived-data-path /var/lib/qwertycoin-explorer \
+  --chain-reset-id local-mainnet-generation-1 \
   --enable-json-api
 ```
 

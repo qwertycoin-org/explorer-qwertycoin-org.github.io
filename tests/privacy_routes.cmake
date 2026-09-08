@@ -3,6 +3,8 @@ file(READ "${SOURCE_DIR}/src/templates/index2.html" OVERVIEW_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/templates/partials/tx_details.html" TX_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/page.h" PAGE_SOURCE)
 file(READ "${SOURCE_DIR}/deploy/explorer.qwertycoin.org.nginx.conf" NGINX_SOURCE)
+file(READ "${SOURCE_DIR}/src/wallet_rpc_policy.h" RPC_POLICY_SOURCE)
+file(READ "${SOURCE_DIR}/src/CmdLineOptions.cpp" OPTIONS_SOURCE)
 
 set(FORBIDDEN_ROUTES
     "CROW_ROUTE(app, \"/myoutputs\""
@@ -18,17 +20,43 @@ foreach(ROUTE IN LISTS FORBIDDEN_ROUTES)
     endif()
 endforeach()
 
+foreach(REQUIRED_REFRESH_TEXT
+        "setTimeout(refresh, ms)"
+        "new AbortController()"
+        "document.hidden"
+        "Math.min(delay * 2, 120000)"
+        "renderMempool(data.mempool)")
+    string(FIND "${OVERVIEW_TEMPLATE}" "${REQUIRED_REFRESH_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Bounded dashboard refresh contract is missing: ${REQUIRED_REFRESH_TEXT}")
+    endif()
+endforeach()
+
+string(FIND "${OPTIONS_SOURCE}" "daemon-url,d\", value<string>()->default_value" DAEMON_DEFAULT)
+if(NOT DAEMON_DEFAULT EQUAL -1)
+    message(FATAL_ERROR "Daemon URL must not silently default to an administrative listener")
+endif()
+
 foreach(REQUIRED_RPC_EDGE_TEXT
-        "restricted RPC listener"
-        "location ~ ^/qwc-rpc/"
-        "getblocks\\.bin"
-        "get_outs(?:\\.bin)?"
-        "send_raw_transaction"
-        "proxy_pass http://127.0.0.1:8198"
-        "location /qwc-rpc/")
+        "restricted daemon listener"
+        "location /qwc-rpc/"
+        "proxy_pass http://qwertycoin_wallet_rpc_backend")
     string(FIND "${NGINX_SOURCE}" "${REQUIRED_RPC_EDGE_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Restricted wallet RPC edge contract is missing: ${REQUIRED_RPC_EDGE_TEXT}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_RPC_POLICY_TEXT
+        "getblocks.bin"
+        "get_outs.bin"
+        "send_raw_transaction"
+        "get_info"
+        "get_output_histogram"
+        "wallet_rpc_policy_result::forbidden")
+    string(FIND "${RPC_POLICY_SOURCE}" "${REQUIRED_RPC_POLICY_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Parsed wallet RPC policy contract is missing: ${REQUIRED_RPC_POLICY_TEXT}")
     endif()
 endforeach()
 
@@ -51,6 +79,18 @@ endforeach()
 string(FIND "${PAGE_SOURCE}" "current_network_info.current = true" CURRENT_OVERRIDE)
 if(NOT CURRENT_OVERRIDE EQUAL -1)
     message(FATAL_ERROR "A cached RPC failure can be overwritten as current")
+endif()
+
+string(FIND "${PAGE_SOURCE}" "show_block(uint64_t _blk_height)" BLOCK_VIEW_START)
+string(FIND "${PAGE_SOURCE}" "show_block(string _blk_hash)" BLOCK_VIEW_END)
+if(BLOCK_VIEW_START EQUAL -1 OR BLOCK_VIEW_END EQUAL -1 OR BLOCK_VIEW_END LESS BLOCK_VIEW_START)
+    message(FATAL_ERROR "Could not isolate ordinary block view for request-cost guard")
+endif()
+math(EXPR BLOCK_VIEW_LENGTH "${BLOCK_VIEW_END} - ${BLOCK_VIEW_START}")
+string(SUBSTRING "${PAGE_SOURCE}" ${BLOCK_VIEW_START} ${BLOCK_VIEW_LENGTH} BLOCK_VIEW_SOURCE)
+string(FIND "${BLOCK_VIEW_SOURCE}" "get_block_longhash" REPEATED_RANDOMX)
+if(NOT REPEATED_RANDOMX EQUAL -1)
+    message(FATAL_ERROR "Ordinary block views must not recalculate RandomX PoW")
 endif()
 
 foreach(FORBIDDEN_TEXT "/qwc-rpc" "nodeNameForPublicKey" "knownEndpointForPublicKey")

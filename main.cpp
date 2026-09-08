@@ -7,9 +7,12 @@
 #include "ext/crow_all.h"
 #include "src/CmdLineOptions.h"
 #include "src/MicroCore.h"
+#include "src/SupplyIndex.h"
+#include "src/wallet_rpc_policy.h"
 
 #include <fstream>
 #include <regex>
+#include <atomic>
 
 using boost::filesystem::path;
 using xmreg::remove_bad_chars;
@@ -78,6 +81,8 @@ main(int ac, const char* av[])
     auto bindaddr_opt                  = opts.get_option<string>("bindaddr");
     auto bc_path_opt                   = opts.get_option<string>("bc-path");
     auto daemon_url_opt                = opts.get_option<string>("daemon-url");
+    auto derived_data_path_opt         = opts.get_option<string>("derived-data-path");
+    auto chain_reset_id_opt            = opts.get_option<string>("chain-reset-id");
     auto ssl_crt_file_opt              = opts.get_option<string>("ssl-crt-file");
     auto ssl_key_file_opt              = opts.get_option<string>("ssl-key-file");
     auto no_blocks_on_index_opt        = opts.get_option<string>("no-blocks-on-index");
@@ -121,7 +126,6 @@ main(int ac, const char* av[])
     bool enable_mixin_guess           {*enable_mixin_guess_opt};
     bool enable_json_api              {*enable_json_api_opt};
     bool enable_as_hex                {*enable_as_hex_opt};
-    bool enable_emission_monitor      {false};
 
     //temprorary disable randomx
     if (enable_randomx == true) {
@@ -230,7 +234,27 @@ main(int ac, const char* av[])
         return EXIT_FAILURE;
     }
 
+    const bool valid_reset_id = chain_reset_id_opt && !chain_reset_id_opt->empty()
+            && chain_reset_id_opt->size() <= 128
+            && std::all_of(chain_reset_id_opt->begin(), chain_reset_id_opt->end(),
+                    [](unsigned char c) { return std::isalnum(c) || c == '-' || c == '_' || c == '.'; });
+    if (!daemon_url_opt || daemon_url_opt->empty()
+        || !derived_data_path_opt || derived_data_path_opt->empty() || !valid_reset_id)
+    {
+        cerr << "--daemon-url, --derived-data-path and --chain-reset-id are required" << endl;
+        return EXIT_FAILURE;
+    }
     string daemon_url {*daemon_url_opt};
+
+    xmreg::SupplyIndex supply_index {&mcore, core_storage,
+                                     *derived_data_path_opt,
+                                     *chain_reset_id_opt,
+                                     nettype};
+    if (!supply_index.start())
+    {
+        cerr << "Supply index failed to start" << endl;
+        return EXIT_FAILURE;
+    }
 
     uint64_t mempool_info_timeout {5000};
 
@@ -246,38 +270,6 @@ main(int ac, const char* av[])
     }
 
     uint64_t mempool_refresh_time {10};
-
-
-    if (enable_emission_monitor == true)
-    {
-        // This starts new thread, which aim is
-        // to calculate, store and monitor
-        // current total Qwertycoin emission amount.
-
-        // This thread stores the current emission
-        // which it has caluclated in
-        // <blockchain_path>/emission_amount.txt file,
-        // e.g., ~/.qwertycoin/lmdb/emission_amount.txt.
-        // So instead of calcualting the emission
-        // from scrach whenever the explorer is started,
-        // the thread is initalized with the values
-        // found in emission_amount.txt file.
-
-        xmreg::CurrentBlockchainStatus::blockchain_path
-                = blockchain_path;
-        xmreg::CurrentBlockchainStatus::nettype
-                = nettype;
-        xmreg::CurrentBlockchainStatus::daemon_url
-                = daemon_url;
-        xmreg::CurrentBlockchainStatus::set_blockchain_variables(
-                &mcore, core_storage);
-
-        // launch the status monitoring thread so that it keeps track of blockchain
-        // info, e.g., current height. Information from this thread is used
-        // by tx searching threads that are launched for each user independently,
-        // when they log back or create new account.
-        xmreg::CurrentBlockchainStatus::start_monitor_blockchain_thread();
-    }
 
 
     xmreg::MempoolStatus::blockchain_path
@@ -315,10 +307,18 @@ main(int ac, const char* av[])
     xmreg::MempoolStatus::mempool_refresh_time = mempool_refresh_time;
     xmreg::MempoolStatus::start_mempool_status_thread();
 
+    std::vector<std::unique_ptr<xmreg::rpccalls>> wallet_rpc_pool;
+    for (unsigned i = 0; i < 4; ++i)
+        wallet_rpc_pool.emplace_back(std::make_unique<xmreg::rpccalls>(
+                daemon_url, daemon_rpc_login, 20000));
+    std::atomic<unsigned> wallet_rpc_inflight {0};
+    std::atomic<unsigned> wallet_rpc_next_slot {0};
+
     // create instance of page class which
     // contains logic for the website
     xmreg::page xmrblocks(&mcore,
                           core_storage,
+                          &supply_index,
                           daemon_url,
                           nettype,
                           enable_pusher,
@@ -348,16 +348,20 @@ main(int ac, const char* av[])
     CROW_ROUTE(app, "/readyz")
     ([&]() {
         const nlohmann::json identity = xmrblocks.json_identity();
+        const nlohmann::json supply = xmrblocks.json_emission();
         if (identity.value("status", "error") != "success"
-            || !identity.at("data").value("compatible", false))
+            || !identity.at("data").value("compatible", false)
+            || supply.value("status", "error") != "success"
+            || !supply.at("data").value("complete", false))
         {
             return myxmr::jsonresponse{nlohmann::json{
                     {"status", "error"},
-                    {"message", "Observer chain identity, freshness, or EPoSE v2 compatibility is unverified"}}};
+                    {"message", "Observer identity, freshness, EPoSE v2 compatibility, or supply anchor is unverified"}}};
         }
         return myxmr::jsonresponse{nlohmann::json{
                 {"status", "success"},
-                {"data", identity.at("data")}}};
+                {"data", {{"identity", identity.at("data")},
+                          {"supply", supply.at("data")}}}}};
     });
 
     // get domian url based on the request
@@ -372,16 +376,28 @@ main(int ac, const char* av[])
     });
 
     CROW_ROUTE(app, "/page/<uint>")
-    ([&](size_t page_no) {
-        return myxmr::htmlresponse(xmrblocks.index2(page_no));
+    ([&](const crow::request& req, size_t page_no) {
+        uint64_t block_count {0};
+        const char* count = req.url_params.get("block_count");
+        const char* hash = req.url_params.get("tip_hash");
+        if (count && !xmreg::parse_uint64_strict(count, block_count))
+            block_count = 0;
+        return myxmr::htmlresponse(xmrblocks.index2(page_no, false, "overview",
+                block_count, hash ? remove_bad_chars(hash) : string {}));
     });
 
     CROW_ROUTE(app, "/blocks")
     ([&]() { return myxmr::htmlresponse(xmrblocks.index2(0, false, "blocks")); });
 
     CROW_ROUTE(app, "/blocks/<uint>")
-    ([&](size_t page_no) {
-        return myxmr::htmlresponse(xmrblocks.index2(page_no, false, "blocks"));
+    ([&](const crow::request& req, size_t page_no) {
+        uint64_t block_count {0};
+        const char* count = req.url_params.get("block_count");
+        const char* hash = req.url_params.get("tip_hash");
+        if (count && !xmreg::parse_uint64_strict(count, block_count))
+            block_count = 0;
+        return myxmr::htmlresponse(xmrblocks.index2(page_no, false, "blocks",
+                block_count, hash ? remove_bad_chars(hash) : string {}));
     });
 
     CROW_ROUTE(app, "/service-nodes")
@@ -534,6 +550,91 @@ main(int ac, const char* av[])
             return response;
         }
         return myxmr::htmlresponse(xmrblocks.search(remove_bad_chars(value_it->second)));
+    });
+
+    CROW_ROUTE(app, "/qwc-rpc/<path>").methods("POST"_method, "OPTIONS"_method)
+    ([&](const crow::request& req, string requested_path) {
+        crow::response response;
+        const string origin = req.get_header_value("Origin");
+        if (origin == "https://wallet.qwertycoin.org"
+            || (origin.size() > 18 && origin.rfind("https://", 0) == 0
+                && origin.find(".pages.dev") == origin.size() - 10))
+        {
+            response.add_header("Access-Control-Allow-Origin", origin);
+            response.add_header("Vary", "Origin");
+        }
+        response.add_header("Access-Control-Allow-Methods", "POST, OPTIONS");
+        response.add_header("Access-Control-Allow-Headers", "Content-Type");
+        response.add_header("X-Content-Type-Options", "nosniff");
+        response.add_header("Cache-Control", "no-store");
+        if (req.method == crow::HTTPMethod::Options)
+        {
+            response.code = 204;
+            return response;
+        }
+
+        const string path = "/" + requested_path;
+        if (!xmreg::wallet_rpc_path_allowed(path))
+        {
+            response.code = 403;
+            response.set_header("Content-Type", "application/json");
+            response.body = R"({"error":"RPC path not allowed"})";
+            return response;
+        }
+        const bool binary = path.size() >= 4 && path.substr(path.size() - 4) == ".bin";
+        const size_t maximum_request = binary ? 2 * 1024 * 1024 : 256 * 1024;
+        if (req.body.size() > maximum_request)
+        {
+            response.code = 413;
+            response.set_header("Content-Type", "application/json");
+            response.body = R"({"error":"RPC request too large"})";
+            return response;
+        }
+        if (path == "/json_rpc")
+        {
+            string method;
+            const auto policy = xmreg::authorize_wallet_json_rpc(req.body, method);
+            if (policy != xmreg::wallet_rpc_policy_result::allowed)
+            {
+                response.code = policy == xmreg::wallet_rpc_policy_result::malformed ? 400 : 403;
+                response.set_header("Content-Type", "application/json");
+                response.body = policy == xmreg::wallet_rpc_policy_result::malformed
+                        ? R"({"error":"Malformed JSON-RPC envelope; batches and notifications are not accepted"})"
+                        : R"({"error":"JSON-RPC method not allowed"})";
+                return response;
+            }
+        }
+        if (wallet_rpc_inflight.fetch_add(1) >= 16)
+        {
+            wallet_rpc_inflight.fetch_sub(1);
+            response.code = 429;
+            response.set_header("Retry-After", "1");
+            response.set_header("Content-Type", "application/json");
+            response.body = R"({"error":"Wallet RPC gateway busy"})";
+            return response;
+        }
+        struct inflight_guard
+        {
+            std::atomic<unsigned>& value;
+            ~inflight_guard() { value.fetch_sub(1); }
+        } guard {wallet_rpc_inflight};
+
+        xmreg::rpccalls::raw_response upstream;
+        const string content_type = binary ? "application/octet-stream" : "application/json";
+        const unsigned slot = wallet_rpc_next_slot.fetch_add(1) % wallet_rpc_pool.size();
+        if (!wallet_rpc_pool[slot]->proxy_wallet_request(
+                path, req.body, content_type, upstream))
+        {
+            response.code = 502;
+            response.set_header("Content-Type", "application/json");
+            response.body = R"({"error":"Restricted QWC node unavailable"})";
+            return response;
+        }
+        response.code = upstream.status;
+        response.set_header("Content-Type", binary ? "application/octet-stream"
+                                                    : "application/json");
+        response.body = std::move(upstream.body);
+        return response;
     });
 
     CROW_ROUTE(app, "/mempool")
@@ -707,6 +808,12 @@ main(int ac, const char* av[])
         CROW_ROUTE(app, "/api/v1/network")
         ([&]() { return myxmr::jsonresponse{xmrblocks.json_networkinfo()}; });
 
+        CROW_ROUTE(app, "/api/v1/overview")
+        ([&]() { return myxmr::jsonresponse{xmrblocks.json_overview()}; });
+
+        CROW_ROUTE(app, "/api/v1/supply")
+        ([&]() { return myxmr::jsonresponse{xmrblocks.json_emission()}; });
+
         CROW_ROUTE(app, "/api/v1/identity")
         ([&]() { return myxmr::jsonresponse{xmrblocks.json_identity()}; });
 
@@ -717,9 +824,13 @@ main(int ac, const char* av[])
         ([&](const crow::request &req) {
             const char* page_param = req.url_params.get("page");
             const char* limit_param = req.url_params.get("limit");
+            const char* block_count_param = req.url_params.get("block_count");
+            const char* tip_hash_param = req.url_params.get("tip_hash");
             return myxmr::jsonresponse{xmrblocks.json_transactions(
                     page_param ? page_param : "0",
-                    limit_param ? limit_param : "25")};
+                    limit_param ? limit_param : "25",
+                    block_count_param ? block_count_param : "",
+                    tip_hash_param ? remove_bad_chars(tip_hash_param) : "")};
         });
 
         CROW_ROUTE(app, "/api/v1/mempool").methods("GET"_method)
@@ -766,18 +877,6 @@ main(int ac, const char* av[])
         }
     }
 
-    if (enable_emission_monitor == true)
-    {
-        // finish Emission monitoring thread in a cotrolled manner.
-
-        cout << "Waiting for emission monitoring thread to finish." << endl;
-
-        xmreg::CurrentBlockchainStatus::m_thread.interrupt();
-        xmreg::CurrentBlockchainStatus::m_thread.join();
-
-        cout << "Emission monitoring thread finished." << endl;
-    }
-
     // finish mempool thread
 
     cout << "Waiting for mempool monitoring thread to finish." << endl;
@@ -788,6 +887,8 @@ main(int ac, const char* av[])
     cout << "Mempool monitoring thread finished." << endl;
 
     cout << "The explorer is terminating." << endl;
+
+    supply_index.stop();
 
     return EXIT_SUCCESS;
 }

@@ -119,8 +119,8 @@ RUN unzip -o /tmp/lib.zip -d / && \
     apt-get purge --yes unzip && \
     apt-get autoremove --yes && \
     useradd --system --uid 101 --create-home --home-dir /home/qwertycoin qwertycoin && \
-    mkdir -p /home/qwertycoin/.qwertycoin && \
-    chown -R qwertycoin:qwertycoin /home/qwertycoin
+    mkdir -p /home/qwertycoin/.qwertycoin /var/lib/qwertycoin-explorer && \
+    chown -R qwertycoin:qwertycoin /home/qwertycoin /var/lib/qwertycoin-explorer
 
 USER qwertycoin
 WORKDIR /home/qwertycoin
@@ -132,4 +132,4 @@ EXPOSE 8081
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8081/readyz"]
 ENTRYPOINT ["./qwertycoin-explorer"]
-CMD ["--port", "8081", "--bindaddr", "0.0.0.0", "--bc-path", "/home/qwertycoin/.qwertycoin/lmdb", "--daemon-url", "http://qwertycoin-mainnet:8198", "--enable-json-api"]
+CMD ["--port", "8081", "--bindaddr", "0.0.0.0", "--bc-path", "/home/qwertycoin/.qwertycoin/lmdb", "--derived-data-path", "/var/lib/qwertycoin-explorer", "--enable-json-api"]

@@ -1,7 +1,7 @@
 services:
   qwertycoin-explorer:
     image: "${QWC_EXPLORER_IMAGE:?immutable explorer image digest required}"
-    container_name: qwertycoin-explorer-preview
+    container_name: "${QWC_EXPLORER_CONTAINER_NAME:?distinct preview container name required}"
     restart: unless-stopped
     stop_grace_period: 30s
     user: "${QWC_EXPLORER_UID:?uid required}:${QWC_EXPLORER_GID:?gid required}"
@@ -14,11 +14,16 @@ services:
       - /home/qwertycoin/.qwertycoin/lmdb
       - --daemon-url
       - "${QWC_DAEMON_URL:?restricted observer RPC URL required}"
+      - --derived-data-path
+      - /var/lib/qwertycoin-explorer
+      - --chain-reset-id
+      - "${QWC_CHAIN_RESET_ID:?chain reset context required}"
       - --enable-json-api
     ports:
-      - "127.0.0.1:29983:8081"
+      - "127.0.0.1:${QWC_EXPLORER_HOST_PORT:?distinct loopback host port required}:8081"
     volumes:
       - chain:/home/qwertycoin/.qwertycoin:ro
+      - explorer-derived:/var/lib/qwertycoin-explorer
     networks:
       - qwertycoin-mainnet
     read_only: true
@@ -43,6 +48,9 @@ volumes:
   chain:
     external: true
     name: "${QWC_CHAIN_VOLUME:?verified existing chain volume required}"
+  explorer-derived:
+    external: true
+    name: "${QWC_EXPLORER_DERIVED_VOLUME:?distinct explorer-derived volume required}"
 
 networks:
   qwertycoin-mainnet:

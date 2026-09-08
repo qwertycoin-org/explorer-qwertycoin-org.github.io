@@ -11,6 +11,8 @@ quantities such as kB.
 | Block count | blocks | Local read-only LMDB observer | Current blockchain height returned by core storage | Bound to the rendered request |
 | Observed tip hash | 32-byte hash | Daemon network-info snapshot | Daemon-reported top block hash | Snapshot age is shown; stale is not relabeled live |
 | Mempool transactions | transactions | Shared explorer mempool snapshot | Exact snapshot length | Empty is distinct from an unavailable section |
+| Estimated network hashrate | H/s with SI display units | One successful daemon network snapshot | Next-block PoW difficulty divided by the active target interval, preserving wide-integer precision | Unavailable for missing/invalid difficulty or a zero target; it is not measured miner telemetry |
+| Total mined supply | atomic QWC and exact 8-decimal QWC | Explorer-owned derived index over canonical read-only LMDB blocks | Checked cumulative coinbase public outputs minus regular transaction fees | Includes mature and immature rewards; unavailable/indexing until a fully persisted canonical anchor is published |
 | Target block interval | seconds | Daemon network-info snapshot | Active daemon parameter | Snapshot age is shown |
 | Block weight | kB (display) | Local LMDB consensus weight | Core DB block weight divided by 1024 for display | Called weight, never serialized size |
 | Transaction count | transactions | Canonical block | Regular transaction hash count plus one coinbase transaction | Convention is stated in the table caption and row |
@@ -24,10 +26,9 @@ quantities such as kB.
 
 ## Deliberately omitted metrics
 
-- **Issued/circulating/spendable/unlocked supply:** the historical
-  generated-coins accumulator does not establish these semantics.
+- **Circulating/spendable/unlocked supply:** total mined supply is issuance,
+  not evidence that private wallet outputs are mature, unspent or accessible.
 - **Peer count:** restricted daemon responses can redact it; zero is not accepted
   as evidence of no peers.
-- **Hashrate:** omitted until the displayed estimate can name its source window.
 - **Miner/service coinbase split:** omitted until the validating core exposes its
   canonical, block-anchored EPoSE v2 payment-to-output mapping.

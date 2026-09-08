@@ -84,6 +84,13 @@ class rpccalls
 
 public:
 
+    struct raw_response
+    {
+        int status {502};
+        string body;
+        string content_type;
+    };
+
     using login_opt = boost::optional<epee::net_utils::http::login>;
 
     rpccalls(string _daemon_url = "127.0.0.1:8197",
@@ -203,6 +210,13 @@ public:
 
     bool
     get_block(string const& blk_hash, block& blk, string& error_msg);
+
+    bool
+    proxy_wallet_request(const string& path,
+                         const string& body,
+                         const string& content_type,
+                         raw_response& response,
+                         size_t maximum_response_bytes = 12 * 1024 * 1024);
 
 };
 

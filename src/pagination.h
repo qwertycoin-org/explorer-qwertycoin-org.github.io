@@ -15,6 +15,25 @@ struct bounded_pagination
     uint64_t offset {0};
 };
 
+struct descending_block_range
+{
+    uint64_t begin {0};
+    uint64_t end_exclusive {0};
+    uint64_t returned_count {0};
+    bool empty {true};
+};
+
+inline descending_block_range make_descending_block_range(uint64_t block_count,
+                                                          uint64_t offset,
+                                                          uint64_t limit)
+{
+    if (limit == 0 || offset >= block_count)
+        return {};
+    const uint64_t end_exclusive = block_count - offset;
+    const uint64_t begin = end_exclusive > limit ? end_exclusive - limit : 0;
+    return {begin, end_exclusive, end_exclusive - begin, false};
+}
+
 inline bool parse_uint64_strict(const std::string& input, uint64_t& value)
 {
     if (input.empty())

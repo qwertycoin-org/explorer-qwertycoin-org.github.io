@@ -357,6 +357,12 @@ form.style-1 {
     white-space: nowrap;
 }
 
+.fact-card small {
+    grid-column: 1 / -1;
+    color: var(--color-day-muted);
+    font-size: 0.72rem;
+}
+
 .top-details {
     margin: 0 0 18px;
 }
@@ -969,6 +975,7 @@ table tr:not(:first-child):hover {
 .footer-grid > div,
 .footer-grid > p {
     flex: 1 1 320px;
+    min-width: 0;
 }
 
 .site-footer h2 {
@@ -985,6 +992,7 @@ table tr:not(:first-child):hover {
     margin: 0;
     color: var(--color-text-muted);
     font-size: 0.82rem;
+    overflow-wrap: anywhere;
 }
 
 .footer-meta a {
@@ -1130,7 +1138,7 @@ input#toggle-1[type=checkbox]:checked ~ div#decoded-inputs {
         gap: 3px;
     }
 
-    .fact-card strong {
+.fact-card strong {
         text-align: left;
     }
 
@@ -1322,6 +1330,7 @@ h2 { color: var(--color-day-text); font-size: clamp(1.4rem, 2.4vw, 2rem); }
 .blocks-table small { display: block; color: var(--color-day-muted); }
 .hash-link { display: inline-block; max-width: 20ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
 .hash-value { display: block; max-width: 48ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.copy-hash { margin-left: 8px; padding: 3px 7px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-surface-muted); color: var(--color-day-text); cursor: pointer; font: inherit; }
 :root[data-theme="dark"] .block-height-pill { color: #201200; }
 .sr-only { position: absolute!important; width: 1px!important; height: 1px!important; padding: 0!important; margin: -1px!important; overflow: hidden!important; clip: rect(0,0,0,0)!important; white-space: nowrap!important; border: 0!important; }
 @media (max-width: 980px) {

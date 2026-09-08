@@ -42,6 +42,8 @@ verification. Record, with environment values redacted:
   the existing chain rather than a newly created directory or volume;
 - actual Compose/env files and the complete nginx/TLS include chain;
 - daemon listener topology and that the explorer uses a restricted observer RPC;
+- writable explorer-derived storage, its effective UID/GID, free space and an
+  operator-controlled chain reset ID distinct from previous rehearsals;
 - current public DNS, certificate identity/expiry, headers, routes, and reported
   explorer/core builds.
 
@@ -54,9 +56,13 @@ Use `docker-compose.preview.yml` with the exact project name
 `qwertycoin-explorer-preview` and `/etc/qwertycoin-explorer/preview.env`:
 
 - immutable candidate repository digest or local image ID;
-- container name `qwertycoin-explorer-preview`;
-- loopback host port `29983`;
+- a container name not already present on the host (the September follow-up uses
+  `qwertycoin-explorer-followup`);
+- a free loopback host port (the September follow-up uses `29984` because
+  `29983` is already occupied);
 - the verified current chain path, read-only;
+- a distinct writable explorer-derived volume for supply checkpoints;
+- the current operator chain reset ID;
 - the verified restricted daemon URL;
 - the deployment UID/GID established during preflight.
 
@@ -65,6 +71,9 @@ Validate all immutable/external inputs before `up`; these commands must succeed:
 ```sh
 grep -Eq '^QWC_EXPLORER_IMAGE=([^[:space:]]+@)?sha256:[0-9a-f]{64}$' /etc/qwertycoin-explorer/preview.env
 docker volume inspect VERIFIED_CHAIN_VOLUME_NAME >/dev/null
+! docker volume inspect NEW_DERIVED_VOLUME_NAME >/dev/null 2>&1
+docker volume create --label org.qwertycoin.role=explorer-derived NEW_DERIVED_VOLUME_NAME >/dev/null
+docker volume inspect VERIFIED_DERIVED_VOLUME_NAME >/dev/null
 docker network inspect VERIFIED_DAEMON_NETWORK_NAME >/dev/null
 docker compose --project-name qwertycoin-explorer-preview \
   --env-file /etc/qwertycoin-explorer/preview.env \
@@ -72,8 +81,8 @@ docker compose --project-name qwertycoin-explorer-preview \
 docker compose --project-name qwertycoin-explorer-preview \
   --env-file /etc/qwertycoin-explorer/preview.env \
   --file /opt/qwertycoin-explorer/docker-compose.preview.yml up --detach --no-build
-docker inspect qwertycoin-explorer-preview \
-  --format '{{.Image}} {{range .Mounts}}{{if eq .Destination "/home/qwertycoin/.qwertycoin"}}{{.Name}} rw={{.RW}}{{end}}{{end}}'
+docker inspect DISTINCT_PREVIEW_CONTAINER_NAME \
+  --format '{{.Image}} {{range .Mounts}}{{.Destination}} rw={{.RW}} {{end}}'
 ```
 
 Check `docker compose version` before relying on those commands. If the
@@ -85,11 +94,11 @@ capabilities, `no-new-privileges`, PID/CPU/RAM limits, restart policy, stop
 timeout, health check from the image, and bounded log rotation. Record the
 exact invocation in the release evidence. Validate the resulting container
 with the same `docker inspect` command above. Stop it with
-`docker stop --time 30 qwertycoin-explorer-preview` during rollback.
+`docker stop --time 30 DISTINCT_PREVIEW_CONTAINER_NAME` during rollback.
 
 The final inspection must show the recorded candidate image ID, the verified
-existing volume and `rw=false`. A different Compose project name is mandatory;
-changing only `container_name` is insufficient.
+existing chain mount with `rw=false`, and only the explorer-derived mount with
+`rw=true`. A different Compose project name and container name are mandatory.
 
 Do not use `docker compose down -v`, create a replacement chain volume, loosen
 chain permissions, or restart a core daemon. Keep the candidate private on
@@ -99,27 +108,33 @@ Verify `/healthz`, `/readyz`, `/api/v1/version`, chain identity, overview, block
 transaction, POST search, mempool, service nodes, epochs, both themes, keyboard
 navigation, 360/390/768/1440 layouts, retired secret routes, and absence of an
 unrestricted RPC proxy. The `/qwc-rpc/` compatibility adapter must forward only
-the explicit wallet path allowlist to the verified restricted daemon listener;
-unknown paths and non-POST requests must remain blocked. Verify the deployed web
-wallet can call `get_info`, fetch sync data, and receive a daemon-level rejection
-for a deliberately malformed transaction without logging any request body.
+the explicit wallet path and parsed JSON-RPC method allowlists to the verified
+restricted daemon listener. Unknown paths and methods, batch requests,
+notifications, malformed envelopes and unsupported HTTP methods must be rejected
+before daemon work. Verify the deployed web wallet can call `get_info`, fetch
+binary sync data, and receive a daemon-level rejection for a deliberately
+malformed transaction without logging any request body.
 Observe two refresh intervals and a real block when available.
 Record CPU/RAM, response latency, upstream RPC rate, and daemon impact under a
 declared traffic ceiling.
 
 ## Public switch
 
-Install the repository's shared upstream snippet so every proxied route uses the
-same backend. Before the switch, preserve the known-good snippet with:
+Install the repository's separate explorer-frontend and wallet-gateway upstream
+snippets. Keeping them distinct allows a frontend rollback without bypassing the
+parsed wallet policy. Before the switch, preserve both known-good snippets with:
 
 ```sh
 sudo cp --preserve=mode,ownership,timestamps \
   /etc/nginx/snippets/qwertycoin-explorer-upstream.conf \
   /etc/nginx/snippets/qwertycoin-explorer-upstream.conf.pre-candidate
+sudo cp --preserve=mode,ownership,timestamps \
+  /etc/nginx/snippets/qwertycoin-wallet-rpc-upstream.conf \
+  /etc/nginx/snippets/qwertycoin-wallet-rpc-upstream.conf.pre-candidate
 ```
 
-Change the snippet's sole server from `127.0.0.1:29982` to
-`127.0.0.1:29983`, then run exactly:
+Change both snippets' sole servers to the private candidate port recorded in the
+release evidence (`127.0.0.1:29984` for the September follow-up), then run:
 
 ```sh
 sudo nginx -t
@@ -144,7 +159,7 @@ Rollback triggers include wrong chain identity, incorrect monetary attribution,
 reachable secret/admin routes, repeated 5xx responses, broken search/block/tx
 journeys, or material daemon impact.
 
-1. Restore and validate the previous explorer upstream with these exact commands:
+1. Restore and validate only the previous explorer **frontend** upstream:
    ```sh
    sudo cp /etc/nginx/snippets/qwertycoin-explorer-upstream.conf.pre-candidate \
      /etc/nginx/snippets/qwertycoin-explorer-upstream.conf
@@ -161,8 +176,19 @@ journeys, or material daemon impact.
      --file /opt/qwertycoin-explorer/docker-compose.preview.yml stop
    ```
    On a host without Compose, use
-   `docker stop --time 30 qwertycoin-explorer-preview` instead.
+   `docker stop --time 30 DISTINCT_PREVIEW_CONTAINER_NAME` instead.
 5. Invalidate only explorer frontend or derived caches.
+
+Keep the parsed wallet gateway on the tested candidate during a frontend
+rollback. Restore its separate upstream only to another tested parser gateway,
+never to the restricted daemon directly. Never restore a historical full-vhost
+backup that reopens the generic daemon proxy.
+
+Preserve the derived-index volume during rollback. If the index calculation
+version or chain-reset context changes, stop only the explorer, retain the old
+index for evidence, create a distinct empty explorer-owned volume, rebuild to a
+verified canonical anchor and only then restore readiness. Never delete or write
+the blockchain volume.
 
 Never roll back or reset the blockchain, daemon, wallets, or service identities
 to repair the explorer. If the previous artifact is incompatible with the core,

@@ -1,0 +1,46 @@
+name: explorer-ci
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  focused-behavior:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile focused behavior tests with warnings as errors
+        run: >-
+          g++ -std=c++17 -Wall -Wextra -Werror -I.
+          tests/regression_tests.cpp -o /tmp/qwc-explorer-regression
+      - name: Run focused behavior tests
+        run: /tmp/qwc-explorer-regression
+      - name: Run supplemental static route contracts
+        run: cmake -DSOURCE_DIR=. -P tests/privacy_routes.cmake
+      - name: Check patch whitespace
+        run: git show --check --oneline --no-renames HEAD
+
+  supported-container-build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.node01
+          push: false
+          tags: qwertycoin-explorer:ci
+          build-args: |
+            UBUNTU_IMAGE=ubuntu:22.04@sha256:79676deb51ebb02885b0b9d33788e78a37cf1045ad79d1bb04c6a222c3556b3d
+            QWC_COMMIT=ef5eb745ca9fec01752cd3e555cfa2b60741efac
+            EXPLORER_SOURCE_SHA=${{ github.sha }}
+            EXPLORER_SOURCE_DATE=ci
+            EXPLORER_SOURCE_BRANCH=ci
+            NPROC=2
+          cache-from: type=gha,scope=qwc-core-ef5eb745
+          cache-to: type=gha,mode=max,scope=qwc-core-ef5eb745

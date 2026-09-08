@@ -54,5 +54,6 @@
     function current(){return document.documentElement.dataset.theme || (window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}
     function update(){var dark=current()==="dark";button.setAttribute("aria-pressed",dark?"true":"false");button.textContent=dark?"Light theme":"Dark theme";}
     button.addEventListener("click",function(){var next=current()==="dark"?"light":"dark";document.documentElement.dataset.theme=next;try{localStorage.setItem("qwc-theme",next);}catch(e){}update();}); update();
+    document.addEventListener("click",function(event){var copy=event.target.closest("[data-copy]");if(!copy||!navigator.clipboard)return;navigator.clipboard.writeText(copy.dataset.copy).then(function(){var label=copy.textContent;copy.textContent="Copied";setTimeout(function(){copy.textContent=label;},1500);});});
 }());
 </script>

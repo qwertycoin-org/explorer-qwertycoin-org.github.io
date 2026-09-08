@@ -65,8 +65,12 @@ namespace xmreg
                  "path to key file for ssl (https) functionality")
                 ("daemon-login", value<string>(),
                  "Specify username[:password] for daemon RPC client")
-                ("daemon-url,d", value<string>()->default_value("127.0.0.1:8197"),
-                 "Qwertycoin daemon url")
+                ("daemon-url,d", value<string>(),
+                 "required restricted Qwertycoin observer daemon URL")
+                ("derived-data-path", value<string>(),
+                 "required writable directory for explorer-owned derived indexes")
+                ("chain-reset-id", value<string>(),
+                 "required operator reset context for derived indexes")
                 ("enable-mixin-guess", value<bool>()->default_value(false)->implicit_value(true),
                  "enable guessing real outputs in key images based on viewkey");
 

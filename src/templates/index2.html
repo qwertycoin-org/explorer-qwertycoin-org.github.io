@@ -4,7 +4,7 @@
 </section>
 
 <div class="center page-tools">
-    <span class="tool-status">Observer snapshot: {{server_timestamp}} UTC</span>
+    <span class="tool-status" id="observer-status">Rendered: {{server_timestamp}} UTC</span>
     <a href="" aria-label="Refresh explorer data">Refresh</a>
 </div>
 
@@ -15,22 +15,26 @@
             <p class="eyebrow">Qwertycoin HF17 · EPoSE v2</p>
             <h1 id="overview-title">Network observer</h1>
         </div>
-        <span class="status-pill {{#is_current_info}}ok{{/is_current_info}}{{^is_current_info}}warning{{/is_current_info}}">
+        <span id="network-status" class="status-pill {{#is_current_info}}ok{{/is_current_info}}{{^is_current_info}}warning{{/is_current_info}}">
             {{#is_current_info}}RPC/DB anchor current{{/is_current_info}}{{^is_current_info}}RPC/DB anchor stale or inconsistent{{/is_current_info}}
         </span>
     </div>
     <div class="fact-grid compact-facts">
-        <div class="fact-card"><span>Tip height</span><strong>{{tip_height}}</strong></div>
-        <div class="fact-card"><span>Block count</span><strong>{{block_count}}</strong></div>
-        <div class="fact-card"><span>Mempool transactions</span><strong>{{tx_pool_size}}</strong></div>
-        <div class="fact-card"><span>Target block interval</span><strong>{{target}} s</strong></div>
+        <div class="fact-card"><span>Tip height</span><strong id="metric-tip">{{tip_height}}</strong></div>
+        <div class="fact-card"><span>Estimated network hashrate</span><strong id="metric-hashrate">{{hash_rate}}</strong><small>Current difficulty ÷ target interval</small></div>
+        <div class="fact-card" title="New QWC issued through this block, including locked mining and service rewards. Transaction fees are excluded."><span>Total mined supply</span><strong id="metric-supply">{{supply_mined}}{{#supply_complete}} QWC{{/supply_complete}}</strong><small>Includes locked mining and service rewards; fees excluded</small></div>
+        <div class="fact-card"><span>Mempool transactions</span><strong id="metric-mempool">{{tx_pool_size}}</strong></div>
     </div>
     <dl class="network-detail-grid top-details">
         <div><dt>Observed chain tip</dt><dd><code class="hash-value">{{top_block_hash}}</code></dd></div>
         <div><dt>Network</dt><dd>{{network_name}}</dd></div>
         <div><dt>Snapshot age</dt><dd>{{age}} {{age_format}}</dd></div>
+        <div><dt>Block count</dt><dd>{{block_count}}</dd></div>
+        <div><dt>Target interval</dt><dd>{{target}} s</dd></div>
+        <div><dt>Last block time</dt><dd>{{last_block_time}}{{#last_block_time_available}} UTC{{/last_block_time_available}}</dd></div>
+        <div><dt>Supply index</dt><dd id="supply-state">{{supply_availability}} · observed {{supply_observed_at}} UTC</dd></div>
     </dl>
-    <p class="data-note">This page reports one validating observer. “Current” requires a matching RPC/LMDB tip during rendering and describes snapshot freshness; it is not a network-wide health certificate. Peer counts and issued supply are omitted until their availability and semantics are auditable.</p>
+    <p class="data-note">This page reports one validating observer. “Current” requires a matching RPC/LMDB tip during rendering and describes snapshot freshness; it is not a network-wide health certificate. Total mined supply is the canonical sum of actual coinbase outputs minus transaction fees and is not circulating or globally spendable supply.</p>
 </section>
 {{/network_info}}{{/show_network}}
 
@@ -51,7 +55,7 @@
                 <th scope="col">Height</th><th scope="col">Age</th><th scope="col">Transactions</th>
                 <th scope="col">Fees (QWC)</th><th scope="col">Coinbase total (QWC)</th><th scope="col">Weight (kB)</th><th scope="col">Block hash</th>
             </tr></thead>
-            <tbody>
+            <tbody id="recent-block-rows">
             {{#blocks}}
             <tr>
                 <td data-label="Height"><a href="/block/{{height}}">{{height}}</a></td>
@@ -60,14 +64,14 @@
                 <td data-label="Fees">{{fees}}</td>
                 <td data-label="Coinbase total">{{coinbase_total}}</td>
                 <td data-label="Weight">{{weight_kb}}</td>
-                <td data-label="Block hash"><a class="hash-link" href="/block/{{hash}}"><span aria-hidden="true">{{hash}}</span><span class="sr-only">{{hash}}</span></a></td>
+                <td data-label="Block hash"><a class="hash-link" href="/block/{{hash}}">{{hash}}</a><button class="copy-hash" type="button" data-copy="{{hash}}" aria-label="Copy block hash {{hash}}">Copy</button></td>
             </tr>
             {{/blocks}}
             </tbody>
         </table>
         <nav id="pages" class="pager" aria-label="Block pages">
             {{^is_page_zero}}<a href="{{prev_page_url}}">Previous</a> · <a href="{{first_page_url}}">First</a> ·{{/is_page_zero}}
-            <span>Page {{page_no}} of {{total_page_no}}</span>
+            <span>Page {{page_display}} of {{total_pages}}</span>
             {{^is_last_page}} · <a href="{{next_page_url}}">Next</a>{{/is_last_page}}
         </nav>
     </div>
@@ -87,7 +91,7 @@
     <div class="status-grid compact">
         <div class="metric"><span>Source epoch</span><strong id="epose-epoch">—</strong></div>
         <div class="metric"><span>Current descriptors</span><strong id="epose-node-count">—</strong></div>
-        <div class="metric"><span>Qualified for source epoch</span><strong id="epose-qualified">—</strong></div>
+        <div class="metric"><span>Qualified (EPoSE info epoch)</span><strong id="epose-qualified">—</strong></div>
         <div class="metric"><span>Reward preview</span><strong id="epose-reward-preview">—</strong></div>
     </div>
     <p class="data-note">Lifecycle-active and qualified are protocol observations for the stated epoch. They do not prove endpoint reachability. Reachability is currently unsupported. The available core calls are not block-anchored as one atomic snapshot, so independently loaded EPoSE sections are explicitly marked unanchored.</p>
@@ -102,6 +106,7 @@
         <summary>Epoch and capability details</summary>
         <dl class="epose-detail-grid">
             <div><dt>Epoch range</dt><dd id="epose-range">—</dd></div>
+            <div><dt>Epoch progress</dt><dd id="epose-progress">—</dd></div>
             <div><dt>Protocol version</dt><dd id="epose-protocol">—</dd></div>
             <div><dt>State commitment</dt><dd><code id="epose-state-hash">—</code></dd></div>
             <div><dt>Observation</dt><dd id="epose-observed-at">—</dd></div>
@@ -111,8 +116,104 @@
 {{/show_epose}}
 
 {{#show_mempool}}
-<div id="mempool">{{{mempool_info}}}</div>
+<div id="mempool" aria-live="polite">{{{mempool_info}}}</div>
 {{/show_mempool}}
+
+{{#show_network}}
+<script>
+(function () {
+    "use strict";
+    var timer = null, controller = null, delay = 15000;
+    function byId(id) { return document.getElementById(id); }
+    function setText(id, value) { var el = byId(id); if (el) el.textContent = value === null || value === undefined ? "—" : String(value); }
+    function relativeAge(timestamp) {
+        var seconds = Math.max(0, Math.floor(Date.now() / 1000) - Number(timestamp || 0));
+        if (seconds < 60) return seconds + "s";
+        if (seconds < 3600) return Math.floor(seconds / 60) + "m";
+        if (seconds < 86400) return Math.floor(seconds / 3600) + "h";
+        return Math.floor(seconds / 86400) + "d";
+    }
+    function renderBlocks(blocks) {
+        var tbody = byId("recent-block-rows");
+        if (!tbody || !Array.isArray(blocks)) return;
+        if (tbody.contains(document.activeElement)) return;
+        tbody.textContent = "";
+        blocks.forEach(function (block) {
+            var row = tbody.insertRow();
+            function cell(label, value) { var item = row.insertCell(); item.dataset.label = label; item.textContent = value; return item; }
+            var height = cell("Height", ""); var heightLink = document.createElement("a"); heightLink.href = "/block/" + block.height; heightLink.textContent = block.height; height.appendChild(heightLink);
+            var age = cell("Age", relativeAge(block.timestamp)); age.title = new Date(Number(block.timestamp) * 1000).toISOString();
+            cell("Transactions", block.total_tx_count + " (" + block.regular_tx_count + " regular + coinbase)");
+            cell("Fees", block.fees_qwc); cell("Coinbase total", block.coinbase_total_qwc); cell("Weight", block.weight_kb);
+            var hash = cell("Block hash", ""); var hashLink = document.createElement("a"); hashLink.className = "hash-link"; hashLink.href = "/block/" + block.hash; hashLink.textContent = block.hash; hash.appendChild(hashLink); var copy = document.createElement("button"); copy.className = "copy-hash"; copy.type = "button"; copy.dataset.copy = block.hash; copy.setAttribute("aria-label", "Copy block hash " + block.hash); copy.textContent = "Copy"; hash.appendChild(copy);
+        });
+    }
+    function renderMempool(mempool) {
+        var tbody = byId("mempool-rows");
+        if (!tbody || !mempool || !Array.isArray(mempool.transactions)) return;
+        setText("mempool-count", mempool.total_count + " pending");
+        var observed = Number(mempool.observed_at_unix || 0);
+        setText("mempool-freshness", "Size " + mempool.size_kb + " kB · observer snapshot "
+            + (observed > 0 ? new Date(observed * 1000).toISOString() : "unavailable")
+            + " · source refresh " + mempool.refresh_interval_seconds + " seconds");
+        if (tbody.contains(document.activeElement)) return;
+        tbody.textContent = "";
+        if (!mempool.transactions.length) {
+            var emptyRow = tbody.insertRow();
+            var empty = emptyRow.insertCell();
+            empty.className = "empty-table-message";
+            empty.colSpan = 5;
+            empty.textContent = "No pending transactions in the pool.";
+            return;
+        }
+        mempool.transactions.forEach(function (tx) {
+            var row = tbody.insertRow();
+            function cell(label, value) { var item = row.insertCell(); item.dataset.label = label; item.textContent = value; return item; }
+            cell("Age", relativeAge(tx.timestamp));
+            var hash = cell("Transaction hash", "");
+            var link = document.createElement("a");
+            link.href = "/tx/" + tx.hash;
+            link.className = "hash-link";
+            link.textContent = tx.hash;
+            hash.appendChild(link);
+            cell("Fee", tx.fee_qwc);
+            cell("In / out", tx.input_count + "/" + tx.output_count
+                + (tx.amount_availability === "confidential" ? " · confidential amounts" : ""));
+            cell("TX size", tx.size_kb);
+        });
+    }
+    function render(data) {
+        setText("metric-tip", data.tip_height);
+        setText("metric-hashrate", data.network.estimated_hashrate_display);
+        setText("metric-mempool", data.mempool.total_count);
+        setText("metric-supply", data.supply.complete ? data.supply.minted_supply_qwc + " QWC" : "Indexing " + data.supply.indexed_block_count + "/" + data.supply.block_count + " blocks");
+        setText("supply-state", data.supply.availability + " · indexed through " + data.supply.indexed_through_height + " · observed " + new Date(Number(data.supply.observed_at_unix) * 1000).toISOString());
+        setText("observer-status", "Network observed " + new Date(Number(data.network.observed_at_unix) * 1000).toISOString() + " · rendered " + new Date(Number(data.rendered_at_unix) * 1000).toISOString());
+        var observerStatus = byId("observer-status"); if (observerStatus) observerStatus.classList.remove("warning");
+        var networkStatus = byId("network-status");
+        if (networkStatus) {
+            var anchored = data.network.current === true && data.network.rpc_db_anchor_matches === true;
+            networkStatus.textContent = anchored ? "RPC/DB anchor current" : "RPC/DB anchor stale or inconsistent";
+            networkStatus.classList.toggle("ok", anchored); networkStatus.classList.toggle("warning", !anchored);
+        }
+        renderBlocks(data.blocks);
+        renderMempool(data.mempool);
+    }
+    function schedule(ms) { clearTimeout(timer); if (!document.hidden) timer = setTimeout(refresh, ms); }
+    function refresh() {
+        if (controller || document.hidden) return;
+        controller = new AbortController(); var timeout = setTimeout(function () { controller.abort(); }, 8000);
+        fetch("/api/v1/overview", {headers: {"Accept": "application/json"}, credentials: "same-origin", signal: controller.signal})
+            .then(function (response) { return response.json().then(function (body) { if (!response.ok || !body || body.status !== "success" || !body.data) throw new Error("Overview unavailable"); return body.data; }); })
+            .then(function (data) { render(data); delay = 15000; })
+            .catch(function () { delay = Math.min(delay * 2, 120000); setText("observer-status", "Refresh failed; displayed data is stale"); var status = byId("observer-status"); if (status) status.classList.add("warning"); })
+            .finally(function () { clearTimeout(timeout); controller = null; schedule(delay); });
+    }
+    document.addEventListener("visibilitychange", function () { if (document.hidden) { clearTimeout(timer); if (controller) controller.abort(); } else { refresh(); } });
+    refresh();
+}());
+</script>
+{{/show_network}}
 
 {{#show_epose}}
 <script>
@@ -122,17 +223,21 @@
     function text(id, value) { var el = byId(id); if (el) el.textContent = value === null || value === undefined || value === "" ? "—" : String(value); }
     function short(value) { value = String(value || ""); return value.length > 22 ? value.slice(0, 12) + "…" + value.slice(-8) : (value || "—"); }
     function state(value) { return value === true ? "yes" : value === false ? "no" : "unknown"; }
+    var timer = null, controllers = [], delay = 30000;
     function request(path) {
-        return fetch(path, {headers: {"Accept": "application/json"}, credentials: "same-origin"}).then(function (response) {
+        var controller = new AbortController(); controllers.push(controller); var timeout = setTimeout(function () { controller.abort(); }, 8000);
+        return fetch(path, {headers: {"Accept": "application/json"}, credentials: "same-origin", signal: controller.signal}).then(function (response) {
             return response.json().catch(function () { throw new Error("Malformed JSON response"); }).then(function (body) {
                 if (!response.ok || !body || body.status !== "success" || !body.data) throw new Error(body && (body.message || (body.data && body.data.title)) || "Explorer API unavailable");
                 return body.data;
             });
-        });
+        }).finally(function () { clearTimeout(timeout); });
     }
     function renderNodes(payload) {
         var tbody = byId("epose-service-node-rows");
-        var nodes = Array.isArray(payload.service_nodes) ? payload.service_nodes : [];
+        if (!Array.isArray(payload.service_nodes)) throw new Error("Malformed service-node list");
+        var nodes = payload.service_nodes;
+        if (tbody.contains(document.activeElement)) return;
         tbody.textContent = "";
         if (!nodes.length) {
             var emptyRow = tbody.insertRow(); var emptyCell = emptyRow.insertCell(); emptyCell.colSpan = 5; emptyCell.textContent = "Successful empty set for source epoch " + payload.source_epoch + "."; return;
@@ -146,25 +251,34 @@
             var reachability = row.insertCell(); reachability.dataset.label = "Reachability"; reachability.textContent = node.reachability || "unavailable";
         });
     }
+    function refresh() { controllers = [];
     Promise.allSettled([request("/api/v1/epose"), request("/api/v1/epose/service-nodes"), request("/api/v1/epose/rewards")]).then(function (results) {
+        var hadFailure = results.some(function (result) { return result.status === "rejected"; });
+        delay = hadFailure ? Math.min(delay * 2, 120000) : 30000;
         var infoResult = results[0], nodesResult = results[1], rewardsResult = results[2];
-        text("epose-status", "Unanchored observer data"); byId("epose-status").classList.add("warning");
+        text("epose-status", hadFailure ? "Partial observer data · unanchored" : "Unanchored observer data"); byId("epose-status").classList.add("warning");
         if (infoResult.status === "fulfilled") {
             var info = infoResult.value;
-            text("epose-qualified", info.qualified_count);
+            text("epose-qualified", info.qualified_count + " · epoch " + info.current_epoch);
             text("epose-range", info.epoch_start_height + "–" + info.epoch_end_height);
+            var epochLength = Number(info.epoch_end_height) - Number(info.epoch_start_height) + 1;
+            var epochPosition = Number(info.observer_tip_height) - Number(info.epoch_start_height) + 1;
+            if (Number.isFinite(epochLength) && epochLength > 0 && Number.isFinite(epochPosition)) {
+                epochPosition = Math.max(0, Math.min(epochLength, epochPosition));
+                text("epose-progress", epochPosition + " / " + epochLength + " blocks (" + (epochPosition * 100 / epochLength).toFixed(1) + "%)");
+            } else { text("epose-progress", "unavailable"); }
             text("epose-protocol", "v" + info.protocol_version);
             text("epose-state-hash", info.state_hash);
         } else {
-            text("epose-qualified", "unavailable"); text("epose-range", "unavailable");
+            text("epose-qualified", "unavailable"); text("epose-range", "unavailable"); text("epose-progress", "unavailable");
             text("epose-protocol", "unavailable"); text("epose-state-hash", "unavailable");
         }
         if (nodesResult.status === "fulfilled") {
             var nodes = nodesResult.value;
-            text("epose-epoch", nodes.source_epoch); text("epose-node-count", nodes.returned_count);
+            text("epose-epoch", nodes.source_epoch); text("epose-node-count", "showing " + nodes.returned_count + " of " + nodes.total_count + (nodes.returned_count < nodes.total_count ? " (truncated)" : ""));
             var observed = Number(nodes.observed_at_unix);
             text("epose-observed-at", Number.isFinite(observed) && observed > 0 ? new Date(observed * 1000).toISOString() : "unavailable");
-            renderNodes(nodes);
+            try { renderNodes(nodes); } catch (error) { text("epose-node-count", "unavailable"); var failedBody = byId("epose-service-node-rows"); failedBody.textContent = ""; var failedRow = failedBody.insertRow(); var failedCell = failedRow.insertCell(); failedCell.colSpan = 5; failedCell.textContent = error.message; delay = Math.min(delay * 2, 120000); }
         } else {
             text("epose-epoch", "unavailable"); text("epose-node-count", "unavailable"); text("epose-observed-at", "unavailable");
             var tbody = byId("epose-service-node-rows"); tbody.textContent = ""; var row = tbody.insertRow(); var cell = row.insertCell(); cell.colSpan = 5; cell.textContent = nodesResult.reason.message;
@@ -175,7 +289,9 @@
         } else {
             text("epose-reward-preview", "unavailable");
         }
-    });
+    }).catch(function () { text("epose-status", "Refresh failed; data may be stale"); delay = Math.min(delay * 2, 120000); }).finally(function () { if (!document.hidden) timer = setTimeout(refresh, delay); }); }
+    document.addEventListener("visibilitychange", function () { if (document.hidden) { clearTimeout(timer); controllers.forEach(function (controller) { controller.abort(); }); } else { refresh(); } });
+    refresh();
 }());
 </script>
 {{/show_epose}}

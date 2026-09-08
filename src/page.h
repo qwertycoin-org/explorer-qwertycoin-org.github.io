@@ -26,8 +26,11 @@
 #include "rpccalls.h"
 #include "epose/compiled_profile_v2.h"
 
-#include "CurrentBlockchainStatus.h"
 #include "MempoolStatus.h"
+#include "SupplyIndex.h"
+#include "exact_amount.h"
+#include "hashrate.h"
+#include "transaction_amounts.h"
 
 #include "../ext/crow_all.h"
 
@@ -349,6 +352,7 @@ struct tx_details
     size_t   version;
 
     bool has_additional_tx_pub_keys {false};
+    bool confidential_amounts {false};
 
     uint64_t unlock_time;
     uint64_t no_confirmations;
@@ -404,10 +408,11 @@ struct tx_details
                 {"fee_micro"         , fee_micro_str},
                 {"payed_for_kB"      , payed_for_kB_str},
                 {"payed_for_kB_micro", payed_for_kB_micro_str},
-                {"sum_inputs"        , xmr_amount_to_str(xmr_inputs , "{:0.6f}")},
-                {"sum_outputs"       , xmr_amount_to_str(xmr_outputs, "{:0.6f}")},
-                {"sum_inputs_short"  , xmr_amount_to_str(xmr_inputs , "{:0.3f}")},
-                {"sum_outputs_short" , xmr_amount_to_str(xmr_outputs, "{:0.3f}")},
+                {"sum_inputs"        , confidential_amounts ? string("confidential") : xmr_amount_to_str(xmr_inputs , "{:0.6f}")},
+                {"sum_outputs"       , confidential_amounts ? string("confidential") : xmr_amount_to_str(xmr_outputs, "{:0.6f}")},
+                {"sum_inputs_short"  , confidential_amounts ? string("confidential") : xmr_amount_to_str(xmr_inputs , "{:0.3f}")},
+                {"sum_outputs_short" , confidential_amounts ? string("confidential") : xmr_amount_to_str(xmr_outputs, "{:0.3f}")},
+                {"amount_availability", confidential_amounts ? string("confidential") : string("public")},
                 {"no_inputs"         , static_cast<uint64_t>(input_key_imgs.size())},
                 {"no_outputs"        , static_cast<uint64_t>(output_pub_keys.size())},
                 {"no_nonrct_inputs"  , num_nonrct_inputs},
@@ -482,6 +487,7 @@ static const bool FULL_AGE_FORMAT {true};
 MicroCore* mcore;
 Blockchain* core_storage;
 rpccalls rpc;
+SupplyIndex* supply_index;
 
 atomic<time_t> server_timestamp;
 
@@ -521,11 +527,24 @@ string js_html_files_all_in_one;
 // this will improve performance of the explorer and reduce
 // read operation in OS
 map<string, string> template_file;
+std::mutex overview_cache_mutex;
+json overview_cache;
+uint64_t overview_cache_time {0};
+std::mutex epose_info_cache_mutex;
+std::mutex epose_nodes_cache_mutex;
+std::mutex epose_rewards_cache_mutex;
+json epose_info_cache;
+json epose_nodes_cache;
+json epose_rewards_cache;
+uint64_t epose_info_cache_time {0};
+uint64_t epose_nodes_cache_time {0};
+uint64_t epose_rewards_cache_time {0};
 
 public:
 
 page(MicroCore* _mcore,
      Blockchain* _core_storage,
+     SupplyIndex* _supply_index,
      string _daemon_url,
      cryptonote::network_type _nettype,
      bool _enable_pusher,
@@ -544,6 +563,7 @@ page(MicroCore* _mcore,
      rpccalls::login_opt _daemon_rpc_login)
         : mcore {_mcore},
           core_storage {_core_storage},
+          supply_index {_supply_index},
           rpc {_daemon_url, _daemon_rpc_login},
           server_timestamp {std::time(nullptr)},
           nettype {_nettype},
@@ -603,7 +623,8 @@ page(MicroCore* _mcore,
  * @return rendered index page
  */
 string
-index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview")
+index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview",
+       uint64_t snapshot_block_count = 0, string snapshot_tip_hash = "")
 {
     const bool show_network = view == "overview" || view == "network";
     const bool show_blocks = view == "overview" || view == "blocks";
@@ -617,6 +638,21 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
 
     // get the current blockchain height. Just to check
     uint64_t height = core_storage->get_current_blockchain_height();
+    if (snapshot_block_count > 0)
+    {
+        if (snapshot_block_count > height || snapshot_tip_hash.size() != 64
+            || pod_to_hex(core_storage->get_block_id_by_height(snapshot_block_count - 1))
+                    != snapshot_tip_hash)
+            return "Block-page snapshot was invalidated by a chain change. Return to /blocks to restart pagination.";
+    }
+    else
+    {
+        snapshot_block_count = height;
+        snapshot_tip_hash = height > 0
+                ? pod_to_hex(core_storage->get_block_id_by_height(height - 1)) : string {};
+    }
+    const string snapshot_query = "?block_count=" + std::to_string(snapshot_block_count)
+            + "&tip_hash=" + snapshot_tip_hash;
 
     // get current network info from MemoryStatus thread.
     MempoolStatus::network_info current_network_info
@@ -624,13 +660,21 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
 
     // number of last blocks to show
     uint64_t no_of_last_blocks = show_blocks
-            ? std::min(no_blocks_on_index + 1, height) : 0;
+            ? std::min(no_blocks_on_index + 1, snapshot_block_count) : 0;
 
     // initalise page tempate map with basic info about blockchain
     const uint64_t blocks_per_page = show_blocks
-            ? std::min(no_blocks_on_index + 1, height) : 0;
-    const uint64_t total_page_no = height > 0 && blocks_per_page > 0
-            ? (height - 1) / blocks_per_page : 0;
+            ? std::min(no_blocks_on_index + 1, snapshot_block_count) : 0;
+    const uint64_t total_pages = snapshot_block_count > 0 && blocks_per_page > 0
+            ? ((snapshot_block_count - 1) / blocks_per_page) + 1 : 0;
+    const uint64_t total_page_no = total_pages > 0 ? total_pages - 1 : 0;
+    const descending_block_range block_range = show_blocks
+            ? make_descending_block_range(snapshot_block_count,
+                    page_no <= std::numeric_limits<uint64_t>::max() / std::max<uint64_t>(1, blocks_per_page)
+                        ? page_no * blocks_per_page : height,
+                    blocks_per_page)
+            : descending_block_range {};
+    const supply_snapshot supply = supply_index ? supply_index->snapshot() : supply_snapshot {};
 
     mstch::map context {
             {"testnet"                  , testnet},
@@ -645,17 +689,19 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
             {"server_timestamp"         , xmreg::timestamp_to_str_gm(local_copy_server_timestamp)},
             {"age_format"               , string("[h:m:d]")},
             {"page_no"                  , page_no},
+            {"page_display"             , page_no + 1},
             {"total_page_no"            , total_page_no},
+            {"total_pages"              , total_pages},
             {"is_page_zero"             , !bool(page_no)},
             {"is_last_page"             , page_no >= total_page_no},
-            {"no_of_last_blocks"        , no_of_last_blocks},
+            {"no_of_last_blocks"        , block_range.returned_count},
             {"next_page"                , (page_no + 1)},
             {"prev_page"                , (page_no > 0 ? page_no - 1 : 0)},
             {"first_page_url"            , blocks_only ? string("/blocks") : string("/")},
             {"next_page_url"             , (blocks_only ? string("/blocks/") : string("/page/"))
-                                                 + std::to_string(page_no + 1)},
+                                                 + std::to_string(page_no + 1) + snapshot_query},
             {"prev_page_url"             , (blocks_only ? string("/blocks/") : string("/page/"))
-                                                 + std::to_string(page_no > 0 ? page_no - 1 : 0)},
+                                                 + std::to_string(page_no > 0 ? page_no - 1 : 0) + snapshot_query},
             {"enable_pusher"            , enable_pusher},
             {"enable_key_image_checker" , enable_key_image_checker},
             {"enable_output_key_checker", enable_output_key_checker},
@@ -669,21 +715,22 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
     context["is_blocks_page"] = view == "blocks";
     context["is_service_nodes_page"] = view == "service-nodes";
     context["is_epochs_page"] = view == "epochs";
+    context["supply_complete"] = supply.complete;
+    context["supply_availability"] = supply.availability;
+    context["supply_mined"] = supply.complete
+            ? format_atomic_decimal_string(supply.minted_supply_atomic, 8)
+            : string("Indexing ") + std::to_string(supply.indexed_block_count)
+                + "/" + std::to_string(supply.block_count) + " blocks";
+    context["supply_observed_at"] = supply.observed_at > 0
+            ? timestamp_to_str_gm(supply.observed_at) : string("unavailable");
 
     context.emplace("blocks", mstch::array());
     mstch::array& blocks = boost::get<mstch::array>(context["blocks"]);
 
-    // calculate starting and ending block numbers to show
-    const bool valid_page = no_of_last_blocks > 0
-            && page_no <= std::numeric_limits<uint64_t>::max() / no_of_last_blocks;
-    const uint64_t offset = valid_page ? page_no * no_of_last_blocks : height;
-    const uint64_t page_end = valid_page
-            && offset <= std::numeric_limits<uint64_t>::max() - no_of_last_blocks
-            ? offset + no_of_last_blocks
-            : std::numeric_limits<uint64_t>::max();
-    int64_t start_height = page_end >= height ? 0 : static_cast<int64_t>(height - page_end);
-    int64_t end_height = offset >= height ? -1
-            : static_cast<int64_t>(std::min<uint64_t>(height - 1, start_height + no_of_last_blocks - 1));
+    const int64_t start_height = block_range.empty
+            ? 0 : static_cast<int64_t>(block_range.begin);
+    const int64_t end_height = block_range.empty
+            ? -1 : static_cast<int64_t>(block_range.end_exclusive - 1);
 
     // loop index
     int64_t i = end_height;
@@ -761,25 +808,21 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
 
     } // while (i <= end_height)
 
+    if (snapshot_block_count > 0
+        && (core_storage->get_current_blockchain_height() < snapshot_block_count
+            || pod_to_hex(core_storage->get_block_id_by_height(snapshot_block_count - 1))
+                    != snapshot_tip_hash))
+        return "Block-page snapshot changed while it was rendered. Return to /blocks to restart pagination.";
+
     // calculate median size of the blocks shown
     //double blk_size_median = xmreg::calc_median(blk_sizes.begin(), blk_sizes.end());
 
     // perapre network info mstch::map for the front page
-    string hash_rate;
-
-    double hr_d;
-    char metric_prefix;
-
-    cryptonote::difficulty_type hr = make_difficulty(
-            current_network_info.hash_rate,
-            current_network_info.hash_rate_top64);
-
-    get_metric_prefix(hr, hr_d, metric_prefix);
-
-    if (metric_prefix != 0)
-        hash_rate = fmt::format("{:0.3f} {:c}H/s", hr_d, metric_prefix);
-    else
-        hash_rate = fmt::format("{:s} H/s", hr.str());
+    const cryptonote::difficulty_type current_difficulty = make_difficulty(
+            current_network_info.difficulty,
+            current_network_info.difficulty_top64);
+    const string hash_rate = format_hashrate_si(current_difficulty,
+                                                current_network_info.target);
 
     const uint64_t height_after_render = core_storage->get_current_blockchain_height();
     const crypto::hash db_tip_hash = height_after_render > 0
@@ -796,6 +839,10 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
                                      + current_network_info.outgoing_connections_count;
     const string network_name = current_network_info.nettype == cryptonote::network_type::TESTNET ? "testnet" :
                                 current_network_info.nettype == cryptonote::network_type::STAGENET ? "stagenet" : "mainnet";
+    block observed_tip_block;
+    const bool last_block_time_available = height > 0
+            && mcore->get_block_by_height(height - 1, observed_tip_block)
+            && observed_tip_block.timestamp > 0;
 
     context["network_info"] = mstch::map {
             {"network_name"      , network_name},
@@ -822,6 +869,10 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
             {"chain_anchor_consistent", chain_anchor_consistent},
             {"is_pool_size_zero" , (current_network_info.tx_pool_size == 0)},
             {"current_hf_version", current_network_info.current_hf_version},
+            {"last_block_time_available", last_block_time_available},
+            {"last_block_time", last_block_time_available
+                    ? xmreg::timestamp_to_str_gm(observed_tip_block.timestamp)
+                    : string("unavailable")},
             {"age"               , network_info_age.first},
             {"age_format"        , network_info_age.second},
     };
@@ -862,9 +913,10 @@ string
 mempool(bool add_header_and_footer = false, uint64_t no_of_mempool_tx = 25)
 {
     // Use shared_ptr to avoid deep copy of mempool transactions
-    auto mempool_txs = add_header_and_footer
-        ? MempoolStatus::get_mempool_txs()
-        : MempoolStatus::get_mempool_txs(no_of_mempool_tx);
+    const auto mempool_snapshot = MempoolStatus::get_mempool_snapshot(
+            add_header_and_footer ? (std::numeric_limits<uint64_t>::max)()
+                                  : no_of_mempool_tx);
+    auto mempool_txs = mempool_snapshot.transactions;
 
     if (!mempool_txs)
         mempool_txs = std::make_shared<std::vector<MempoolStatus::mempool_tx>>();
@@ -879,13 +931,13 @@ mempool(bool add_header_and_footer = false, uint64_t no_of_mempool_tx = 25)
     }
 
     // total size of mempool in bytes
-    uint64_t mempool_size_bytes = MempoolStatus::mempool_size;
+    uint64_t mempool_size_bytes = mempool_snapshot.size_bytes;
 
     // reasign this number, in case no of txs in mempool is smaller
     // than what we requested or we want all txs.
 
 
-    uint64_t total_no_of_mempool_tx = MempoolStatus::mempool_no;
+    uint64_t total_no_of_mempool_tx = mempool_snapshot.total_count;
 
     // initalise page tempate map with basic info about mempool
     mstch::map context {
@@ -1126,7 +1178,6 @@ show_block(uint64_t _blk_height)
 
     // initalise page tempate map with basic info about blockchain
 
-    string blk_pow_hash_str = pod_to_hex(get_block_longhash(core_storage, blk, _blk_height, 0));
     cryptonote::difficulty_type blk_difficulty = core_storage->get_db().get_block_difficulty(_blk_height);
 
     mstch::map context {
@@ -1152,7 +1203,6 @@ show_block(uint64_t _blk_height)
             {"blk_age"              , blk.timestamp > 0 ? age.first : string("unavailable")},
             {"delta_time"           , delta_time},
             {"blk_nonce"            , blk.nonce},
-            {"blk_pow_hash"         , blk_pow_hash_str},
             {"is_randomx"           , (blk.major_version >= 12
                                             && enable_randomx == true)},
             {"blk_difficulty"       , blk_difficulty.str()},
@@ -4985,7 +5035,9 @@ json_rawblock(string block_no_or_hash)
  * https://labs.omniti.com/labs/jsend
  */
 json
-json_transactions(string _page, string _limit)
+json_transactions(string _page, string _limit,
+                  string _snapshot_block_count = "",
+                  string _snapshot_tip_hash = "")
 {
     json j_response {
             {"status", "fail"},
@@ -5010,29 +5062,35 @@ json_transactions(string _page, string _limit)
 
     uint64_t local_copy_server_timestamp = server_timestamp;
 
-    uint64_t height = core_storage->get_current_blockchain_height();
+    const uint64_t live_height = core_storage->get_current_blockchain_height();
+    uint64_t height = live_height;
+    if (!_snapshot_block_count.empty() || !_snapshot_tip_hash.empty())
+    {
+        if (_snapshot_block_count.empty() || _snapshot_tip_hash.size() != 64
+            || !parse_uint64_strict(_snapshot_block_count, height)
+            || height == 0 || height > live_height
+            || pod_to_hex(core_storage->get_block_id_by_height(height - 1)) != _snapshot_tip_hash)
+        {
+            j_response["status"] = "fail";
+            j_data["title"] = "Pagination snapshot is invalid or was reorganized; restart from page 0";
+            return j_response;
+        }
+    }
+    const string snapshot_tip_hash = height > 0
+            ? pod_to_hex(core_storage->get_block_id_by_height(height - 1)) : string {};
 
-    // calculate starting and ending block numbers to show
-    const uint64_t offset = pagination.offset;
-    const uint64_t page_end = offset > std::numeric_limits<uint64_t>::max() - limit
-            ? std::numeric_limits<uint64_t>::max()
-            : offset + limit;
-    int64_t start_height = page_end >= height
-            ? 0
-            : static_cast<int64_t>(height - page_end);
-
-    // check if start height is not below range
-    start_height = start_height < 0 ? 0 : start_height;
-
-    int64_t end_height = offset >= height
-            ? -1
-            : static_cast<int64_t>(std::min<uint64_t>(height - 1, start_height + limit - 1));
+    const descending_block_range range = make_descending_block_range(
+            height, pagination.offset, limit);
+    const int64_t start_height = range.empty ? 0 : static_cast<int64_t>(range.begin);
+    const int64_t end_height = range.empty ? -1 : static_cast<int64_t>(range.end_exclusive - 1);
 
     // loop index
     int64_t i = end_height;
 
     j_data["blocks"] = json::array();
     json& j_blocks = j_data["blocks"];
+    uint64_t expanded_transaction_count {0};
+    constexpr uint64_t maximum_expanded_transactions = 5000;
 
     // iterate over last no_of_last_blocks of blocks
     while (i >= start_height)
@@ -5055,6 +5113,14 @@ json_transactions(string _page, string _limit)
         // get block age
         pair<string, string> age = get_age(local_copy_server_timestamp, blk.timestamp);
 
+        if (blk.tx_hashes.size() + 1 > maximum_expanded_transactions - expanded_transaction_count)
+        {
+            j_response["status"] = "fail";
+            j_data["title"] = "Requested page exceeds the expanded transaction response budget";
+            return j_response;
+        }
+        expanded_transaction_count += blk.tx_hashes.size() + 1;
+
         j_blocks.push_back(json {
                 {"height"       , i},
                 {"hash"         , pod_to_hex(blk_hash)},
@@ -5070,14 +5136,13 @@ json_transactions(string _page, string _limit)
         vector<cryptonote::transaction> blk_txs {blk.miner_tx};
         vector<crypto::hash> missed_txs;
 
-        if (!core_storage->get_transactions(blk.tx_hashes, blk_txs, missed_txs))
+        if (!core_storage->get_transactions(blk.tx_hashes, blk_txs, missed_txs)
+            || !missed_txs.empty() || blk_txs.size() != blk.tx_hashes.size() + 1)
         {
             j_response["status"]  = "error";
             j_response["message"] = fmt::format("Cant get transactions in block: {:d}", i);
             return j_response;
         }
-
-        (void) missed_txs;
 
         for(auto it = blk_txs.begin(); it != blk_txs.end(); ++it)
         {
@@ -5094,6 +5159,24 @@ json_transactions(string _page, string _limit)
     j_data["page"]           = page;
     j_data["limit"]          = limit;
     j_data["current_height"] = height;
+    j_data["block_count"] = height;
+    j_data["tip_height"] = height > 0 ? height - 1 : 0;
+    j_data["tip_hash"] = snapshot_tip_hash;
+    j_data["snapshot_block_count"] = height;
+    j_data["snapshot_tip_hash"] = snapshot_tip_hash;
+    j_data["returned_count"] = j_blocks.size();
+    j_data["expanded_transaction_count"] = expanded_transaction_count;
+    j_data["maximum_expanded_transactions"] = maximum_expanded_transactions;
+
+    if (height > 0
+        && (core_storage->get_current_blockchain_height() < height
+            || pod_to_hex(core_storage->get_block_id_by_height(height - 1))
+                    != snapshot_tip_hash))
+    {
+        j_response["status"] = "error";
+        j_response["message"] = "Canonical chain changed while serializing this page";
+        return j_response;
+    }
 
     j_data["total_page_no"]  = height > 0 ? ((height - 1) / limit) : 0;
 
@@ -5719,14 +5802,8 @@ json_networkinfo()
         return j_response;
     }
 
-    uint64_t per_kb_fee_estimated {0};
-    bool fee_estimate_available {true};
-
-    // get dynamic fee estimate from last 10 blocks
-    if (!get_dynamic_per_kb_fee_estimate(per_kb_fee_estimated))
-    {
-        fee_estimate_available = false;
-    }
+    const uint64_t per_kb_fee_estimated = MempoolStatus::current_network_info.load().fee_per_kb;
+    const bool fee_estimate_available = per_kb_fee_estimated > 0;
 
     j_info["fee_per_kb_atomic"] = fee_estimate_available
             ? json(std::to_string(per_kb_fee_estimated)) : json(nullptr);
@@ -5737,8 +5814,20 @@ json_networkinfo()
     j_info["fee_estimate_grace_blocks"] = FEE_ESTIMATE_GRACE_BLOCKS;
     j_info["fee_estimate_availability"] = fee_estimate_available ? "current" : "unavailable";
 
-    j_info["tx_pool_size"]        = MempoolStatus::mempool_no.load();
-    j_info["tx_pool_size_kbytes"] = MempoolStatus::mempool_size.load();
+    const auto local_mempool = MempoolStatus::get_mempool_snapshot(0);
+    j_info["observer_mempool_count"] = local_mempool.total_count;
+    j_info["observer_mempool_size_bytes"] = local_mempool.size_bytes;
+    j_info["observer_mempool_observed_at_unix"] = local_mempool.observed_at;
+    const uint64_t observer_block_count = core_storage->get_current_blockchain_height();
+    block observed_tip_block;
+    const bool last_block_available = observer_block_count > 0
+            && mcore->get_block_by_height(observer_block_count - 1, observed_tip_block)
+            && observed_tip_block.timestamp > 0;
+    j_info["observer_block_count"] = observer_block_count;
+    j_info["observer_tip_height"] = observer_block_count > 0
+            ? json(observer_block_count - 1) : json(nullptr);
+    j_info["last_block_timestamp"] = last_block_available
+            ? json(observed_tip_block.timestamp) : json(nullptr);
 
     j_data = j_info;
 
@@ -5748,8 +5837,136 @@ json_networkinfo()
 }
 
 json
+json_overview()
+{
+    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+    std::lock_guard<std::mutex> cache_lock {overview_cache_mutex};
+    if (!overview_cache.is_null() && now >= overview_cache_time
+        && now - overview_cache_time < 5)
+        return overview_cache;
+
+    json response {{"status", "error"}, {"data", json {}}};
+    json network = json_networkinfo();
+    json supply = json_emission();
+    if (network.value("status", "error") != "success"
+        || supply.value("status", "error") != "success")
+    {
+        response["message"] = "Required overview snapshots are unavailable";
+        overview_cache = response;
+        overview_cache_time = now;
+        return response;
+    }
+
+    const uint64_t block_count = core_storage->get_current_blockchain_height();
+    if (block_count == 0)
+    {
+        response["message"] = "Canonical chain is empty";
+        return response;
+    }
+    const string tip_hash = pod_to_hex(core_storage->get_block_id_by_height(block_count - 1));
+    json blocks = json::array();
+    const auto range = make_descending_block_range(block_count, 0,
+            std::min<uint64_t>(no_blocks_on_index + 1, 25));
+    for (uint64_t cursor = range.end_exclusive; cursor > range.begin; --cursor)
+    {
+        const uint64_t height = cursor - 1;
+        block blk;
+        if (!mcore->get_block_by_height(height, blk))
+        {
+            response["message"] = "Cannot read a canonical overview block";
+            return response;
+        }
+        std::vector<transaction> txs;
+        std::vector<crypto::hash> missed;
+        if (!core_storage->get_transactions(blk.tx_hashes, txs, missed, true)
+            || !missed.empty() || txs.size() != blk.tx_hashes.size())
+        {
+            response["message"] = "Cannot read every overview transaction";
+            return response;
+        }
+        uint64_t fees = 0;
+        for (const auto& tx : txs)
+        {
+            const uint64_t fee = get_tx_fee(tx);
+            if (fee > std::numeric_limits<uint64_t>::max() - fees)
+            {
+                response["message"] = "Overview fee total overflow";
+                return response;
+            }
+            fees += fee;
+        }
+        const uint64_t coinbase = get_outs_money_amount(blk.miner_tx);
+        blocks.push_back(json {
+                {"height", height},
+                {"hash", pod_to_hex(core_storage->get_block_id_by_height(height))},
+                {"timestamp", blk.timestamp},
+                {"regular_tx_count", blk.tx_hashes.size()},
+                {"total_tx_count", blk.tx_hashes.size() + 1},
+                {"fees_qwc", format_atomic_amount(fees, COIN, 8)},
+                {"coinbase_total_qwc", format_atomic_amount(coinbase, COIN, 8)},
+                {"weight_kb", fmt::format("{:0.2f}",
+                    static_cast<double>(core_storage->get_db().get_block_weight(height)) / 1024.0)}
+        });
+    }
+    if (core_storage->get_current_blockchain_height() != block_count
+        || pod_to_hex(core_storage->get_block_id_by_height(block_count - 1)) != tip_hash)
+    {
+        response["message"] = "Canonical chain changed during overview snapshot";
+        return response;
+    }
+    network["data"]["rpc_db_anchor_matches"] =
+            network["data"].value("height", uint64_t {0}) == block_count
+            && network["data"].value("top_block_hash", string {}) == tip_hash;
+
+    json mempool_rows = json::array();
+    const auto mempool = MempoolStatus::get_mempool_snapshot(25);
+    if (mempool.transactions)
+    {
+        for (const auto& tx : *mempool.transactions)
+        {
+            mempool_rows.push_back(json {
+                    {"hash", pod_to_hex(tx.tx_hash)},
+                    {"timestamp", tx.receive_time},
+                    {"fee_qwc", tx.fee_str},
+                    {"outputs", tx.xmr_outputs_str},
+                    {"amount_availability", tx.confidential_amounts ? "confidential" : "public"},
+                    {"input_count", tx.no_inputs},
+                    {"output_count", tx.no_outputs},
+                    {"size_kb", tx.txsize}
+            });
+        }
+    }
+    response["data"] = json {
+            {"network", network.at("data")},
+            {"supply", supply.at("data")},
+            {"blocks", blocks},
+            {"mempool", {{"total_count", mempool.total_count},
+                         {"returned_count", mempool_rows.size()},
+                         {"size_kb", fmt::format("{:0.2f}",
+                             static_cast<double>(mempool.size_bytes) / 1024.0)},
+                         {"observed_at_unix", mempool.observed_at},
+                         {"refresh_interval_seconds", MempoolStatus::mempool_refresh_time},
+                         {"transactions", mempool_rows}}},
+            {"block_count", block_count},
+            {"tip_height", block_count - 1},
+            {"tip_hash", tip_hash},
+            {"rendered_at_unix", now},
+            {"cache_seconds", 5}
+    };
+    response["status"] = "success";
+    overview_cache = response;
+    overview_cache_time = now;
+    return response;
+}
+
+json
 json_epose_info()
 {
+    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+    std::lock_guard<std::mutex> cache_lock {epose_info_cache_mutex};
+    if (!epose_info_cache.is_null() && now >= epose_info_cache_time
+        && now - epose_info_cache_time < 15)
+        return epose_info_cache;
     json j_response {
             {"status", "fail"},
             {"data",   json {}}
@@ -5761,8 +5978,12 @@ json_epose_info()
     {
         j_response["status"] = "error";
         j_response["message"] = "Cant get EPoSE info";
+        epose_info_cache = j_response;
+        epose_info_cache_time = now;
         return j_response;
     }
+
+    const uint64_t observer_block_count = core_storage->get_current_blockchain_height();
 
     j_response["data"] = json {
             {"enabled", info.enabled},
@@ -5770,6 +5991,9 @@ json_epose_info()
             {"current_epoch", info.current_epoch},
             {"epoch_start_height", info.epoch_start_height},
             {"epoch_end_height", info.epoch_end_height},
+            {"observer_block_count", observer_block_count},
+            {"observer_tip_height", observer_block_count > 0
+                    ? json(observer_block_count - 1) : json(nullptr)},
             {"service_node_count", info.service_node_count},
             {"qualified_count", info.qualified_count},
             {"qualification_availability", "current"},
@@ -5784,10 +6008,14 @@ json_epose_info()
             {"local_service_node_expiry_epoch", info.local_service_node_expiry_epoch},
             {"local_service_public_key", info.local_service_public_key},
             {"local_service_reward_address", info.local_service_reward_address},
-            {"local_service_endpoint_commitment", info.local_service_endpoint_commitment}
+            {"local_service_endpoint_commitment", info.local_service_endpoint_commitment},
+            {"observed_at_unix", now},
+            {"cache_seconds", 15}
     };
 
     j_response["status"] = "success";
+    epose_info_cache = j_response;
+    epose_info_cache_time = now;
 
     return j_response;
 }
@@ -5795,6 +6023,11 @@ json_epose_info()
 json
 json_epose_service_nodes()
 {
+    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+    std::lock_guard<std::mutex> cache_lock {epose_nodes_cache_mutex};
+    if (!epose_nodes_cache.is_null() && now >= epose_nodes_cache_time
+        && now - epose_nodes_cache_time < 15)
+        return epose_nodes_cache;
     json j_response {
             {"status", "fail"},
             {"data",   json {}}
@@ -5806,6 +6039,8 @@ json_epose_service_nodes()
     {
         j_response["status"] = "error";
         j_response["message"] = "Cant get EPoSE service nodes";
+        epose_nodes_cache = j_response;
+        epose_nodes_cache_time = now;
         return j_response;
     }
 
@@ -5814,6 +6049,8 @@ json_epose_service_nodes()
     {
         j_response["status"] = "error";
         j_response["message"] = "Cant obtain the EPoSE source epoch";
+        epose_nodes_cache = j_response;
+        epose_nodes_cache_time = now;
         return j_response;
     }
 
@@ -5845,13 +6082,17 @@ json_epose_service_nodes()
             {"total_count", info.total_count},
             {"returned_count", info.returned_count},
             {"source_epoch", epoch_info.current_epoch},
-            {"observed_at_unix", static_cast<uint64_t>(std::time(nullptr))},
+            {"observed_at_unix", now},
             {"identity_key", "identity_id"},
             {"reachability_capability", "unsupported"},
-            {"snapshot_consistency", "unanchored"}
+            {"snapshot_consistency", "unanchored"},
+            {"truncated", info.returned_count < info.total_count},
+            {"cache_seconds", 15}
     };
 
     j_response["status"] = "success";
+    epose_nodes_cache = j_response;
+    epose_nodes_cache_time = now;
 
     return j_response;
 }
@@ -5859,6 +6100,11 @@ json_epose_service_nodes()
 json
 json_epose_rewards()
 {
+    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+    std::lock_guard<std::mutex> cache_lock {epose_rewards_cache_mutex};
+    if (!epose_rewards_cache.is_null() && now >= epose_rewards_cache_time
+        && now - epose_rewards_cache_time < 15)
+        return epose_rewards_cache;
     json j_response {
             {"status", "fail"},
             {"data",   json {}}
@@ -5870,6 +6116,8 @@ json_epose_rewards()
     {
         j_response["status"] = "error";
         j_response["message"] = "Cant get EPoSE service rewards";
+        epose_rewards_cache = j_response;
+        epose_rewards_cache_time = now;
         return j_response;
     }
 
@@ -5888,10 +6136,13 @@ json_epose_rewards()
             {"expected_reward_spend_public_key", info.preview_available
                     ? json(info.expected_reward_spend_public_key) : json(nullptr)},
             {"availability", info.preview_available ? "current" : "unsupported"},
-            {"observed_at_unix", static_cast<uint64_t>(std::time(nullptr))}
+            {"observed_at_unix", now},
+            {"cache_seconds", 15}
     };
 
     j_response["status"] = "success";
+    epose_rewards_cache = j_response;
+    epose_rewards_cache_time = now;
 
     return j_response;
 }
@@ -5939,6 +6190,7 @@ json_identity()
             });
     const bool compatible = mainnet && snapshot_current && anchor_matches && hf17 && epose_v2
             && genesis_matches && core_sha_recorded;
+    const uint64_t tip_height = chain_height - 1;
 
     j_response["data"] = json {
             {"network", mainnet ? "mainnet" : network_data.value("testnet", false) ? "testnet" : "stagenet"},
@@ -5952,9 +6204,11 @@ json_identity()
             {"epose_enabled", epose_data.value("enabled", false)},
             {"snapshot_current", snapshot_current},
             {"rpc_db_anchor_matches", anchor_matches},
-            {"chain_anchor", {{"height", network_data.value("height", chain_height)},
+            {"block_count", chain_height},
+            {"tip_height", tip_height},
+            {"chain_anchor", {{"height", tip_height},
                               {"hash", network_data.value("top_block_hash", string {})}}},
-            {"db_chain_anchor", {{"height", chain_height}, {"hash", db_tip_hash}}},
+            {"db_chain_anchor", {{"height", tip_height}, {"hash", db_tip_hash}}},
             {"explorer_source_sha", string {GIT_COMMIT_HASH}},
             {"core_source_sha", core_sha},
             {"core_source_sha_recorded", core_sha_recorded},
@@ -6030,39 +6284,34 @@ json_feeestimate(string grace_blocks_str)
 json
 json_emission()
 {
-    json j_response {
-            {"status", "fail"},
-            {"data",   json {}}
-    };
-
-    json& j_data = j_response["data"];
-
-    json j_info;
-
-    // get basic network info
-    if (!CurrentBlockchainStatus::is_thread_running())
+    json j_response {{"status", "error"}, {"data", json {}}};
+    if (!supply_index)
     {
-        j_data["title"] = "Emission monitoring thread not enabled.";
+        j_response["message"] = "Supply index is unavailable";
         return j_response;
     }
-    else
-    {
-        CurrentBlockchainStatus::Emission current_values
-                = CurrentBlockchainStatus::get_emission();
-
-        string emission_blk_no   = std::to_string(current_values.blk_no - 1);
-        string emission_coinbase = xmr_amount_to_str(current_values.coinbase, "{:0.3f}");
-        string emission_fee      = xmr_amount_to_str(current_values.fee, "{:0.4f}", false);
-
-        j_data = json {
-                {"blk_no"  , current_values.blk_no - 1},
-                {"coinbase", current_values.coinbase},
-                {"fee"     , current_values.fee},
-        };
-    }
-
-    j_response["status"]  = "success";
-
+    const supply_snapshot current = supply_index->snapshot();
+    j_response["data"] = json {
+            {"availability", current.availability},
+            {"complete", current.complete},
+            {"calculation_version", current.calculation_version},
+            {"chain_reset_id", current.chain_reset_id},
+            {"minted_supply_atomic", current.minted_supply_atomic},
+            {"minted_supply_qwc", format_atomic_decimal_string(current.minted_supply_atomic, 8)},
+            {"gross_coinbase_atomic", current.gross_coinbase_atomic},
+            {"cumulative_fees_atomic", current.cumulative_fees_atomic},
+            {"block_count", current.block_count},
+            {"tip_height", current.tip_height},
+            {"tip_hash", current.tip_hash},
+            {"genesis_hash", current.genesis_hash},
+            {"indexed_block_count", current.indexed_block_count},
+            {"indexed_through_height", current.indexed_through_height},
+            {"indexed_through_hash", current.indexed_through_hash},
+            {"observed_at_unix", current.observed_at}
+    };
+    if (!current.message.empty())
+        j_response["data"]["message"] = current.message;
+    j_response["status"] = "success";
     return j_response;
 }
 
@@ -6924,6 +7173,7 @@ get_tx_details(const transaction& tx,
     txd.xmr_inputs        = sum_data[1];
     txd.mixin_no          = sum_data[2];
     txd.num_nonrct_inputs = sum_data[3];
+    txd.confidential_amounts = transaction_amounts_confidential(tx);
 
     txd.fee = 0;
 
@@ -7114,14 +7364,19 @@ get_monero_network_info(json& j_info)
     MempoolStatus::network_info local_copy_network_info
         = MempoolStatus::current_network_info;
 
+    const cryptonote::difficulty_type difficulty = make_difficulty(
+            local_copy_network_info.difficulty,
+            local_copy_network_info.difficulty_top64);
     j_info = json {
        {"status"                    , local_copy_network_info.current},
        {"current"                   , local_copy_network_info.current},
        {"height"                    , local_copy_network_info.height},
        {"target_height"             , local_copy_network_info.target_height},
-       {"difficulty"                , make_difficulty(local_copy_network_info.difficulty, local_copy_network_info.difficulty_top64).str()},
+       {"difficulty"                , difficulty.str()},
        {"target"                    , local_copy_network_info.target},
-       {"hash_rate"                 , local_copy_network_info.hash_rate},
+       {"estimated_hashrate_hps"    , decimal_ratio(difficulty, hashrate_wide {local_copy_network_info.target}, 8)},
+       {"estimated_hashrate_display", format_hashrate_si(difficulty, local_copy_network_info.target)},
+       {"hashrate_estimator"        , "next_block_difficulty_divided_by_target_interval"},
        {"tx_count"                  , local_copy_network_info.tx_count},
        {"tx_pool_size"              , local_copy_network_info.tx_pool_size},
        {"alt_blocks_count"          , local_copy_network_info.alt_blocks_count},
@@ -7137,7 +7392,8 @@ get_monero_network_info(json& j_info)
        {"block_size_median"         , local_copy_network_info.block_size_median},
        {"start_time"                , local_copy_network_info.start_time},
        {"fee_per_kb"                , local_copy_network_info.fee_per_kb},
-       {"current_hf_version"        , local_copy_network_info.current_hf_version}
+       {"current_hf_version"        , local_copy_network_info.current_hf_version},
+       {"observed_at_unix"          , local_copy_network_info.info_timestamp}
     };
 
     return local_copy_network_info.current;

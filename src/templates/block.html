@@ -6,6 +6,7 @@
         <div class="block-identity-item block-identity-primary">
             <span class="metric-label">Block hash</span>
             <code>{{blk_hash}}</code>
+            <button class="copy-hash" type="button" data-copy="{{blk_hash}}" aria-label="Copy block hash {{blk_hash}}">Copy</button>
             <span class="block-height-pill">Height {{blk_height}}</span>
         </div>
 
@@ -45,7 +46,7 @@
             <td data-label="Transactions"><span class="desktop-label">Transactions: </span>{{total_txs}} ({{no_txs}} regular + coinbase)</td>
         </tr>
         <tr>
-            <td data-label="PoW hash"><span class="desktop-label">PoW hash: </span><code>{{blk_pow_hash}}</code></td>
+            <td data-label="PoW verification"><span class="desktop-label">PoW verification: </span>validated by canonical chain; not recalculated per page view</td>
             <td data-label="Difficulty"><span class="desktop-label">Difficulty: </span>{{blk_difficulty}}</td>
             {{#is_randomx}}
                 <td data-label="RandomX"><a href="/randomx/{{blk_height}}">RandomX source code</a></td>

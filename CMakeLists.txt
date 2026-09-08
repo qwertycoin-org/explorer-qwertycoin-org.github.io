@@ -133,6 +133,9 @@ if(BUILD_TESTING)
     add_executable(explorer_regression_tests tests/regression_tests.cpp)
     target_include_directories(explorer_regression_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME explorer_regression_tests COMMAND explorer_regression_tests)
+    add_executable(transaction_semantics_tests tests/transaction_semantics_tests.cpp)
+    target_include_directories(transaction_semantics_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME transaction_semantics_tests COMMAND transaction_semantics_tests)
     add_test(NAME privacy_routes
             COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/privacy_routes.cmake)
@@ -224,3 +227,6 @@ find_package(HIDAPI)
 set(LIBRARIES ${LIBRARIES} ${HIDAPI_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
+if(BUILD_TESTING)
+    target_link_libraries(transaction_semantics_tests ${LIBRARIES})
+endif()

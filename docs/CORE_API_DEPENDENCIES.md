@@ -8,6 +8,9 @@ requests to change consensus.
    serialization of the canonical accepted `validated_service_payment_v2`
    context, including bound output indices and exact atomic amounts. The explorer
    must never duplicate payee selection or infer the split from output position.
+   This blocks only the miner/service attribution breakdown. It does not block
+   aggregate issuance, which the explorer derives from accepted coinbase outputs
+   minus regular transaction fees.
 2. **Common response identity:** network, genesis hash, consensus-parameter
    fingerprint, tip height/hash, core build, and an operator deployment/reset
    generation on every derived dataset.

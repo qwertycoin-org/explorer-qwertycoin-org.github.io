@@ -363,6 +363,14 @@ form.style-1 {
     font-size: 0.72rem;
 }
 
+.fact-card #metric-supply {
+    overflow: visible;
+    font-size: clamp(0.8rem, 0.95vw, 1rem);
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+}
+
 .top-details {
     margin: 0 0 18px;
 }

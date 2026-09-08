@@ -30,6 +30,7 @@
         <div><dt>Network</dt><dd>{{network_name}}</dd></div>
         <div><dt>Snapshot age</dt><dd>{{age}} {{age_format}}</dd></div>
         <div><dt>Block count</dt><dd>{{block_count}}</dd></div>
+        <div><dt>Next-block difficulty</dt><dd id="network-difficulty">{{difficulty}}</dd></div>
         <div><dt>Target interval</dt><dd>{{target}} s</dd></div>
         <div><dt>Last block time</dt><dd>{{last_block_time}}{{#last_block_time_available}} UTC{{/last_block_time_available}}</dd></div>
         <div><dt>Supply index</dt><dd id="supply-state">{{supply_availability}} · observed {{supply_observed_at}} UTC</dd></div>
@@ -53,7 +54,7 @@
             <caption class="sr-only">Blocks observed by this explorer. Transaction count includes the coinbase transaction.</caption>
             <thead><tr>
                 <th scope="col">Height</th><th scope="col">Age</th><th scope="col">Transactions</th>
-                <th scope="col">Fees (QWC)</th><th scope="col">Coinbase total (QWC)</th><th scope="col">Weight (kB)</th><th scope="col">Block hash</th>
+                <th scope="col">Difficulty</th><th class="optional-block-field" scope="col">Fees (QWC)</th><th scope="col">Coinbase total (QWC)</th><th class="optional-block-field" scope="col">Weight (kB)</th><th scope="col">Block hash</th>
             </tr></thead>
             <tbody id="recent-block-rows">
             {{#blocks}}
@@ -61,9 +62,10 @@
                 <td data-label="Height"><a href="/block/{{height}}">{{height}}</a></td>
                 <td data-label="Age"><time title="{{timestamp}} UTC">{{age}}</time></td>
                 <td data-label="Transactions">{{total_tx_count}} <small>({{regular_tx_count}} regular + coinbase)</small></td>
-                <td data-label="Fees">{{fees}}</td>
+                <td data-label="Difficulty">{{difficulty}}</td>
+                <td class="optional-block-field" data-label="Fees">{{fees}}</td>
                 <td data-label="Coinbase total">{{coinbase_total}}</td>
-                <td data-label="Weight">{{weight_kb}}</td>
+                <td class="optional-block-field" data-label="Weight">{{weight_kb}}</td>
                 <td data-label="Block hash"><a class="hash-link" href="/block/{{hash}}">{{hash}}</a><button class="copy-hash" type="button" data-copy="{{hash}}" aria-label="Copy block hash {{hash}}">Copy</button></td>
             </tr>
             {{/blocks}}
@@ -144,7 +146,10 @@
             var height = cell("Height", ""); var heightLink = document.createElement("a"); heightLink.href = "/block/" + block.height; heightLink.textContent = block.height; height.appendChild(heightLink);
             var age = cell("Age", relativeAge(block.timestamp)); age.title = new Date(Number(block.timestamp) * 1000).toISOString();
             cell("Transactions", block.total_tx_count + " (" + block.regular_tx_count + " regular + coinbase)");
-            cell("Fees", block.fees_qwc); cell("Coinbase total", block.coinbase_total_qwc); cell("Weight", block.weight_kb);
+            cell("Difficulty", block.difficulty);
+            var fees = cell("Fees", block.fees_qwc); fees.className = "optional-block-field";
+            cell("Coinbase total", block.coinbase_total_qwc);
+            var weight = cell("Weight", block.weight_kb); weight.className = "optional-block-field";
             var hash = cell("Block hash", ""); var hashLink = document.createElement("a"); hashLink.className = "hash-link"; hashLink.href = "/block/" + block.hash; hashLink.textContent = block.hash; hash.appendChild(hashLink); var copy = document.createElement("button"); copy.className = "copy-hash"; copy.type = "button"; copy.dataset.copy = block.hash; copy.setAttribute("aria-label", "Copy block hash " + block.hash); copy.textContent = "Copy"; hash.appendChild(copy);
         });
     }
@@ -185,6 +190,7 @@
     function render(data) {
         setText("metric-tip", data.tip_height);
         setText("metric-hashrate", data.network.estimated_hashrate_display);
+        setText("network-difficulty", data.network.difficulty);
         setText("metric-mempool", data.mempool.total_count);
         setText("metric-supply", data.supply.complete ? data.supply.minted_supply_qwc + " QWC" : "Indexing " + data.supply.indexed_block_count + "/" + data.supply.block_count + " blocks");
         setText("supply-state", data.supply.availability + " · indexed through " + data.supply.indexed_through_height + " · observed " + new Date(Number(data.supply.observed_at_unix) * 1000).toISOString());

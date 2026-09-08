@@ -755,6 +755,7 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
         double blk_size = static_cast<double>(core_storage->get_db().get_block_weight(i))/1024.0;
 
         string blk_size_str = fmt::format("{:0.2f}", blk_size);
+        const string blk_difficulty = core_storage->get_db().get_block_difficulty(i).str();
         // remove "<" and ">" from the hash string
         string blk_hash_str = pod_to_hex(blk_hash);
 
@@ -797,6 +798,7 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
                 {"timestamp", blk.timestamp > 0 ? xmreg::timestamp_to_str_gm(blk.timestamp) : string("unavailable")},
                 {"timestamp_available", blk.timestamp > 0},
                 {"weight_kb", blk_size_str},
+                {"difficulty", blk_difficulty},
                 {"regular_tx_count", static_cast<uint64_t>(blk.tx_hashes.size())},
                 {"total_tx_count", static_cast<uint64_t>(blk.tx_hashes.size() + 1)},
                 {"fees_available", fees_available},
@@ -5902,6 +5904,7 @@ json_overview()
                 {"timestamp", blk.timestamp},
                 {"regular_tx_count", blk.tx_hashes.size()},
                 {"total_tx_count", blk.tx_hashes.size() + 1},
+                {"difficulty", core_storage->get_db().get_block_difficulty(height).str()},
                 {"fees_qwc", format_atomic_amount(fees, COIN, 8)},
                 {"coinbase_total_qwc", format_atomic_amount(coinbase, COIN, 8)},
                 {"weight_kb", fmt::format("{:0.2f}",

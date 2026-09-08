@@ -1,5 +1,6 @@
 file(READ "${SOURCE_DIR}/main.cpp" MAIN_SOURCE)
 file(READ "${SOURCE_DIR}/src/templates/index2.html" OVERVIEW_TEMPLATE)
+file(READ "${SOURCE_DIR}/src/templates/css/style.css" STYLE_SOURCE)
 file(READ "${SOURCE_DIR}/src/templates/partials/tx_details.html" TX_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/page.h" PAGE_SOURCE)
 file(READ "${SOURCE_DIR}/deploy/explorer.qwertycoin.org.nginx.conf" NGINX_SOURCE)
@@ -20,6 +21,15 @@ foreach(ROUTE IN LISTS FORBIDDEN_ROUTES)
     endif()
 endforeach()
 
+string(FIND "${STYLE_SOURCE}" ".blocks-table .optional-block-field { display: none; }" MOBILE_OPTIONAL_FIELDS)
+if(MOBILE_OPTIONAL_FIELDS EQUAL -1)
+    message(FATAL_ERROR "Mobile blocks must hide only explicitly optional fields")
+endif()
+string(FIND "${STYLE_SOURCE}" ".blocks-table td:nth-child(7)" HIDDEN_BLOCK_HASH)
+if(NOT HIDDEN_BLOCK_HASH EQUAL -1)
+    message(FATAL_ERROR "Mobile block hash must not be hidden by column position")
+endif()
+
 foreach(REQUIRED_REFRESH_TEXT
         "setTimeout(refresh, ms)"
         "new AbortController()"
@@ -29,6 +39,26 @@ foreach(REQUIRED_REFRESH_TEXT
     string(FIND "${OVERVIEW_TEMPLATE}" "${REQUIRED_REFRESH_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Bounded dashboard refresh contract is missing: ${REQUIRED_REFRESH_TEXT}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_BLOCK_LIST_TEXT
+        "data-label=\"Difficulty\""
+        "data-label=\"Block hash\"><a class=\"hash-link\" href=\"/block/{{hash}}\""
+        "cell(\"Difficulty\", block.difficulty)"
+        "hashLink.href = \"/block/\" + block.hash")
+    string(FIND "${OVERVIEW_TEMPLATE}" "${REQUIRED_BLOCK_LIST_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Recent-block field/link contract is missing: ${REQUIRED_BLOCK_LIST_TEXT}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_BLOCK_DATA_TEXT
+        "{\"difficulty\", blk_difficulty}"
+        "{\"difficulty\", core_storage->get_db().get_block_difficulty(height).str()}")
+    string(FIND "${PAGE_SOURCE}" "${REQUIRED_BLOCK_DATA_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Recent-block difficulty data is missing: ${REQUIRED_BLOCK_DATA_TEXT}")
     endif()
 endforeach()
 

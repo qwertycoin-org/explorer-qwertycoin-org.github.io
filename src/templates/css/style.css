@@ -1348,8 +1348,10 @@ h2 { color: var(--color-day-text); font-size: clamp(1.4rem, 2.4vw, 2rem); }
     .nav-links > * { flex: 0 0 auto; }
 }
 @media (max-width: 700px) {
-    .blocks-table td:nth-child(4), .blocks-table td:nth-child(6), .blocks-table td:nth-child(7) { display: none; }
+    .blocks-table .optional-block-field { display: none; }
     .blocks-table td { display: flex; }
+    .blocks-table td[data-label="Block hash"] { align-items: center; }
+    .blocks-table td[data-label="Block hash"] .hash-link { max-width: calc(100% - 148px); }
     .compact-facts { grid-template-columns: 1fr; }
     .rehearsal-banner { flex-direction: column; }
 }

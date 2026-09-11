@@ -1,6 +1,7 @@
 file(READ "${SOURCE_DIR}/main.cpp" MAIN_SOURCE)
 file(READ "${SOURCE_DIR}/src/templates/index2.html" OVERVIEW_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/templates/css/style.css" STYLE_SOURCE)
+file(READ "${SOURCE_DIR}/src/templates/header.html" HEADER_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/templates/partials/tx_details.html" TX_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/page.h" PAGE_SOURCE)
 file(READ "${SOURCE_DIR}/deploy/explorer.qwertycoin.org.nginx.conf" NGINX_SOURCE)
@@ -22,12 +23,84 @@ foreach(ROUTE IN LISTS FORBIDDEN_ROUTES)
 endforeach()
 
 string(FIND "${STYLE_SOURCE}" ".blocks-table .optional-block-field { display: none; }" MOBILE_OPTIONAL_FIELDS)
-if(MOBILE_OPTIONAL_FIELDS EQUAL -1)
-    message(FATAL_ERROR "Mobile blocks must hide only explicitly optional fields")
+if(NOT MOBILE_OPTIONAL_FIELDS EQUAL -1)
+    message(FATAL_ERROR "Mobile block cards must keep every public block field reachable")
 endif()
 string(FIND "${STYLE_SOURCE}" ".blocks-table td:nth-child(7)" HIDDEN_BLOCK_HASH)
 if(NOT HIDDEN_BLOCK_HASH EQUAL -1)
     message(FATAL_ERROR "Mobile block hash must not be hidden by column position")
+endif()
+
+foreach(REQUIRED_ASSET
+        "src/templates/assets/qwertycoin-mark.svg"
+        "src/templates/assets/favicon.svg"
+        "src/templates/assets/favicon.ico"
+        "src/templates/assets/favicon-16x16.png"
+        "src/templates/assets/favicon-32x32.png"
+        "src/templates/assets/favicon-192x192.png"
+        "src/templates/assets/apple-touch-icon.png"
+        "src/templates/assets/fonts/archivo-latin-900.woff2"
+        "src/templates/assets/fonts/inter-latin-400.woff2"
+        "src/templates/assets/fonts/inter-latin-600.woff2")
+    if(NOT EXISTS "${SOURCE_DIR}/${REQUIRED_ASSET}")
+        message(FATAL_ERROR "Required local brand asset is missing: ${REQUIRED_ASSET}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_BRAND_TEXT
+        "/assets/qwertycoin-mark.svg"
+        "/assets/favicon.svg"
+        "/favicon.ico"
+        "QWERTYCOIN"
+        "EXPLORER"
+        "data-section=\"service-nodes\""
+        "aria-current"
+        "qwc-theme"
+        "Close explorer navigation"
+        "Copy failed")
+    string(FIND "${HEADER_TEMPLATE}" "${REQUIRED_BRAND_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Explorer brand/accessibility contract is missing: ${REQUIRED_BRAND_TEXT}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_DESIGN_TEXT
+        "--page: #F5F1E7"
+        "--surface: #FFFDF7"
+        "--gold: #FFAF00"
+        "--violet: #7952FF"
+        "font-family: \"Archivo\""
+        "font-family: \"Inter\""
+        "prefers-reduced-motion")
+    string(FIND "${STYLE_SOURCE}" "${REQUIRED_DESIGN_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Explorer design-system contract is missing: ${REQUIRED_DESIGN_TEXT}")
+    endif()
+endforeach()
+
+foreach(FORBIDDEN_LEGACY_STYLE "Montserrat" "Open Sans" "#071327")
+    string(FIND "${STYLE_SOURCE}" "${FORBIDDEN_LEGACY_STYLE}" FOUND_AT)
+    if(NOT FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Legacy explorer styling remains: ${FORBIDDEN_LEGACY_STYLE}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_ASSET_ROUTE
+        "CROW_ROUTE(app, \"/favicon.ico\")"
+        "CROW_ROUTE(app, \"/assets/<string>\")"
+        "CROW_ROUTE(app, \"/assets/fonts/<string>\")"
+        "font/woff2"
+        "image/svg+xml")
+    string(FIND "${MAIN_SOURCE}" "${REQUIRED_ASSET_ROUTE}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Local asset route is missing: ${REQUIRED_ASSET_ROUTE}")
+    endif()
+endforeach()
+
+file(READ "${SOURCE_DIR}/CMakeLists.txt" CMAKE_SOURCE)
+string(FIND "${CMAKE_SOURCE}" "src/templates/assets/fonts" FONT_COPY_RULE)
+if(FONT_COPY_RULE EQUAL -1)
+    message(FATAL_ERROR "Local fonts are not copied into the runtime template tree")
 endif()
 
 foreach(REQUIRED_REFRESH_TEXT

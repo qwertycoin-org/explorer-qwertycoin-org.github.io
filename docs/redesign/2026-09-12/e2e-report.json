@@ -1,0 +1,291 @@
+{
+  "base": "http://127.0.0.1:18081",
+  "generatedAt": "2026-09-11T23:31:44.279Z",
+  "routes": {
+    "/": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/blocks": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/blocks/0": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/page/0": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/txpool": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/mempool": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/block/2": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/block/32a8842bc48dc6d4e5d332bd80557a1744562208aa7d5dd76ade74c0bf9773a2": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/tx/0bbf842b0cc03ec31af226290d81f7b23639bda9521c182965c451c182560e82": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/tx/0bbf842b0cc03ec31af226290d81f7b23639bda9521c182965c451c182560e82/1": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/service-nodes": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/epochs": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "/network": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    }
+  },
+  "assets": {
+    "/favicon.ico": {
+      "status": 200,
+      "contentType": "image/x-icon",
+      "cacheControl": "public, max-age=86400"
+    },
+    "/assets/favicon.svg": {
+      "status": 200,
+      "contentType": "image/svg+xml",
+      "cacheControl": "public, max-age=86400"
+    },
+    "/assets/favicon-32x32.png": {
+      "status": 200,
+      "contentType": "image/png",
+      "cacheControl": "public, max-age=86400"
+    },
+    "/assets/apple-touch-icon.png": {
+      "status": 200,
+      "contentType": "image/png",
+      "cacheControl": "public, max-age=86400"
+    },
+    "/assets/qwertycoin-mark.svg": {
+      "status": 200,
+      "contentType": "image/svg+xml",
+      "cacheControl": "public, max-age=86400"
+    },
+    "/assets/fonts/archivo-latin-900.woff2": {
+      "status": 200,
+      "contentType": "font/woff2",
+      "cacheControl": "public, max-age=86400"
+    },
+    "/assets/fonts/inter-latin-400.woff2": {
+      "status": 200,
+      "contentType": "font/woff2",
+      "cacheControl": "public, max-age=86400"
+    },
+    "/assets/fonts/inter-latin-600.woff2": {
+      "status": 200,
+      "contentType": "font/woff2",
+      "cacheControl": "public, max-age=86400"
+    }
+  },
+  "viewports": {
+    "mobile360": {
+      "width": 360,
+      "clientWidth": 360,
+      "overflowElements": [],
+      "duplicateIds": [],
+      "unlabeledInputs": [],
+      "unnamedButtons": 0,
+      "h1Count": 1,
+      "logoComplete": true,
+      "fontBody": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "fontHeading": "Archivo, ui-sans-serif, system-ui, sans-serif",
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    "mobile390": {
+      "width": 390,
+      "clientWidth": 390,
+      "overflowElements": [],
+      "duplicateIds": [],
+      "unlabeledInputs": [],
+      "unnamedButtons": 0,
+      "h1Count": 1,
+      "logoComplete": true,
+      "fontBody": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "fontHeading": "Archivo, ui-sans-serif, system-ui, sans-serif",
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    "tablet768": {
+      "width": 768,
+      "clientWidth": 768,
+      "overflowElements": [
+        {
+          "element": "table.responsive-table.blocks-table",
+          "left": 44,
+          "right": 993,
+          "scrollWidth": 949,
+          "clientWidth": 949
+        },
+        {
+          "element": "thead",
+          "left": 44,
+          "right": 993,
+          "scrollWidth": 949,
+          "clientWidth": 949
+        },
+        {
+          "element": "tr",
+          "left": 44,
+          "right": 993,
+          "scrollWidth": 949,
+          "clientWidth": 949
+        },
+        {
+          "element": "th.optional-block-field",
+          "left": 705,
+          "right": 810,
+          "scrollWidth": 105,
+          "clientWidth": 105
+        },
+        {
+          "element": "th",
+          "left": 810,
+          "right": 993,
+          "scrollWidth": 183,
+          "clientWidth": 183
+        },
+        {
+          "element": "tbody#recent-block-rows",
+          "left": 44,
+          "right": 993,
+          "scrollWidth": 949,
+          "clientWidth": 949
+        },
+        {
+          "element": "tr",
+          "left": 44,
+          "right": 993,
+          "scrollWidth": 949,
+          "clientWidth": 949
+        },
+        {
+          "element": "td.optional-block-field",
+          "left": 705,
+          "right": 810,
+          "scrollWidth": 105,
+          "clientWidth": 105
+        },
+        {
+          "element": "td",
+          "left": 810,
+          "right": 993,
+          "scrollWidth": 183,
+          "clientWidth": 183
+        },
+        {
+          "element": "a.hash-link",
+          "left": 821,
+          "right": 982,
+          "scrollWidth": 516,
+          "clientWidth": 161
+        },
+        {
+          "element": "button.copy-hash",
+          "left": 829,
+          "right": 891,
+          "scrollWidth": 60,
+          "clientWidth": 60
+        },
+        {
+          "element": "tr",
+          "left": 44,
+          "right": 993,
+          "scrollWidth": 949,
+          "clientWidth": 949
+        }
+      ],
+      "duplicateIds": [],
+      "unlabeledInputs": [],
+      "unnamedButtons": 0,
+      "h1Count": 1,
+      "logoComplete": true,
+      "fontBody": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "fontHeading": "Archivo, ui-sans-serif, system-ui, sans-serif",
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    "laptop1024": {
+      "width": 1024,
+      "clientWidth": 1024,
+      "overflowElements": [],
+      "duplicateIds": [],
+      "unlabeledInputs": [],
+      "unnamedButtons": 0,
+      "h1Count": 1,
+      "logoComplete": true,
+      "fontBody": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "fontHeading": "Archivo, ui-sans-serif, system-ui, sans-serif",
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    "desktop1440": {
+      "width": 1440,
+      "clientWidth": 1440,
+      "overflowElements": [],
+      "duplicateIds": [],
+      "unlabeledInputs": [],
+      "unnamedButtons": 0,
+      "h1Count": 1,
+      "logoComplete": true,
+      "fontBody": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "fontHeading": "Archivo, ui-sans-serif, system-ui, sans-serif",
+      "consoleErrors": [],
+      "pageErrors": []
+    }
+  },
+  "interactions": {
+    "heightSearch": {
+      "status": 200,
+      "resultRendered": true
+    },
+    "blockHashSearch": {
+      "status": 200,
+      "resultRendered": true
+    },
+    "transactionHashSearch": {
+      "status": 200,
+      "resultRendered": true
+    },
+    "emptySearch": {
+      "status": 400,
+      "branded": true
+    },
+    "invalidSearch": {
+      "status": 200,
+      "branded": true
+    },
+    "oversizedSearch": {
+      "status": 400,
+      "branded": true
+    },
+    "tooLargeRequest": {
+      "status": 413,
+      "branded": true
+    },
+    "copy": {
+      "label": "Copied",
+      "clipboard": "32a8842bc48dc6d4e5d332bd80557a1744562208aa7d5dd76ade74c0bf9773a2"
+    }
+  }
+}

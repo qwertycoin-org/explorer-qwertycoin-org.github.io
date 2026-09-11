@@ -1,6 +1,10 @@
 
 <section class="center explorer-panel block-detail-panel">
-    <h1 class="sr-only">Block {{blk_height}}</h1>
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Overview</a><span aria-hidden="true">/</span><a href="/blocks">Blocks</a><span aria-hidden="true">/</span><span aria-current="page">Block {{blk_height}}</span></nav>
+    <div class="panel-heading">
+        <div><p class="eyebrow">Canonical block</p><h1>Block {{blk_height}}</h1></div>
+        <span class="status-pill">{{confirmations}} confirmations</span>
+    </div>
 
     <div class="block-identity">
         <div class="block-identity-item block-identity-primary">
@@ -28,38 +32,23 @@
 
 
 
-    <div class="table-wrap">
-    <table class="center responsive-table block-meta-table">
-        <tr>
-            <td data-label="Timestamp UTC"><span class="desktop-label">Timestamp [UTC] (epoch): </span>{{blk_timestamp}} ({{blk_timestamp_epoch}})</td>
-            <td data-label="Status"><span class="desktop-label">Status: </span>{{canonical_status}}</td>
-            <td data-label="Confirmations"><span class="desktop-label">Confirmations: </span>{{confirmations}}</td>
-        </tr>
-        <tr>
-            <td data-label="Version"><span class="desktop-label">Major.minor version: </span>{{major_ver}}.{{minor_ver}}</td>
-            <td data-label="Coinbase total"><span class="desktop-label">Coinbase total [QWC]: </span>{{coinbase_total}}</td>
-            <td data-label="Block weight"><span class="desktop-label">Block weight [kB]: </span>{{blk_size}}</td>
-        </tr>
-        <tr>
-            <td data-label="Nonce"><span class="desktop-label">Nonce: </span>{{blk_nonce}}</td>
-            <td data-label="Subsidy / fees"><span class="desktop-label">Subsidy / fees [QWC]: </span>{{subsidy}} / {{sum_fees}}</td>
-            <td data-label="Transactions"><span class="desktop-label">Transactions: </span>{{total_txs}} ({{no_txs}} regular + coinbase)</td>
-        </tr>
-        <tr>
-            <td data-label="PoW verification"><span class="desktop-label">PoW verification: </span>validated by canonical chain; not recalculated per page view</td>
-            <td data-label="Difficulty"><span class="desktop-label">Difficulty: </span>{{blk_difficulty}}</td>
-            {{#is_randomx}}
-                <td data-label="RandomX"><a href="/randomx/{{blk_height}}">RandomX source code</a></td>
-            {{/is_randomx}}
-            {{^is_randomx}}
-                <td data-label="RandomX"></td>
-            {{/is_randomx}}
-        </tr>
-    </table>
-    </div>
+    <dl class="detail-facts" aria-label="Block facts">
+        <div><dt>Timestamp [UTC] (epoch)</dt><dd>{{blk_timestamp}} ({{blk_timestamp_epoch}})</dd></div>
+        <div><dt>Status</dt><dd>{{canonical_status}}</dd></div>
+        <div><dt>Confirmations</dt><dd>{{confirmations}}</dd></div>
+        <div><dt>Major.minor version</dt><dd>{{major_ver}}.{{minor_ver}}</dd></div>
+        <div><dt>Coinbase total [QWC]</dt><dd>{{coinbase_total}}</dd></div>
+        <div><dt>Block weight [kB]</dt><dd>{{blk_size}}</dd></div>
+        <div><dt>Nonce</dt><dd>{{blk_nonce}}</dd></div>
+        <div><dt>Subsidy / fees [QWC]</dt><dd>{{subsidy}} / {{sum_fees}}</dd></div>
+        <div><dt>Transactions</dt><dd>{{total_txs}} ({{no_txs}} regular + coinbase)</dd></div>
+        <div><dt>PoW verification</dt><dd>Validated by canonical chain; not recalculated per page view</dd></div>
+        <div><dt>Difficulty</dt><dd>{{blk_difficulty}}</dd></div>
+        <div><dt>RandomX</dt><dd>{{#is_randomx}}<a href="/randomx/{{blk_height}}">Source code</a>{{/is_randomx}}{{^is_randomx}}Unavailable{{/is_randomx}}</dd></div>
+    </dl>
 
-    <p class="data-note">Miner and EPoSE service payout attribution is unavailable until the validating core exposes its canonical v2 payment-to-output mapping.</p>
-    <h3 class="tx-section-heading">Coinbase transaction</h3>
+    <p class="data-note">Miner and EPoSe service payout attribution is unavailable until the validating core exposes its canonical v2 payment-to-output mapping.</p>
+    <h2 class="tx-section-heading">Coinbase transaction</h2>
     <div class="table-wrap">
     <table class="center responsive-table block-reward-table">
         <thead><tr class="table-header-row">
@@ -83,10 +72,10 @@
 
 
 
-    <h3 class="tx-section-heading">Transactions ({{no_txs}})</h3>
+    <h2 class="tx-section-heading">Transactions ({{no_txs}})</h2>
     {{#have_txs}}
         <div class="table-wrap">
-        <table class="center responsive-table block-transactions-table" style="width:80%">
+        <table class="center responsive-table block-transactions-table">
             <thead><tr class="table-header-row">
                 <th scope="col">Hash</th>
                 <th scope="col">Outputs</th>
@@ -113,10 +102,10 @@
 
 
     {{#enable_as_hex}}
-        <h5 style="margin-top:1px">
+        <p class="detail-links">
             <a href="/blockhex/{{blk_height}}">Block as hex</a>
             | <a href="/blockhexcomplete/{{blk_height}}">Complete block as hex</a>
-        </h5>
+        </p>
     {{/enable_as_hex}}
 
 </section>

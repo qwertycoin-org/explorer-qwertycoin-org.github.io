@@ -1,0 +1,96 @@
+{
+  "method": "Equivalent CSS viewport widths at 200% browser zoom",
+  "results": [
+    {
+      "profile": "1440px-at-200-percent",
+      "route": "/",
+      "scrollWidth": 720,
+      "clientWidth": 720,
+      "bodyScrollWidth": 720,
+      "focusable": 26,
+      "noOverflow": true
+    },
+    {
+      "profile": "1440px-at-200-percent",
+      "route": "/blocks",
+      "scrollWidth": 720,
+      "clientWidth": 720,
+      "bodyScrollWidth": 720,
+      "focusable": 25,
+      "noOverflow": true
+    },
+    {
+      "profile": "1440px-at-200-percent",
+      "route": "/block/2",
+      "scrollWidth": 720,
+      "clientWidth": 720,
+      "bodyScrollWidth": 720,
+      "focusable": 20,
+      "noOverflow": true
+    },
+    {
+      "profile": "1440px-at-200-percent",
+      "route": "/tx/0bbf842b0cc03ec31af226290d81f7b23639bda9521c182965c451c182560e82",
+      "scrollWidth": 720,
+      "clientWidth": 720,
+      "bodyScrollWidth": 720,
+      "focusable": 22,
+      "noOverflow": true
+    },
+    {
+      "profile": "1440px-at-200-percent",
+      "route": "/service-nodes",
+      "scrollWidth": 720,
+      "clientWidth": 720,
+      "bodyScrollWidth": 720,
+      "focusable": 17,
+      "noOverflow": true
+    },
+    {
+      "profile": "1024px-at-200-percent",
+      "route": "/",
+      "scrollWidth": 512,
+      "clientWidth": 512,
+      "bodyScrollWidth": 512,
+      "focusable": 26,
+      "noOverflow": true
+    },
+    {
+      "profile": "1024px-at-200-percent",
+      "route": "/blocks",
+      "scrollWidth": 512,
+      "clientWidth": 512,
+      "bodyScrollWidth": 512,
+      "focusable": 25,
+      "noOverflow": true
+    },
+    {
+      "profile": "1024px-at-200-percent",
+      "route": "/block/2",
+      "scrollWidth": 512,
+      "clientWidth": 512,
+      "bodyScrollWidth": 512,
+      "focusable": 20,
+      "noOverflow": true
+    },
+    {
+      "profile": "1024px-at-200-percent",
+      "route": "/tx/0bbf842b0cc03ec31af226290d81f7b23639bda9521c182965c451c182560e82",
+      "scrollWidth": 512,
+      "clientWidth": 512,
+      "bodyScrollWidth": 512,
+      "focusable": 22,
+      "noOverflow": true
+    },
+    {
+      "profile": "1024px-at-200-percent",
+      "route": "/service-nodes",
+      "scrollWidth": 512,
+      "clientWidth": 512,
+      "bodyScrollWidth": 512,
+      "focusable": 17,
+      "noOverflow": true
+    }
+  ],
+  "status": "PASS"
+}

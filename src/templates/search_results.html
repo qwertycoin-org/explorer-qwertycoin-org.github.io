@@ -1,181 +1,56 @@
+<section class="center explorer-panel search-results-panel" aria-labelledby="search-results-title">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Overview</a><span aria-hidden="true">/</span><span aria-current="page">Search</span></nav>
+    <div class="panel-heading">
+        <div><p class="eyebrow">Blockchain search</p><h1 id="search-results-title">Search results</h1></div>
+    </div>
+    <p class="data-note">Query: <code>{{search_text}}</code></p>
 
-  <h3> Search results for: {{search_text}} </h3>
+    {{#no_results}}
+    <div class="status-note" role="status">
+        <h2>No matching public chain data</h2>
+        <p>Check the height or hash and try again. Newly broadcast transactions may take a short time to reach this observer.</p>
+    </div>
+    {{/no_results}}
 
-  {{#no_results}}
-    <h4 style="margin-bottom:2px">Nothing in the blockchain has been found that matches the search term :-(</h4>
-    <h5 style="margin:2px">Note: there might be some delay when newest txs become searchable</h5>
-  {{/no_results}}
-
-   {{#to_many_results}}
-    <h3>More than 500 results found. Showing no more than this</h3>
-   {{/to_many_results}}
-
-  <div>
+    {{#to_many_results}}<p class="status-note warning-text">More than 500 results matched. Only the first 500 are shown.</p>{{/to_many_results}}
 
     {{#has_key_images}}
-
-        <h3>The search term matches key image found in the following transaction</h3>
-
-        <table class="center" style="width:90%">
-            {{>tx_table_head}}
-            {{#key_images}}
-                {{>tx_table_row}}
-            {{/key_images}}
-        </table>
-
+    <section aria-labelledby="key-image-results"><h2 id="key-image-results" class="tx-section-heading">Matching key image</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#key_images}}{{>tx_table_row}}{{/key_images}}</table></div></section>
     {{/has_key_images}}
 
-  </div>
-
-  <div>
-
-      {{#has_tx_public_keys}}
-
-        <h3>The search term matches tx public key of the following transaction</h3>
-
-        <table class="center" style="width:90%">
-            {{>tx_table_head}}
-            {{#tx_public_keys}}
-                {{>tx_table_row}}
-            {{/tx_public_keys}}
-        </table>
-
+    {{#has_tx_public_keys}}
+    <section aria-labelledby="tx-key-results"><h2 id="tx-key-results" class="tx-section-heading">Matching transaction public key</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#tx_public_keys}}{{>tx_table_row}}{{/tx_public_keys}}</table></div></section>
     {{/has_tx_public_keys}}
 
-  </div>
-
-  <div>
-
     {{#has_payments_id}}
-
-    <h3>The search term matches payment id found in the following transaction(s)</h3>
-
-    <table class="center" style="width:90%">
-        {{>tx_table_head}}
-        {{#payments_id}}
-            {{>tx_table_row}}
-        {{/payments_id}}
-    </table>
-
+    <section aria-labelledby="payment-results"><h2 id="payment-results" class="tx-section-heading">Matching payment ID</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#payments_id}}{{>tx_table_row}}{{/payments_id}}</table></div></section>
     {{/has_payments_id}}
 
-  </div>
-
     {{#has_encrypted_payments_id}}
-
-    <h3>The search term matches encrypted payment id found in the following transaction(s)</h3>
-
-    <table class="center" style="width:90%">
-        {{>tx_table_head}}
-        {{#encrypted_payments_id}}
-            {{>tx_table_row}}
-        {{/encrypted_payments_id}}
-    </table>
-
+    <section aria-labelledby="encrypted-payment-results"><h2 id="encrypted-payment-results" class="tx-section-heading">Matching encrypted payment ID</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#encrypted_payments_id}}{{>tx_table_row}}{{/encrypted_payments_id}}</table></div></section>
     {{/has_encrypted_payments_id}}
 
-  </div>
-
-  <div>
-
     {{#has_output_public_keys}}
-
-    <h3>The search term matches output public key found in the following transaction(s)</h3>
-
-    <table class="center" style="width:90%">
-        {{>tx_table_head}}
-        {{#output_public_keys}}
-            {{>tx_table_row}}
-        {{/output_public_keys}}
-    </table>
-
+    <section aria-labelledby="output-key-results"><h2 id="output-key-results" class="tx-section-heading">Matching output public key</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#output_public_keys}}{{>tx_table_row}}{{/output_public_keys}}</table></div></section>
     {{/has_output_public_keys}}
 
-  </div>
-
-  <div>
-
     {{#has_output_public_keys_based_on_global_idx}}
-
-    <h3>The search term matches global index of an output in the following transaction(s)</h3>
-
-    <table class="center" style="width:90%">
-        {{>tx_table_head}}
-        {{#output_public_keys_based_on_global_idx}}
-            {{>tx_table_row}}
-        {{/output_public_keys_based_on_global_idx}}
-    </table>
-
+    <section aria-labelledby="global-output-results"><h2 id="global-output-results" class="tx-section-heading">Matching global output index</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#output_public_keys_based_on_global_idx}}{{>tx_table_row}}{{/output_public_keys_based_on_global_idx}}</table></div></section>
     {{/has_output_public_keys_based_on_global_idx}}
 
-  </div>
-
-  <div>
-
     {{#has_output_public_keys_based_on_amount_idx}}
-
-    <h3>The search term matches amount index and an amount of an output
-        in the following transaction(s)</h3>
-
-    <table class="center" style="width:90%">
-        {{>tx_table_head}}
-        {{#output_public_keys_based_on_amount_idx}}
-            {{>tx_table_row}}
-        {{/output_public_keys_based_on_amount_idx}}
-    </table>
-
+    <section aria-labelledby="amount-output-results"><h2 id="amount-output-results" class="tx-section-heading">Matching amount and output index</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#output_public_keys_based_on_amount_idx}}{{>tx_table_row}}{{/output_public_keys_based_on_amount_idx}}</table></div></section>
     {{/has_output_public_keys_based_on_amount_idx}}
 
-  </div>
+    {{#has_tx_in_the_minute}}
+    <section aria-labelledby="minute-results"><h2 id="minute-results" class="tx-section-heading">Transactions in the matching minute</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#tx_in_the_minute}}{{>tx_table_row}}{{/tx_in_the_minute}}</table></div></section>
+    {{/has_tx_in_the_minute}}
 
+    {{#has_tx_in_the_hour}}
+    <section aria-labelledby="hour-results"><h2 id="hour-results" class="tx-section-heading">Transactions in the matching hour</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#tx_in_the_hour}}{{>tx_table_row}}{{/tx_in_the_hour}}</table></div></section>
+    {{/has_tx_in_the_hour}}
 
-  <div>
-
-      {{#has_tx_in_the_minute}}
-
-      <h3>Transactions performed in the given minute</h3>
-
-      <table class="center" style="width:90%">
-          {{>tx_table_head}}
-          {{#tx_in_the_minute}}
-          {{>tx_table_row}}
-          {{/tx_in_the_minute}}
-      </table>
-
-      {{/has_tx_in_the_minute}}
-
-  </div>
-
-  <div>
-
-      {{#has_tx_in_the_hour}}
-
-      <h3>Transactions performed in the given hour</h3>
-
-      <table class="center" style="width:90%">
-          {{>tx_table_head}}
-          {{#tx_in_the_hour}}
-          {{>tx_table_row}}
-          {{/tx_in_the_hour}}
-      </table>
-
-      {{/has_tx_in_the_hour}}
-
-  </div>
-
-  <div>
-
-      {{#has_tx_in_the_day}}
-
-      <h3>Transactions performed in the given day</h3>
-
-      <table class="center" style="width:90%">
-          {{>tx_table_head}}
-          {{#tx_in_the_day}}
-          {{>tx_table_row}}
-          {{/tx_in_the_day}}
-      </table>
-
-      {{/has_tx_in_the_day}}
-
-  </div>
+    {{#has_tx_in_the_day}}
+    <section aria-labelledby="day-results"><h2 id="day-results" class="tx-section-heading">Transactions on the matching day</h2><div class="table-wrap"><table class="responsive-table">{{>tx_table_head}}{{#tx_in_the_day}}{{>tx_table_row}}{{/tx_in_the_day}}</table></div></section>
+    {{/has_tx_in_the_day}}
+</section>

@@ -12,7 +12,7 @@
 <section class="center explorer-panel overview-panel" id="network" aria-labelledby="overview-title">
     <div class="panel-heading">
         <div>
-            <p class="eyebrow">Qwertycoin HF17 · EPoSE v2</p>
+            <p class="eyebrow">Qwertycoin HF17 · EPoSe</p>
             <h1 id="overview-title">Network observer</h1>
         </div>
         <span id="network-status" class="status-pill {{#is_current_info}}ok{{/is_current_info}}{{^is_current_info}}warning{{/is_current_info}}">
@@ -25,17 +25,6 @@
         <div class="fact-card" title="New QWC issued through this block, including locked mining and service rewards. Transaction fees are excluded."><span>Total mined supply</span><strong id="metric-supply">{{supply_mined}}{{#supply_complete}} QWC{{/supply_complete}}</strong><small>Includes locked mining and service rewards; fees excluded</small></div>
         <div class="fact-card"><span>Mempool transactions</span><strong id="metric-mempool">{{tx_pool_size}}</strong></div>
     </div>
-    <dl class="network-detail-grid top-details">
-        <div><dt>Observed chain tip</dt><dd><code class="hash-value">{{top_block_hash}}</code></dd></div>
-        <div><dt>Network</dt><dd>{{network_name}}</dd></div>
-        <div><dt>Snapshot age</dt><dd>{{age}} {{age_format}}</dd></div>
-        <div><dt>Block count</dt><dd>{{block_count}}</dd></div>
-        <div><dt>Next-block difficulty</dt><dd id="network-difficulty">{{difficulty}}</dd></div>
-        <div><dt>Target interval</dt><dd>{{target}} s</dd></div>
-        <div><dt>Last block time</dt><dd>{{last_block_time}}{{#last_block_time_available}} UTC{{/last_block_time_available}}</dd></div>
-        <div><dt>Supply index</dt><dd id="supply-state">{{supply_availability}} · observed {{supply_observed_at}} UTC</dd></div>
-    </dl>
-    <p class="data-note">This page reports one validating observer. “Current” requires a matching RPC/LMDB tip during rendering and describes snapshot freshness; it is not a network-wide health certificate. Total mined supply is the canonical sum of actual coinbase outputs minus transaction fees and is not circulating or globally spendable supply.</p>
 </section>
 {{/network_info}}{{/show_network}}
 
@@ -84,19 +73,19 @@
 <section class="center explorer-panel epose-panel" id="service-nodes" aria-labelledby="epose-title">
     <div class="panel-heading">
         <div><p class="eyebrow">Evidence-based participation</p>
-            {{#is_service_nodes_page}}<h1 id="epose-title">EPoSE service nodes</h1>{{/is_service_nodes_page}}
-            {{#is_epochs_page}}<h1 id="epose-title">EPoSE epoch context</h1>{{/is_epochs_page}}
-            {{^is_service_nodes_page}}{{^is_epochs_page}}<h2 id="epose-title">EPoSE service nodes</h2>{{/is_epochs_page}}{{/is_service_nodes_page}}
+            {{#is_service_nodes_page}}<h1 id="epose-title">EPoSe service nodes</h1>{{/is_service_nodes_page}}
+            {{#is_epochs_page}}<h1 id="epose-title">EPoSe epoch context</h1>{{/is_epochs_page}}
+            {{^is_service_nodes_page}}{{^is_epochs_page}}<h2 id="epose-title">EPoSe service nodes</h2>{{/is_epochs_page}}{{/is_service_nodes_page}}
         </div>
         <span class="status-pill" id="epose-status" aria-live="polite">Loading</span>
     </div>
     <div class="status-grid compact">
         <div class="metric"><span>Source epoch</span><strong id="epose-epoch">—</strong></div>
         <div class="metric"><span>Current descriptors</span><strong id="epose-node-count">—</strong></div>
-        <div class="metric"><span>Qualified (EPoSE info epoch)</span><strong id="epose-qualified">—</strong></div>
+        <div class="metric"><span>Qualified (EPoSe info epoch)</span><strong id="epose-qualified">—</strong></div>
         <div class="metric"><span>Reward preview</span><strong id="epose-reward-preview">—</strong></div>
     </div>
-    <p class="data-note">Lifecycle-active and qualified are protocol observations for the stated epoch. They do not prove endpoint reachability. Reachability is currently unsupported. The available core calls are not block-anchored as one atomic snapshot, so independently loaded EPoSE sections are explicitly marked unanchored.</p>
+    <p class="data-note">Lifecycle-active and qualified are protocol observations for the stated epoch. They do not prove endpoint reachability. Reachability is currently unsupported. The available core calls are not block-anchored as one atomic snapshot, so independently loaded EPoSe sections are explicitly marked unanchored.</p>
     <div class="table-wrap">
         <table class="responsive-table epose-table">
             <caption class="sr-only">Current service-node descriptors keyed by stable identity.</caption>
@@ -121,6 +110,29 @@
 <div id="mempool" aria-live="polite">{{{mempool_info}}}</div>
 {{/show_mempool}}
 
+{{#show_network}}{{#network_info}}
+<section class="center explorer-panel observer-detail-panel" id="observer-details" aria-labelledby="observer-details-title">
+    <div class="panel-heading">
+        <div>
+            <p class="eyebrow">Observer diagnostics</p>
+            <h2 id="observer-details-title">Data source and chain context</h2>
+        </div>
+        <span>Independent source timestamps</span>
+    </div>
+    <dl class="network-detail-grid">
+        <div><dt>Observed chain tip</dt><dd><code class="hash-value">{{top_block_hash}}</code></dd></div>
+        <div><dt>Network</dt><dd>{{network_name}}</dd></div>
+        <div><dt>Snapshot age</dt><dd>{{age}} {{age_format}}</dd></div>
+        <div><dt>Block count</dt><dd>{{block_count}}</dd></div>
+        <div><dt>Next-block difficulty</dt><dd id="network-difficulty">{{difficulty}}</dd></div>
+        <div><dt>Target interval</dt><dd>{{target}} s</dd></div>
+        <div><dt>Last block time</dt><dd>{{last_block_time}}{{#last_block_time_available}} UTC{{/last_block_time_available}}</dd></div>
+        <div><dt>Supply index</dt><dd id="supply-state">{{supply_availability}} · observed {{supply_observed_at}} UTC</dd></div>
+    </dl>
+    <p class="data-note">This page reports one validating observer. “Current” requires a matching RPC/LMDB tip during rendering and describes snapshot freshness; it is not a network-wide health certificate. Total mined supply is the canonical sum of actual coinbase outputs minus transaction fees and is not circulating or globally spendable supply.</p>
+</section>
+{{/network_info}}{{/show_network}}
+
 {{#show_network}}
 <script>
 (function () {
@@ -129,7 +141,9 @@
     function byId(id) { return document.getElementById(id); }
     function setText(id, value) { var el = byId(id); if (el) el.textContent = value === null || value === undefined ? "—" : String(value); }
     function relativeAge(timestamp) {
-        var seconds = Math.max(0, Math.floor(Date.now() / 1000) - Number(timestamp || 0));
+        var observed = Number(timestamp || 0);
+        if (!Number.isFinite(observed) || observed <= 0) return "unavailable";
+        var seconds = Math.max(0, Math.floor(Date.now() / 1000) - observed);
         if (seconds < 60) return seconds + "s";
         if (seconds < 3600) return Math.floor(seconds / 60) + "m";
         if (seconds < 86400) return Math.floor(seconds / 3600) + "h";

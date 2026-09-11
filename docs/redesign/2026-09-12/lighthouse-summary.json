@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-09-11T23:33:28.933Z",
+  "environment": {
+    "lighthouse": "13.4.1",
+    "chrome": "153.0.8010.12",
+    "node": "24.20.0"
+  },
+  "runs": [
+    {"view":"overview","profile":"desktop","performance":100,"accessibility":100,"best_practices":100,"seo":100,"lcp_ms":563,"cls":0.0104555789339497,"tbt_ms":0},
+    {"view":"overview","profile":"mobile","performance":100,"accessibility":100,"best_practices":100,"seo":100,"lcp_ms":1706,"cls":0.04727879800048984,"tbt_ms":0},
+    {"view":"block-2","profile":"desktop","performance":100,"accessibility":100,"best_practices":100,"seo":100,"lcp_ms":530,"cls":0,"tbt_ms":0},
+    {"view":"block-2","profile":"mobile","performance":100,"accessibility":100,"best_practices":100,"seo":100,"lcp_ms":1472,"cls":0,"tbt_ms":0},
+    {"view":"coinbase-transaction","profile":"desktop","performance":100,"accessibility":100,"best_practices":100,"seo":100,"lcp_ms":481,"cls":0,"tbt_ms":0},
+    {"view":"coinbase-transaction","profile":"mobile","performance":100,"accessibility":100,"best_practices":100,"seo":100,"lcp_ms":1471,"cls":0,"tbt_ms":0}
+  ]
+}

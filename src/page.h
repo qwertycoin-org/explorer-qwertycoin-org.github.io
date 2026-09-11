@@ -6175,7 +6175,7 @@ json_identity()
     const json& network_data = network.at("data");
     const json& epose_data = epose.at("data");
     const string actual_genesis = pod_to_hex(core_storage->get_block_id_by_height(0));
-    const string expected_genesis = qwertycoin::epose::MAINNET_REHEARSAL_GENESIS_HASH_V2;
+    const string expected_genesis = qwertycoin::epose::MAINNET_FINAL_GENESIS_HASH_V2;
     const bool mainnet = !network_data.value("testnet", true)
             && !network_data.value("stagenet", true);
     const bool snapshot_current = network_data.value("current", false);
@@ -6200,7 +6200,7 @@ json_identity()
             {"genesis_hash", actual_genesis},
             {"expected_genesis_hash", expected_genesis},
             {"genesis_matches", genesis_matches},
-            {"consensus_parameter_fingerprint", qwertycoin::epose::MAINNET_REHEARSAL_PARAMETER_SET_HASH_V2},
+            {"consensus_parameter_fingerprint", qwertycoin::epose::MAINNET_FINAL_PARAMETER_SET_HASH_V2},
             {"consensus_parameter_fingerprint_source", "compiled core profile"},
             {"current_hf_version", network_data.value("current_hf_version", 0u)},
             {"epose_protocol_version", epose_data.value("protocol_version", 0u)},

@@ -7,8 +7,8 @@ wallet data, service identities, or blockchain storage.
 
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin
    core SHA. The current compatibility candidate is
-   `ef5eb745ca9fec01752cd3e555cfa2b60741efac`; revalidate it after the core work
-   reaches a stable recorded commit.
+   `e6e0b46b6603bc5c1402df63696b514ba735f8ee`, the merge commit for the final
+   v2 genesis and EPoSE profile.
 2. Resolve the deployment architecture and the matching immutable Ubuntu image
    digest. Copy `BUILD.env.example` outside the repository, fill the immutable
    values, and do not put credentials in it.
@@ -200,5 +200,5 @@ The final chain reset is a separately authorized core operation. During it, stop
 the explorer reader, retain its configuration, and reopen it only after the chain
 is ready. Rebuild only explorer-derived indexes/caches, then revalidate genesis,
 network and parameter identity, tip context, EPoSE capability, links, and the
-rehearsal/launch notice. A same-genesis reset also requires a new local deployment
-generation so derived data cannot leak across rehearsals.
+mainnet-v2 launch notice. A same-genesis reset also requires a new local deployment
+generation so derived data cannot leak across deployment generations.

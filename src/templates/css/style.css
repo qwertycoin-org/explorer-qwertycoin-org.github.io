@@ -1329,8 +1329,8 @@ h2 { color: var(--color-day-text); font-size: clamp(1.4rem, 2.4vw, 2rem); }
 .compact-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .fact-card, .network-detail-grid > div, .epose-detail-grid > div, .metric { background: var(--color-surface-muted); }
 .fact-card span { color: var(--color-day-text); }
-.rehearsal-banner { display: flex; gap: 10px; margin-top: 12px; padding: 10px 14px; border: 1px solid #b47b00; border-radius: var(--radius-sm); background: var(--color-accent-soft); color: #2d2100; }
-:root[data-theme="dark"] .rehearsal-banner { background: #33270a; color: #ffe8a8; }
+.launch-banner { display: flex; gap: 10px; margin-top: 12px; padding: 10px 14px; border: 1px solid #b47b00; border-radius: var(--radius-sm); background: var(--color-accent-soft); color: #2d2100; }
+:root[data-theme="dark"] .launch-banner { background: #33270a; color: #ffe8a8; }
 :root[data-theme="dark"] :where(.advanced-details, .network-detail-grid > div, .epose-detail-grid > div, .responsive-table tr, .responsive-table td, .epose-table tbody tr:first-child, .epose-table .advanced-row > td, .tx-meta-table tr:first-child, .block-meta-table tr:first-child) { background: var(--color-surface); color: var(--color-day-text); }
 .data-note, .privacy-note { margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--color-accent); background: var(--color-surface-muted); color: var(--color-day-muted); }
 .responsive-table th { padding: 10px; text-align: left; }
@@ -1353,7 +1353,7 @@ h2 { color: var(--color-day-text); font-size: clamp(1.4rem, 2.4vw, 2rem); }
     .blocks-table td[data-label="Block hash"] { align-items: center; }
     .blocks-table td[data-label="Block hash"] .hash-link { max-width: calc(100% - 148px); }
     .compact-facts { grid-template-columns: 1fr; }
-    .rehearsal-banner { flex-direction: column; }
+    .launch-banner { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto!important; transition-duration: .01ms!important; animation-duration: .01ms!important; animation-iteration-count: 1!important; }

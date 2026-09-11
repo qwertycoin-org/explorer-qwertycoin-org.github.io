@@ -99,10 +99,22 @@ foreach(REQUIRED_TEXT
         "{\"qualified_count\", info.qualified_count}"
         "{\"qualified_for_source_epoch\", node.qualified}"
         "confidential_amounts ? \"confidential\" : \"public\""
-        "{\"rpc_db_anchor_matches\", anchor_matches}")
+        "{\"rpc_db_anchor_matches\", anchor_matches}"
+        "MAINNET_FINAL_GENESIS_HASH_V2"
+        "MAINNET_FINAL_PARAMETER_SET_HASH_V2")
     string(FIND "${PAGE_SOURCE}" "${REQUIRED_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Required fail-closed correctness contract is missing: ${REQUIRED_TEXT}")
+    endif()
+endforeach()
+
+foreach(FORBIDDEN_LAUNCH_TEXT
+        "MAINNET_REHEARSAL_GENESIS_HASH_V2"
+        "MAINNET_REHEARSAL_PARAMETER_SET_HASH_V2"
+        "planned to be reset before final launch")
+    string(FIND "${PAGE_SOURCE}${OVERVIEW_TEMPLATE}" "${FORBIDDEN_LAUNCH_TEXT}" FOUND_AT)
+    if(NOT FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Legacy rehearsal identity remains in the public explorer: ${FORBIDDEN_LAUNCH_TEXT}")
     endif()
 endforeach()
 

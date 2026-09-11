@@ -3,6 +3,7 @@
 //
 
 #include "MempoolStatus.h"
+#include "transaction_amounts.h"
 
 
 namespace xmreg
@@ -146,7 +147,7 @@ MempoolStatus::read_mempool()
     // if dont have tx_blob member, construct tx
     // from json obtained from the rpc call
 
-    uint64_t mempool_size_kB {0};
+    uint64_t mempool_size_bytes {0};
 
     for (size_t i = 0; i < mempool_tx_info.size(); ++i)
     {
@@ -164,7 +165,7 @@ MempoolStatus::read_mempool()
             return false;
         }
 
-        mempool_size_kB += _tx_info.blob_size;
+        mempool_size_bytes += _tx_info.blob_size;
 
         local_copy_of_mempool_txs.push_back(mempool_tx{});
 
@@ -196,13 +197,16 @@ MempoolStatus::read_mempool()
         last_tx.no_inputs         = input_key_imgs.size();
         last_tx.mixin_no          = sum_data[2];
         last_tx.num_nonrct_inputs = sum_data[3];
+        last_tx.confidential_amounts = transaction_amounts_confidential(tx);
 
         last_tx.fee_str          = xmreg::xmr_amount_to_str(_tx_info.fee, "{:0.4f}", false);
         last_tx.fee_micro_str    = xmreg::xmr_amount_to_str(_tx_info.fee*1.0e6, "{:04.0f}", false);
         last_tx.payed_for_kB_str = fmt::format("{:0.4f}", payed_for_kB);
         last_tx.payed_for_kB_micro_str = fmt::format("{:04.0f}", payed_for_kB*1e6);
-        last_tx.xmr_inputs_str   = xmreg::xmr_amount_to_str(last_tx.sum_inputs , "{:0.3f}");
-        last_tx.xmr_outputs_str  = xmreg::xmr_amount_to_str(last_tx.sum_outputs, "{:0.3f}");
+        last_tx.xmr_inputs_str   = last_tx.confidential_amounts
+                ? "confidential" : xmreg::xmr_amount_to_str(last_tx.sum_inputs , "{:0.3f}");
+        last_tx.xmr_outputs_str  = last_tx.confidential_amounts
+                ? "confidential" : xmreg::xmr_amount_to_str(last_tx.sum_outputs, "{:0.3f}");
         last_tx.timestamp_str    = xmreg::timestamp_to_str_gm(_tx_info.receive_time);
 
         last_tx.txsize           = fmt::format("{:0.2f}", tx_size);
@@ -217,7 +221,8 @@ MempoolStatus::read_mempool()
     // This avoids expensive deep copies when multiple request handlers
     // read the mempool simultaneously
     mempool_no   = local_copy_of_mempool_txs.size();
-    mempool_size = mempool_size_kB;
+    mempool_size = mempool_size_bytes;
+    mempool_info_timestamp = static_cast<uint64_t>(std::time(nullptr));
 
     mempool_txs = std::make_shared<vector<mempool_tx>>(std::move(local_copy_of_mempool_txs));
 
@@ -272,6 +277,11 @@ MempoolStatus::read_network_info()
     local_copy.difficulty                 = rpc_network_info.difficulty;
     local_copy.difficulty_top64           = rpc_network_info.difficulty_top64;
     local_copy.target                     = rpc_network_info.target;
+    if (rpc_network_info.target == 0)
+    {
+        cerr << "Daemon returned a zero target interval" << endl;
+        return false;
+    }
     cryptonote::difficulty_type hash_rate = cryptonote::difficulty_type(rpc_network_info.wide_difficulty) / rpc_network_info.target;
     local_copy.hash_rate                  = (hash_rate & 0xFFFFFFFFFFFFFFFF).convert_to<uint64_t>();
     local_copy.hash_rate_top64            = ((hash_rate >> 64) & 0xFFFFFFFFFFFFFFFF).convert_to<uint64_t>();
@@ -341,6 +351,21 @@ MempoolStatus::get_mempool_txs(uint64_t no_of_tx)
         mempool_txs->begin(), mempool_txs->begin() + no_of_tx);
 }
 
+MempoolStatus::mempool_snapshot
+MempoolStatus::get_mempool_snapshot(uint64_t no_of_tx)
+{
+    Guard lck (mempool_mutx);
+    const auto source = mempool_txs
+            ? mempool_txs : std::make_shared<vector<mempool_tx>>();
+    no_of_tx = std::min<uint64_t>(no_of_tx, source->size());
+    mempool_txs_ptr bounded = no_of_tx == source->size()
+            ? source
+            : std::make_shared<vector<mempool_tx>>(source->begin(),
+                                                   source->begin() + no_of_tx);
+    return {bounded, mempool_no.load(), mempool_size.load(),
+            mempool_info_timestamp.load()};
+}
+
 bool
 MempoolStatus::is_thread_running()
 {
@@ -360,6 +385,7 @@ MempoolStatus::mempool_txs_ptr MempoolStatus::mempool_txs {std::make_shared<vect
 atomic<MempoolStatus::network_info> MempoolStatus::current_network_info;
 atomic<uint64_t> MempoolStatus::mempool_no {0};   // no of txs
 atomic<uint64_t> MempoolStatus::mempool_size {0}; // size in bytes.
+atomic<uint64_t> MempoolStatus::mempool_info_timestamp {0};
 uint64_t MempoolStatus::mempool_refresh_time {10};
 mutex MempoolStatus::mempool_mutx;
 }

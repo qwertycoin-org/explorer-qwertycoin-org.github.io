@@ -1,26 +1,49 @@
 services:
   qwertycoin-explorer:
-    build:
-      context: .
-      dockerfile: Dockerfile.node01
-      args:
-        NPROC: "${NPROC:-2}"
-    image: qwertycoin-explorer:production
-    container_name: qwertycoin-explorer
+    image: "${QWC_EXPLORER_IMAGE:?immutable explorer image digest required}"
+    container_name: "${QWC_EXPLORER_CONTAINER_NAME:?container name required}"
     restart: unless-stopped
-    user: "${QWC_EXPLORER_UID:-101}:${QWC_EXPLORER_GID:-101}"
+    stop_grace_period: 30s
+    user: "${QWC_EXPLORER_UID:?uid required}:${QWC_EXPLORER_GID:?gid required}"
     command:
-      - >
-        ./qwertycoin-explorer
-        --port 8081
-        --bindaddr 0.0.0.0
-        --bc-path /home/qwertycoin/.qwertycoin/lmdb
-        --daemon-url ${QWC_DAEMON_URL:-http://host.docker.internal:8197}
-        --enable-json-api
-        --enable-autorefresh-option
+      - --port
+      - "8081"
+      - --bindaddr
+      - 0.0.0.0
+      - --bc-path
+      - /home/qwertycoin/.qwertycoin/lmdb
+      - --daemon-url
+      - "${QWC_DAEMON_URL:?restricted observer RPC URL required}"
+      - --derived-data-path
+      - /var/lib/qwertycoin-explorer
+      - --chain-reset-id
+      - "${QWC_CHAIN_RESET_ID:?chain reset context required}"
+      - --enable-json-api
     ports:
-      - "127.0.0.1:${QWC_EXPLORER_HOST_PORT:-29982}:8081"
+      - "127.0.0.1:${QWC_EXPLORER_HOST_PORT:?loopback host port required}:8081"
     volumes:
-      - "${QWC_CHAIN_PATH:-/var/lib/qwertycoin/.qwertycoin}:/home/qwertycoin/.qwertycoin:ro"
+      - "${QWC_CHAIN_PATH:?existing chain path required}:/home/qwertycoin/.qwertycoin:ro"
+      - "${QWC_EXPLORER_DERIVED_PATH:?existing writable explorer-derived path required}:/var/lib/qwertycoin-explorer"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 2g
+    cpus: 2.0
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8081/readyz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

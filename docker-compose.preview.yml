@@ -1,16 +1,9 @@
 services:
   qwertycoin-explorer:
-    build:
-      context: .
-      dockerfile: Dockerfile.node01
-      args:
-        NPROC: "2"
-        UBUNTU_IMAGE: "${UBUNTU_IMAGE:?digest-pinned Ubuntu image required}"
-        QWC_COMMIT: "${QWC_COMMIT:?full QWC core SHA required}"
-        EXPLORER_SOURCE_SHA: "${EXPLORER_SOURCE_SHA:?full explorer SHA required}"
-    image: qwertycoin-explorer:local
-    container_name: "${QWC_EXPLORER_CONTAINER_NAME:?container name required}"
+    image: "${QWC_EXPLORER_IMAGE:?immutable explorer image digest required}"
+    container_name: "${QWC_EXPLORER_CONTAINER_NAME:?distinct preview container name required}"
     restart: unless-stopped
+    stop_grace_period: 30s
     user: "${QWC_EXPLORER_UID:?uid required}:${QWC_EXPLORER_GID:?gid required}"
     command:
       - --port
@@ -21,22 +14,26 @@ services:
       - /home/qwertycoin/.qwertycoin/lmdb
       - --daemon-url
       - "${QWC_DAEMON_URL:?restricted observer RPC URL required}"
+      - --derived-data-path
+      - /var/lib/qwertycoin-explorer
+      - --chain-reset-id
+      - "${QWC_CHAIN_RESET_ID:?chain reset context required}"
       - --enable-json-api
     ports:
-      - "127.0.0.1:${QWC_EXPLORER_HOST_PORT:?loopback host port required}:8081"
+      - "127.0.0.1:${QWC_EXPLORER_HOST_PORT:?distinct loopback host port required}:8081"
     volumes:
-      - qwertycoin-chain:/home/qwertycoin/.qwertycoin:ro
+      - chain:/home/qwertycoin/.qwertycoin:ro
+      - explorer-derived:/var/lib/qwertycoin-explorer
     networks:
-      - default
       - qwertycoin-mainnet
     read_only: true
     tmpfs:
       - /tmp:size=32m,mode=1777
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     pids_limit: 256
+    mem_limit: 2g
+    cpus: 2.0
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8081/readyz"]
       interval: 30s
@@ -45,14 +42,15 @@ services:
       start_period: 30s
     logging:
       driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
+      options: {max-size: 10m, max-file: "3"}
 
 volumes:
-  qwertycoin-chain:
+  chain:
     external: true
     name: "${QWC_CHAIN_VOLUME:?verified existing chain volume required}"
+  explorer-derived:
+    external: true
+    name: "${QWC_EXPLORER_DERIVED_VOLUME:?distinct explorer-derived volume required}"
 
 networks:
   qwertycoin-mainnet:

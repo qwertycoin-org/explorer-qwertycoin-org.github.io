@@ -22,10 +22,15 @@
 
 #include "MicroCore.h"
 #include "tools.h"
+#include "pagination.h"
 #include "rpccalls.h"
+#include "epose/compiled_profile_v2.h"
 
-#include "CurrentBlockchainStatus.h"
 #include "MempoolStatus.h"
+#include "SupplyIndex.h"
+#include "exact_amount.h"
+#include "hashrate.h"
+#include "transaction_amounts.h"
 
 #include "../ext/crow_all.h"
 
@@ -65,6 +70,7 @@ inline thread_local RandomXThreadCleanup rx_thread_cleanup;
 }
 
 #include <algorithm>
+#include <cctype>
 #include <limits>
 #include <ctime>
 #include <future>
@@ -346,6 +352,7 @@ struct tx_details
     size_t   version;
 
     bool has_additional_tx_pub_keys {false};
+    bool confidential_amounts {false};
 
     uint64_t unlock_time;
     uint64_t no_confirmations;
@@ -384,9 +391,9 @@ struct tx_details
             double payed_for_kB = xmr_amount / tx_size;
 
             mixin_str        = std::to_string(mixin_no);
-            fee_str          = fmt::format("{:0.6f}", xmr_amount);
-            fee_short_str    = fmt::format("{:0.4f}", xmr_amount);
-            fee_micro_str    = fmt::format("{:04.0f}" , xmr_amount * 1e6);
+            fee_str          = xmr_amount_to_str(fee, "{:0.8f}", false);
+            fee_short_str    = fee_str;
+            fee_micro_str    = fee_str;
             payed_for_kB_str = fmt::format("{:0.4f}", payed_for_kB);
             payed_for_kB_micro_str = fmt::format("{:04.0f}", payed_for_kB * 1e6);
         }
@@ -401,10 +408,11 @@ struct tx_details
                 {"fee_micro"         , fee_micro_str},
                 {"payed_for_kB"      , payed_for_kB_str},
                 {"payed_for_kB_micro", payed_for_kB_micro_str},
-                {"sum_inputs"        , xmr_amount_to_str(xmr_inputs , "{:0.6f}")},
-                {"sum_outputs"       , xmr_amount_to_str(xmr_outputs, "{:0.6f}")},
-                {"sum_inputs_short"  , xmr_amount_to_str(xmr_inputs , "{:0.3f}")},
-                {"sum_outputs_short" , xmr_amount_to_str(xmr_outputs, "{:0.3f}")},
+                {"sum_inputs"        , confidential_amounts ? string("confidential") : xmr_amount_to_str(xmr_inputs , "{:0.6f}")},
+                {"sum_outputs"       , confidential_amounts ? string("confidential") : xmr_amount_to_str(xmr_outputs, "{:0.6f}")},
+                {"sum_inputs_short"  , confidential_amounts ? string("confidential") : xmr_amount_to_str(xmr_inputs , "{:0.3f}")},
+                {"sum_outputs_short" , confidential_amounts ? string("confidential") : xmr_amount_to_str(xmr_outputs, "{:0.3f}")},
+                {"amount_availability", confidential_amounts ? string("confidential") : string("public")},
                 {"no_inputs"         , static_cast<uint64_t>(input_key_imgs.size())},
                 {"no_outputs"        , static_cast<uint64_t>(output_pub_keys.size())},
                 {"no_nonrct_inputs"  , num_nonrct_inputs},
@@ -479,6 +487,7 @@ static const bool FULL_AGE_FORMAT {true};
 MicroCore* mcore;
 Blockchain* core_storage;
 rpccalls rpc;
+SupplyIndex* supply_index;
 
 atomic<time_t> server_timestamp;
 
@@ -518,11 +527,24 @@ string js_html_files_all_in_one;
 // this will improve performance of the explorer and reduce
 // read operation in OS
 map<string, string> template_file;
+std::mutex overview_cache_mutex;
+json overview_cache;
+uint64_t overview_cache_time {0};
+std::mutex epose_info_cache_mutex;
+std::mutex epose_nodes_cache_mutex;
+std::mutex epose_rewards_cache_mutex;
+json epose_info_cache;
+json epose_nodes_cache;
+json epose_rewards_cache;
+uint64_t epose_info_cache_time {0};
+uint64_t epose_nodes_cache_time {0};
+uint64_t epose_rewards_cache_time {0};
 
 public:
 
 page(MicroCore* _mcore,
      Blockchain* _core_storage,
+     SupplyIndex* _supply_index,
      string _daemon_url,
      cryptonote::network_type _nettype,
      bool _enable_pusher,
@@ -541,6 +563,7 @@ page(MicroCore* _mcore,
      rpccalls::login_opt _daemon_rpc_login)
         : mcore {_mcore},
           core_storage {_core_storage},
+          supply_index {_supply_index},
           rpc {_daemon_url, _daemon_rpc_login},
           server_timestamp {std::time(nullptr)},
           nettype {_nettype},
@@ -600,15 +623,14 @@ page(MicroCore* _mcore,
  * @return rendered index page
  */
 string
-index2(uint64_t page_no = 0, bool refresh_page = false)
+index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview",
+       uint64_t snapshot_block_count = 0, string snapshot_tip_hash = "")
 {
-    // get mempool for the front page also using async future
-    std::future<string> mempool_ftr = std::async(std::launch::async, [&]
-    {
-        // get memory pool rendered template
-        return mempool(false, no_of_mempool_tx_of_frontpage);
-    });
-
+    const bool show_network = view == "overview" || view == "network";
+    const bool show_blocks = view == "overview" || view == "blocks";
+    const bool show_epose = view == "overview" || view == "service-nodes" || view == "epochs";
+    const bool show_mempool = view == "overview";
+    const bool blocks_only = view == "blocks";
     //get current server timestamp
     server_timestamp = std::time(nullptr);
 
@@ -616,15 +638,44 @@ index2(uint64_t page_no = 0, bool refresh_page = false)
 
     // get the current blockchain height. Just to check
     uint64_t height = core_storage->get_current_blockchain_height();
+    if (snapshot_block_count > 0)
+    {
+        if (snapshot_block_count > height || snapshot_tip_hash.size() != 64
+            || pod_to_hex(core_storage->get_block_id_by_height(snapshot_block_count - 1))
+                    != snapshot_tip_hash)
+            return "Block-page snapshot was invalidated by a chain change. Return to /blocks to restart pagination.";
+    }
+    else
+    {
+        snapshot_block_count = height;
+        snapshot_tip_hash = height > 0
+                ? pod_to_hex(core_storage->get_block_id_by_height(height - 1)) : string {};
+    }
+    const string snapshot_query = "?block_count=" + std::to_string(snapshot_block_count)
+            + "&tip_hash=" + snapshot_tip_hash;
 
     // get current network info from MemoryStatus thread.
     MempoolStatus::network_info current_network_info
         = MempoolStatus::current_network_info;
 
     // number of last blocks to show
-    uint64_t no_of_last_blocks = std::min(no_blocks_on_index + 1, height);
+    uint64_t no_of_last_blocks = show_blocks
+            ? std::min(no_blocks_on_index + 1, snapshot_block_count) : 0;
 
     // initalise page tempate map with basic info about blockchain
+    const uint64_t blocks_per_page = show_blocks
+            ? std::min(no_blocks_on_index + 1, snapshot_block_count) : 0;
+    const uint64_t total_pages = snapshot_block_count > 0 && blocks_per_page > 0
+            ? ((snapshot_block_count - 1) / blocks_per_page) + 1 : 0;
+    const uint64_t total_page_no = total_pages > 0 ? total_pages - 1 : 0;
+    const descending_block_range block_range = show_blocks
+            ? make_descending_block_range(snapshot_block_count,
+                    page_no <= std::numeric_limits<uint64_t>::max() / std::max<uint64_t>(1, blocks_per_page)
+                        ? page_no * blocks_per_page : height,
+                    blocks_per_page)
+            : descending_block_range {};
+    const supply_snapshot supply = supply_index ? supply_index->snapshot() : supply_snapshot {};
+
     mstch::map context {
             {"testnet"                  , testnet},
             {"stagenet"                 , stagenet},
@@ -633,35 +684,53 @@ index2(uint64_t page_no = 0, bool refresh_page = false)
             {"mainnet_url"              , mainnet_url},
             {"refresh"                  , refresh_page},
             {"height"                   , height},
+            {"block_count"              , height},
+            {"tip_height"               , height > 0 ? height - 1 : 0},
             {"server_timestamp"         , xmreg::timestamp_to_str_gm(local_copy_server_timestamp)},
             {"age_format"               , string("[h:m:d]")},
             {"page_no"                  , page_no},
-            {"total_page_no"            , (height / no_of_last_blocks)},
+            {"page_display"             , page_no + 1},
+            {"total_page_no"            , total_page_no},
+            {"total_pages"              , total_pages},
             {"is_page_zero"             , !bool(page_no)},
-            {"no_of_last_blocks"        , no_of_last_blocks},
+            {"is_last_page"             , page_no >= total_page_no},
+            {"no_of_last_blocks"        , block_range.returned_count},
             {"next_page"                , (page_no + 1)},
             {"prev_page"                , (page_no > 0 ? page_no - 1 : 0)},
+            {"first_page_url"            , blocks_only ? string("/blocks") : string("/")},
+            {"next_page_url"             , (blocks_only ? string("/blocks/") : string("/page/"))
+                                                 + std::to_string(page_no + 1) + snapshot_query},
+            {"prev_page_url"             , (blocks_only ? string("/blocks/") : string("/page/"))
+                                                 + std::to_string(page_no > 0 ? page_no - 1 : 0) + snapshot_query},
             {"enable_pusher"            , enable_pusher},
             {"enable_key_image_checker" , enable_key_image_checker},
             {"enable_output_key_checker", enable_output_key_checker},
             {"enable_autorefresh_option", enable_autorefresh_option}
     };
+    context["show_network"] = show_network;
+    context["show_blocks"] = show_blocks;
+    context["show_epose"] = show_epose;
+    context["show_mempool"] = show_mempool;
+    context["show_epoch_details"] = view == "epochs";
+    context["is_blocks_page"] = view == "blocks";
+    context["is_service_nodes_page"] = view == "service-nodes";
+    context["is_epochs_page"] = view == "epochs";
+    context["supply_complete"] = supply.complete;
+    context["supply_availability"] = supply.availability;
+    context["supply_mined"] = supply.complete
+            ? format_atomic_decimal_string(supply.minted_supply_atomic, 8)
+            : string("Indexing ") + std::to_string(supply.indexed_block_count)
+                + "/" + std::to_string(supply.block_count) + " blocks";
+    context["supply_observed_at"] = supply.observed_at > 0
+            ? timestamp_to_str_gm(supply.observed_at) : string("unavailable");
 
-    context.emplace("txs", mstch::array()); // will keep tx to show
-    json chain_chart_points = json::array();
+    context.emplace("blocks", mstch::array());
+    mstch::array& blocks = boost::get<mstch::array>(context["blocks"]);
 
-    // get reference to txs mstch map to be field below
-    mstch::array& txs = boost::get<mstch::array>(context["txs"]);
-
-    // calculate starting and ending block numbers to show
-    int64_t start_height = height - no_of_last_blocks * (page_no + 1);
-
-    // check if start height is not below range
-    start_height = start_height < 0 ? 0 : start_height;
-
-    int64_t end_height = start_height + no_of_last_blocks - 1;
-
-    vector<double> blk_sizes;
+    const int64_t start_height = block_range.empty
+            ? 0 : static_cast<int64_t>(block_range.begin);
+    const int64_t end_height = block_range.empty
+            ? -1 : static_cast<int64_t>(block_range.end_exclusive - 1);
 
     // loop index
     int64_t i = end_height;
@@ -686,10 +755,7 @@ index2(uint64_t page_no = 0, bool refresh_page = false)
         double blk_size = static_cast<double>(core_storage->get_db().get_block_weight(i))/1024.0;
 
         string blk_size_str = fmt::format("{:0.2f}", blk_size);
-        string blk_no_txs_str = std::to_string(blk.tx_hashes.size());
-
-        blk_sizes.push_back(blk_size);
-
+        const string blk_difficulty = core_storage->get_db().get_block_difficulty(i).str();
         // remove "<" and ">" from the hash string
         string blk_hash_str = pod_to_hex(blk_hash);
 
@@ -698,12 +764,9 @@ index2(uint64_t page_no = 0, bool refresh_page = false)
 
         context["age_format"] = age.second;
 
-        // start measure time here
-        auto start = std::chrono::steady_clock::now();
-
-        // get all transactions in the block found
-        // initialize the first list with transaction for solving
-        // the block i.e. coinbase.
+        // Fees are derived from the regular transactions. The coinbase amount is
+        // shown only as a public total; EPoSE attribution requires the canonical
+        // validated payment mapping and is deliberately not inferred by position.
         vector<cryptonote::transaction> blk_txs {blk.miner_tx};
         vector<crypto::hash> missed_txs;
 
@@ -714,113 +777,74 @@ index2(uint64_t page_no = 0, bool refresh_page = false)
             continue;
         }
 
-        uint64_t tx_i {0};
-
-        //          tx_hash     , txd_map
-        vector<pair<crypto::hash, mstch::node>> txd_pairs;
-
-        for(auto it = blk_txs.begin(); it != blk_txs.end(); ++it)
+        uint64_t fees {0};
+        bool fees_available = missed_txs.empty();
+        for(auto it = std::next(blk_txs.begin()); it != blk_txs.end(); ++it)
         {
-            const cryptonote::transaction& tx = *it;
-
-            const tx_details& txd = get_tx_details(tx, false, i, height);
-
-            mstch::map txd_map = txd.get_mstch_map();
-
-            //add age to the txd mstch map
-            txd_map.insert({"height"    , i});
-            txd_map.insert({"blk_hash"  , blk_hash_str});
-            txd_map.insert({"age"       , age.first});
-            txd_map.insert({"is_ringct" , (tx.version > 1)});
-            txd_map.insert({"rct_type"  , tx.rct_signatures.type});
-            txd_map.insert({"blk_size"  , blk_size_str});
-            txd_map.insert({"no_txs"    , blk_no_txs_str});
-
-
-            // do not show block info for other than first tx in a block
-            if (tx_i > 0)
+            const tx_details& txd = get_tx_details(*it, false, i, height);
+            if (fees > std::numeric_limits<uint64_t>::max() - txd.fee)
             {
-                txd_map["height"]     = string("");
-                txd_map["age"]        = string("");
-                txd_map["blk_size"]   = string("");
-                txd_map["no_txs"]     = string("");
+                fees_available = false;
+                break;
             }
-
-            txd_pairs.emplace_back(txd.hash, txd_map);
-
-            if (tx_i == 0)
-            {
-                const cryptonote::difficulty_type blk_difficulty
-                    = core_storage->get_db().get_block_difficulty(i);
-                const cryptonote::difficulty_type blk_hashrate
-                    = current_network_info.target > 0
-                        ? blk_difficulty / current_network_info.target
-                        : blk_difficulty;
-
-                chain_chart_points.push_back(json {
-                        {"height", i},
-                        {"difficulty", blk_difficulty.str()},
-                        {"hashrate", blk_hashrate.str()},
-                        {"reward", xmr_amount_to_str(txd.xmr_outputs, "{:0.8f}", false)},
-                        {"unlocked_supply", i >= CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW
-                            ? xmr_amount_to_str(core_storage->get_db().get_block_already_generated_coins(
-                                    i - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW), "{:0.8f}", false)
-                            : "0"}
-                });
-            }
-
-            ++tx_i;
-
-        } // for(list<cryptonote::transaction>::reverse_iterator rit = blk_txs.rbegin();
-
-        // copy tx maps from txs_maps_tmp into txs array,
-        // that will go to templates
-        for (const pair<crypto::hash, mstch::node>& txd_pair: txd_pairs)
-        {
-            txs.push_back(boost::get<mstch::map>(txd_pair.second));
+            fees += txd.fee;
         }
 
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>
-                (std::chrono::steady_clock::now() - start);
+        const tx_details& coinbase = get_tx_details(blk.miner_tx, false, i, height);
+        blocks.push_back(mstch::map {
+                {"height", static_cast<uint64_t>(i)},
+                {"hash", blk_hash_str},
+                {"age", blk.timestamp > 0 ? age.first : string("unavailable")},
+                {"timestamp", blk.timestamp > 0 ? xmreg::timestamp_to_str_gm(blk.timestamp) : string("unavailable")},
+                {"timestamp_available", blk.timestamp > 0},
+                {"weight_kb", blk_size_str},
+                {"difficulty", blk_difficulty},
+                {"regular_tx_count", static_cast<uint64_t>(blk.tx_hashes.size())},
+                {"total_tx_count", static_cast<uint64_t>(blk.tx_hashes.size() + 1)},
+                {"fees_available", fees_available},
+                {"fees", fees_available ? xmr_amount_to_str(fees, "{:0.8f}", false) : string("unavailable")},
+                {"coinbase_total", xmr_amount_to_str(coinbase.xmr_outputs, "{:0.8f}", false)}
+        });
 
         --i; // go to next block number
 
     } // while (i <= end_height)
 
+    if (snapshot_block_count > 0
+        && (core_storage->get_current_blockchain_height() < snapshot_block_count
+            || pod_to_hex(core_storage->get_block_id_by_height(snapshot_block_count - 1))
+                    != snapshot_tip_hash))
+        return "Block-page snapshot changed while it was rendered. Return to /blocks to restart pagination.";
+
     // calculate median size of the blocks shown
     //double blk_size_median = xmreg::calc_median(blk_sizes.begin(), blk_sizes.end());
 
     // perapre network info mstch::map for the front page
-    string hash_rate;
+    const cryptonote::difficulty_type current_difficulty = make_difficulty(
+            current_network_info.difficulty,
+            current_network_info.difficulty_top64);
+    const string hash_rate = format_hashrate_si(current_difficulty,
+                                                current_network_info.target);
 
-    double hr_d;
-    char metric_prefix;
-
-    cryptonote::difficulty_type hr = make_difficulty(
-            current_network_info.hash_rate,
-            current_network_info.hash_rate_top64);
-
-    get_metric_prefix(hr, hr_d, metric_prefix);
-
-    if (metric_prefix != 0)
-        hash_rate = fmt::format("{:0.3f} {:c}H/s", hr_d, metric_prefix);
-    else
-        hash_rate = fmt::format("{:s} H/s", hr.str());
+    const uint64_t height_after_render = core_storage->get_current_blockchain_height();
+    const crypto::hash db_tip_hash = height_after_render > 0
+            ? core_storage->get_block_id_by_height(height_after_render - 1) : null_hash;
+    const bool chain_anchor_consistent = height > 0
+            && height == height_after_render
+            && current_network_info.height == height_after_render
+            && current_network_info.top_block_hash == db_tip_hash;
 
     pair<string, string> network_info_age = get_age(local_copy_server_timestamp,
                                                     current_network_info.info_timestamp);
-
-    // if network info is younger than 2 minute, assume its current. No sense
-    // showing that it is not current if its less then block time.
-    if (local_copy_server_timestamp - current_network_info.info_timestamp < 120)
-    {
-        current_network_info.current = true;
-    }
 
     const uint64_t total_connections = current_network_info.incoming_connections_count
                                      + current_network_info.outgoing_connections_count;
     const string network_name = current_network_info.nettype == cryptonote::network_type::TESTNET ? "testnet" :
                                 current_network_info.nettype == cryptonote::network_type::STAGENET ? "stagenet" : "mainnet";
+    block observed_tip_block;
+    const bool last_block_time_available = height > 0
+            && mcore->get_block_by_height(height - 1, observed_tip_block)
+            && observed_tip_block.timestamp > 0;
 
     context["network_info"] = mstch::map {
             {"network_name"      , network_name},
@@ -843,51 +867,32 @@ index2(uint64_t page_no = 0, bool refresh_page = false)
             {"top_block_hash"    , pod_to_hex(current_network_info.top_block_hash)},
             {"block_size_limit"  , string {current_network_info.block_size_limit_str}},
             {"block_size_median" , string {current_network_info.block_size_median_str}},
-            {"is_current_info"   , current_network_info.current},
+            {"is_current_info"   , current_network_info.current && chain_anchor_consistent},
+            {"chain_anchor_consistent", chain_anchor_consistent},
             {"is_pool_size_zero" , (current_network_info.tx_pool_size == 0)},
             {"current_hf_version", current_network_info.current_hf_version},
+            {"last_block_time_available", last_block_time_available},
+            {"last_block_time", last_block_time_available
+                    ? xmreg::timestamp_to_str_gm(observed_tip_block.timestamp)
+                    : string("unavailable")},
             {"age"               , network_info_age.first},
             {"age_format"        , network_info_age.second},
     };
 
     // median size of 100 blocks
     context["blk_size_median"] = string {current_network_info.block_size_median_str};
-    context["chain_chart_points_json"] = chain_chart_points.dump();
 
     string mempool_html {"Cant get mempool_pool"};
 
-    // get mempool data for the front page, if ready. If not, then just skip.
-    std::future_status mempool_ftr_status = mempool_ftr.wait_for(
-            std::chrono::milliseconds(mempool_info_timeout));
-
-    if (mempool_ftr_status == std::future_status::ready)
+    if (!show_mempool)
     {
-        mempool_html = mempool_ftr.get();
+        mempool_html.clear();
     }
     else
     {
-        cerr  << "mempool future not ready yet, skipping." << endl;
-        mempool_html = mstch::render(template_file["mempool_error"], context);
-    }
-
-    if (CurrentBlockchainStatus::is_thread_running())
-    {
-        CurrentBlockchainStatus::Emission current_values
-                = CurrentBlockchainStatus::get_emission();
-
-        string emission_blk_no   = std::to_string(current_values.blk_no - 1);
-        string emission_coinbase = xmr_amount_to_str(current_values.coinbase, "{:0.3f}");
-        string emission_fee      = xmr_amount_to_str(current_values.fee, "{:0.3f}");
-
-        context["emission"] = mstch::map {
-                {"blk_no"    , emission_blk_no},
-                {"amount"    , emission_coinbase},
-                {"fee_amount", emission_fee}
-        };
-    }
-    else
-    {
-        cerr  << "emission thread not running, skipping." << endl;
+        // This reads the bounded in-process mempool snapshot; it does not issue
+        // a per-viewer daemon request or launch an uncancellable async task.
+        mempool_html = mempool(false, no_of_mempool_tx_of_frontpage);
     }
 
 
@@ -910,9 +915,10 @@ string
 mempool(bool add_header_and_footer = false, uint64_t no_of_mempool_tx = 25)
 {
     // Use shared_ptr to avoid deep copy of mempool transactions
-    auto mempool_txs = add_header_and_footer
-        ? MempoolStatus::get_mempool_txs()
-        : MempoolStatus::get_mempool_txs(no_of_mempool_tx);
+    const auto mempool_snapshot = MempoolStatus::get_mempool_snapshot(
+            add_header_and_footer ? (std::numeric_limits<uint64_t>::max)()
+                                  : no_of_mempool_tx);
+    auto mempool_txs = mempool_snapshot.transactions;
 
     if (!mempool_txs)
         mempool_txs = std::make_shared<std::vector<MempoolStatus::mempool_tx>>();
@@ -927,13 +933,13 @@ mempool(bool add_header_and_footer = false, uint64_t no_of_mempool_tx = 25)
     }
 
     // total size of mempool in bytes
-    uint64_t mempool_size_bytes = MempoolStatus::mempool_size;
+    uint64_t mempool_size_bytes = mempool_snapshot.size_bytes;
 
     // reasign this number, in case no of txs in mempool is smaller
     // than what we requested or we want all txs.
 
 
-    uint64_t total_no_of_mempool_tx = MempoolStatus::mempool_no;
+    uint64_t total_no_of_mempool_tx = mempool_snapshot.total_count;
 
     // initalise page tempate map with basic info about mempool
     mstch::map context {
@@ -983,8 +989,7 @@ mempool(bool add_header_and_footer = false, uint64_t no_of_mempool_tx = 25)
                 {"timestamp"       , mempool_tx.timestamp_str},
                 {"age"             , age_str},
                 {"hash"            , pod_to_hex(mempool_tx.tx_hash)},
-                {"fee"             , mempool_tx.fee_micro_str},
-                {"payed_for_kB"    , mempool_tx.payed_for_kB_micro_str},
+                {"fee"             , mempool_tx.fee_str},
                 {"xmr_inputs"      , mempool_tx.xmr_inputs_str},
                 {"xmr_outputs"     , mempool_tx.xmr_outputs_str},
                 {"no_inputs"       , mempool_tx.no_inputs},
@@ -1095,7 +1100,7 @@ show_block(uint64_t _blk_height)
     uint64_t current_blockchain_height
             =  core_storage->get_current_blockchain_height();
 
-    if (_blk_height > current_blockchain_height)
+    if (_blk_height >= current_blockchain_height)
     {
         cerr << "Cant get block: " << _blk_height
              << " since its higher than current blockchain height"
@@ -1118,7 +1123,8 @@ show_block(uint64_t _blk_height)
     crypto::hash prev_hash = blk.prev_id;
     crypto::hash next_hash = null_hash;
 
-    if (_blk_height + 1 <= current_blockchain_height)
+    if (_blk_height < current_blockchain_height
+        && _blk_height + 1 < current_blockchain_height)
     {
         next_hash = core_storage->get_block_id_by_height(_blk_height + 1);
     }
@@ -1134,7 +1140,9 @@ show_block(uint64_t _blk_height)
     string blk_hash_str  = pod_to_hex(blk_hash);
 
     // get block timestamp in user friendly format
-    string blk_timestamp = xmreg::timestamp_to_str_gm(blk.timestamp);
+    string blk_timestamp = blk.timestamp > 0
+            ? xmreg::timestamp_to_str_gm(blk.timestamp)
+            : string("unavailable");
 
     // get age of the block relative to the server time
     pair<string, string> age = get_age(server_timestamp, blk.timestamp);
@@ -1164,6 +1172,7 @@ show_block(uint64_t _blk_height)
 
     // sum of all transactions in the block
     uint64_t sum_fees = 0;
+    bool fees_available = true;
 
     // get tx details for the coinbase tx, i.e., miners reward
     tx_details txd_coinbase = get_tx_details(blk.miner_tx, true,
@@ -1171,7 +1180,6 @@ show_block(uint64_t _blk_height)
 
     // initalise page tempate map with basic info about blockchain
 
-    string blk_pow_hash_str = pod_to_hex(get_block_longhash(core_storage, blk, _blk_height, 0));
     cryptonote::difficulty_type blk_difficulty = core_storage->get_db().get_block_difficulty(_blk_height);
 
     mstch::map context {
@@ -1179,8 +1187,12 @@ show_block(uint64_t _blk_height)
             {"stagenet"             , stagenet},
             {"blk_hash"             , blk_hash_str},
             {"blk_height"           , _blk_height},
+            {"canonical_status"     , "canonical in this observer's chain"},
+            {"confirmations"        , current_blockchain_height > _blk_height
+                    ? current_blockchain_height - _blk_height : 0},
             {"blk_timestamp"        , blk_timestamp},
-            {"blk_timestamp_epoch"  , blk.timestamp},
+            {"blk_timestamp_epoch"  , blk.timestamp > 0
+                    ? std::to_string(blk.timestamp) : string("unavailable")},
             {"prev_hash"            , prev_hash_str},
             {"next_hash"            , next_hash_str},
             {"enable_as_hex"        , enable_as_hex},
@@ -1189,10 +1201,10 @@ show_block(uint64_t _blk_height)
             {"have_txs"             , have_txs},
             {"no_txs"               , std::to_string(
                                          blk.tx_hashes.size())},
-            {"blk_age"              , age.first},
+            {"total_txs"            , static_cast<uint64_t>(blk.tx_hashes.size() + 1)},
+            {"blk_age"              , blk.timestamp > 0 ? age.first : string("unavailable")},
             {"delta_time"           , delta_time},
             {"blk_nonce"            , blk.nonce},
-            {"blk_pow_hash"         , blk_pow_hash_str},
             {"is_randomx"           , (blk.major_version >= 12
                                             && enable_randomx == true)},
             {"blk_difficulty"       , blk_difficulty.str()},
@@ -1232,6 +1244,7 @@ show_block(uint64_t _blk_height)
         if (!mcore->get_tx(tx_hash, tx))
         {
             cerr << "Cant get tx: " << tx_hash << endl;
+            fees_available = false;
             continue;
         }
 
@@ -1240,7 +1253,10 @@ show_block(uint64_t _blk_height)
                                         current_blockchain_height);
 
         // add fee to the rest
-        sum_fees += txd.fee;
+        if (sum_fees > std::numeric_limits<uint64_t>::max() - txd.fee)
+            fees_available = false;
+        else
+            sum_fees += txd.fee;
 
 
         // get mixins in time scale for visual representation
@@ -1254,12 +1270,14 @@ show_block(uint64_t _blk_height)
 
 
     // add total fees in the block to the context
-    context["sum_fees"]
-            = xmreg::xmr_amount_to_str(sum_fees, "{:0.6f}", false);
-
-    // get xmr in the block reward
-    context["blk_reward"]
-            = xmreg::xmr_amount_to_str(txd_coinbase.xmr_outputs - sum_fees, "{:0.6f}");
+    context["sum_fees"] = fees_available
+            ? xmreg::xmr_amount_to_str(sum_fees, "{:0.8f}", false)
+            : string("unavailable");
+    context["coinbase_total"] = xmreg::xmr_amount_to_str(
+            txd_coinbase.xmr_outputs, "{:0.8f}", false);
+    context["subsidy"] = fees_available && txd_coinbase.xmr_outputs >= sum_fees
+            ? xmreg::xmr_amount_to_str(txd_coinbase.xmr_outputs - sum_fees, "{:0.8f}", false)
+            : string("unavailable");
 
     add_css_style(context);
 
@@ -1732,7 +1750,8 @@ show_ringmemberstx_jsonhex(string const& tx_hash_str)
     tx_json["hash"] = tx_hash_str;
     tx_json["hex"]  = tx_hex;
     tx_json["nettype"] = static_cast<size_t>(nettype);
-    tx_json["is_ringct"] = (tx.version > 1);
+    tx_json["is_ringct"] = !cryptonote::is_coinbase(tx)
+                            && tx.rct_signatures.type != rct::RCTTypeNull;
     tx_json["rct_type"] = tx.rct_signatures.type;
 
     tx_json["_comment"] = "Just a placeholder for some comment if needed later";
@@ -4511,6 +4530,8 @@ json_transaction(string tx_hash_str)
     uint64_t bc_height = core_storage->get_current_blockchain_height();
 
     tx_details txd = get_tx_details(tx, is_coinbase_tx, block_height, bc_height);
+    const bool confidential_amounts = !is_coinbase_tx
+            && tx.rct_signatures.type != rct::RCTTypeNull;
 
     json outputs;
 
@@ -4518,7 +4539,11 @@ json_transaction(string tx_hash_str)
     {
         outputs.push_back(json {
                 {"public_key", pod_to_hex(std::get<0>(output))},
-                {"amount"    , std::get<1>(output)}
+                {"amount_atomic", confidential_amounts
+                        ? json(nullptr) : json(std::to_string(std::get<1>(output)))},
+                {"amount_qwc", confidential_amounts
+                        ? json(nullptr) : json(xmr_amount_to_str(std::get<1>(output), "{:0.8f}", false))},
+                {"amount_availability", confidential_amounts ? "confidential" : "public"}
         });
     }
 
@@ -4560,7 +4585,11 @@ json_transaction(string tx_hash_str)
 
         inputs.push_back(json {
                 {"key_image"  , pod_to_hex(in_key.k_image)},
-                {"amount"     , in_key.amount},
+                {"amount_atomic", confidential_amounts
+                        ? json(nullptr) : json(std::to_string(in_key.amount))},
+                {"amount_qwc", confidential_amounts
+                        ? json(nullptr) : json(xmr_amount_to_str(in_key.amount, "{:0.8f}", false))},
+                {"amount_availability", confidential_amounts ? "confidential" : "public"},
                 {"mixins"     , json {}}
         });
 
@@ -5008,7 +5037,9 @@ json_rawblock(string block_no_or_hash)
  * https://labs.omniti.com/labs/jsend
  */
 json
-json_transactions(string _page, string _limit)
+json_transactions(string _page, string _limit,
+                  string _snapshot_block_count = "",
+                  string _snapshot_tip_hash = "")
 {
     json j_response {
             {"status", "fail"},
@@ -5019,44 +5050,49 @@ json_transactions(string _page, string _limit)
 
     // parse page and limit into numbers
 
-    uint64_t page {0};
-    uint64_t limit {0};
-
-    try
+    bounded_pagination pagination;
+    if (!parse_bounded_pagination(_page, _limit, 100, pagination))
     {
-        page  = boost::lexical_cast<uint64_t>(_page);
-        limit = boost::lexical_cast<uint64_t>(_limit);
-    }
-    catch (const boost::bad_lexical_cast& e)
-    {
-        j_data["title"] = fmt::format(
-                "Cant parse page and/or limit numbers: {:s}, {:s}", _page, _limit);
+        j_data["title"] = "Pagination requires page >= 0 and limit between 1 and 100";
         return j_response;
     }
-
-    // enforce maximum number of blocks per page to 100
-    limit = limit > 100 ? 100 : limit;
+    const uint64_t page = pagination.page;
+    const uint64_t limit = pagination.limit;
 
     //get current server timestamp
     server_timestamp = std::time(nullptr);
 
     uint64_t local_copy_server_timestamp = server_timestamp;
 
-    uint64_t height = core_storage->get_current_blockchain_height();
+    const uint64_t live_height = core_storage->get_current_blockchain_height();
+    uint64_t height = live_height;
+    if (!_snapshot_block_count.empty() || !_snapshot_tip_hash.empty())
+    {
+        if (_snapshot_block_count.empty() || _snapshot_tip_hash.size() != 64
+            || !parse_uint64_strict(_snapshot_block_count, height)
+            || height == 0 || height > live_height
+            || pod_to_hex(core_storage->get_block_id_by_height(height - 1)) != _snapshot_tip_hash)
+        {
+            j_response["status"] = "fail";
+            j_data["title"] = "Pagination snapshot is invalid or was reorganized; restart from page 0";
+            return j_response;
+        }
+    }
+    const string snapshot_tip_hash = height > 0
+            ? pod_to_hex(core_storage->get_block_id_by_height(height - 1)) : string {};
 
-    // calculate starting and ending block numbers to show
-    int64_t start_height = height - limit * (page + 1);
-
-    // check if start height is not below range
-    start_height = start_height < 0 ? 0 : start_height;
-
-    int64_t end_height = start_height + limit - 1;
+    const descending_block_range range = make_descending_block_range(
+            height, pagination.offset, limit);
+    const int64_t start_height = range.empty ? 0 : static_cast<int64_t>(range.begin);
+    const int64_t end_height = range.empty ? -1 : static_cast<int64_t>(range.end_exclusive - 1);
 
     // loop index
     int64_t i = end_height;
 
     j_data["blocks"] = json::array();
     json& j_blocks = j_data["blocks"];
+    uint64_t expanded_transaction_count {0};
+    constexpr uint64_t maximum_expanded_transactions = 5000;
 
     // iterate over last no_of_last_blocks of blocks
     while (i >= start_height)
@@ -5079,6 +5115,14 @@ json_transactions(string _page, string _limit)
         // get block age
         pair<string, string> age = get_age(local_copy_server_timestamp, blk.timestamp);
 
+        if (blk.tx_hashes.size() + 1 > maximum_expanded_transactions - expanded_transaction_count)
+        {
+            j_response["status"] = "fail";
+            j_data["title"] = "Requested page exceeds the expanded transaction response budget";
+            return j_response;
+        }
+        expanded_transaction_count += blk.tx_hashes.size() + 1;
+
         j_blocks.push_back(json {
                 {"height"       , i},
                 {"hash"         , pod_to_hex(blk_hash)},
@@ -5094,14 +5138,13 @@ json_transactions(string _page, string _limit)
         vector<cryptonote::transaction> blk_txs {blk.miner_tx};
         vector<crypto::hash> missed_txs;
 
-        if (!core_storage->get_transactions(blk.tx_hashes, blk_txs, missed_txs))
+        if (!core_storage->get_transactions(blk.tx_hashes, blk_txs, missed_txs)
+            || !missed_txs.empty() || blk_txs.size() != blk.tx_hashes.size() + 1)
         {
             j_response["status"]  = "error";
             j_response["message"] = fmt::format("Cant get transactions in block: {:d}", i);
             return j_response;
         }
-
-        (void) missed_txs;
 
         for(auto it = blk_txs.begin(); it != blk_txs.end(); ++it)
         {
@@ -5118,8 +5161,26 @@ json_transactions(string _page, string _limit)
     j_data["page"]           = page;
     j_data["limit"]          = limit;
     j_data["current_height"] = height;
+    j_data["block_count"] = height;
+    j_data["tip_height"] = height > 0 ? height - 1 : 0;
+    j_data["tip_hash"] = snapshot_tip_hash;
+    j_data["snapshot_block_count"] = height;
+    j_data["snapshot_tip_hash"] = snapshot_tip_hash;
+    j_data["returned_count"] = j_blocks.size();
+    j_data["expanded_transaction_count"] = expanded_transaction_count;
+    j_data["maximum_expanded_transactions"] = maximum_expanded_transactions;
 
-    j_data["total_page_no"]  = limit > 0 ? (height / limit) : 0;
+    if (height > 0
+        && (core_storage->get_current_blockchain_height() < height
+            || pod_to_hex(core_storage->get_block_id_by_height(height - 1))
+                    != snapshot_tip_hash))
+    {
+        j_response["status"] = "error";
+        j_response["message"] = "Canonical chain changed while serializing this page";
+        return j_response;
+    }
+
+    j_data["total_page_no"]  = height > 0 ? ((height - 1) / limit) : 0;
 
     j_response["status"] = "success";
 
@@ -5143,20 +5204,14 @@ json_mempool(string _page, string _limit)
 
     // parse page and limit into numbers
 
-    uint64_t page {0};
-    uint64_t limit {0};
-
-    try
+    bounded_pagination pagination;
+    if (!parse_bounded_pagination(_page, _limit, 100, pagination))
     {
-        page  = boost::lexical_cast<uint64_t>(_page);
-        limit = boost::lexical_cast<uint64_t>(_limit);
-    }
-    catch (const boost::bad_lexical_cast& e)
-    {
-        j_data["title"] = fmt::format(
-                "Cant parse page and/or limit numbers: {:s}, {:s}", _page, _limit);
+        j_data["title"] = "Pagination requires page >= 0 and limit between 1 and 100";
         return j_response;
     }
+    const uint64_t page = pagination.page;
+    const uint64_t limit = pagination.limit;
 
     //get current server timestamp
     server_timestamp = std::time(nullptr);
@@ -5171,24 +5226,18 @@ json_mempool(string _page, string _limit)
     uint64_t no_mempool_txs = mempool_data ? mempool_data->size() : 0;
 
     // calculate starting and ending block numbers to show
-    int64_t start_height = limit * page;
-
-    int64_t end_height = start_height + limit;
-
-    end_height = end_height > no_mempool_txs ? no_mempool_txs : end_height;
-
-    // check if start height is not below range
-    start_height = start_height > end_height ? end_height - limit : start_height;
-
-    start_height = start_height < 0 ? 0 : start_height;
+    const uint64_t start_offset = pagination.offset;
+    const uint64_t end_offset = start_offset >= no_mempool_txs
+            ? no_mempool_txs
+            : std::min<uint64_t>(no_mempool_txs, start_offset + limit);
 
     // loop index
-    int64_t i = start_height;
+    uint64_t i = std::min<uint64_t>(start_offset, no_mempool_txs);
 
     json j_txs = json::array();
 
     // for each transaction in the memory pool in current page
-    while (i < end_height)
+    while (i < end_offset)
     {
         const MempoolStatus::mempool_tx* mempool_tx {nullptr};
 
@@ -5222,7 +5271,7 @@ json_mempool(string _page, string _limit)
     j_data["page"]           = page;
     j_data["limit"]          = limit;
     j_data["txs_no"]         = no_mempool_txs;
-    j_data["total_page_no"]  = limit > 0 ? (no_mempool_txs / limit) : 0;
+    j_data["total_page_no"]  = no_mempool_txs > 0 ? ((no_mempool_txs - 1) / limit) : 0;
 
     j_response["status"] = "success";
 
@@ -5752,25 +5801,35 @@ json_networkinfo()
     {
         j_response["status"]  = "error";
         j_response["message"] = "Cant get monero network info";
-    //    return j_response;
+        return j_response;
     }
 
-    uint64_t per_kb_fee_estimated {0};
+    const uint64_t per_kb_fee_estimated = MempoolStatus::current_network_info.load().fee_per_kb;
+    const bool fee_estimate_available = per_kb_fee_estimated > 0;
 
-    // get dynamic fee estimate from last 10 blocks
-    if (!get_dynamic_per_kb_fee_estimate(per_kb_fee_estimated))
-    {
-        j_response["status"]  = "error";
-        j_response["message"] = "Cant get per kb dynamic fee esimate";
-    //    return j_response;
-    }
-
-    j_info["fee_per_kb"] = per_kb_fee_estimated;
-    j_info["fee_estimate"] = per_kb_fee_estimated;
+    j_info["fee_per_kb_atomic"] = fee_estimate_available
+            ? json(std::to_string(per_kb_fee_estimated)) : json(nullptr);
+    j_info["fee_estimate_atomic"] = fee_estimate_available
+            ? json(std::to_string(per_kb_fee_estimated)) : json(nullptr);
+    j_info.erase("fee_per_kb");
+    j_info.erase("fee_estimate");
     j_info["fee_estimate_grace_blocks"] = FEE_ESTIMATE_GRACE_BLOCKS;
+    j_info["fee_estimate_availability"] = fee_estimate_available ? "current" : "unavailable";
 
-    j_info["tx_pool_size"]        = MempoolStatus::mempool_no.load();
-    j_info["tx_pool_size_kbytes"] = MempoolStatus::mempool_size.load();
+    const auto local_mempool = MempoolStatus::get_mempool_snapshot(0);
+    j_info["observer_mempool_count"] = local_mempool.total_count;
+    j_info["observer_mempool_size_bytes"] = local_mempool.size_bytes;
+    j_info["observer_mempool_observed_at_unix"] = local_mempool.observed_at;
+    const uint64_t observer_block_count = core_storage->get_current_blockchain_height();
+    block observed_tip_block;
+    const bool last_block_available = observer_block_count > 0
+            && mcore->get_block_by_height(observer_block_count - 1, observed_tip_block)
+            && observed_tip_block.timestamp > 0;
+    j_info["observer_block_count"] = observer_block_count;
+    j_info["observer_tip_height"] = observer_block_count > 0
+            ? json(observer_block_count - 1) : json(nullptr);
+    j_info["last_block_timestamp"] = last_block_available
+            ? json(observed_tip_block.timestamp) : json(nullptr);
 
     j_data = j_info;
 
@@ -5780,8 +5839,137 @@ json_networkinfo()
 }
 
 json
+json_overview()
+{
+    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+    std::lock_guard<std::mutex> cache_lock {overview_cache_mutex};
+    if (!overview_cache.is_null() && now >= overview_cache_time
+        && now - overview_cache_time < 5)
+        return overview_cache;
+
+    json response {{"status", "error"}, {"data", json {}}};
+    json network = json_networkinfo();
+    json supply = json_emission();
+    if (network.value("status", "error") != "success"
+        || supply.value("status", "error") != "success")
+    {
+        response["message"] = "Required overview snapshots are unavailable";
+        overview_cache = response;
+        overview_cache_time = now;
+        return response;
+    }
+
+    const uint64_t block_count = core_storage->get_current_blockchain_height();
+    if (block_count == 0)
+    {
+        response["message"] = "Canonical chain is empty";
+        return response;
+    }
+    const string tip_hash = pod_to_hex(core_storage->get_block_id_by_height(block_count - 1));
+    json blocks = json::array();
+    const auto range = make_descending_block_range(block_count, 0,
+            std::min<uint64_t>(no_blocks_on_index + 1, 25));
+    for (uint64_t cursor = range.end_exclusive; cursor > range.begin; --cursor)
+    {
+        const uint64_t height = cursor - 1;
+        block blk;
+        if (!mcore->get_block_by_height(height, blk))
+        {
+            response["message"] = "Cannot read a canonical overview block";
+            return response;
+        }
+        std::vector<transaction> txs;
+        std::vector<crypto::hash> missed;
+        if (!core_storage->get_transactions(blk.tx_hashes, txs, missed, true)
+            || !missed.empty() || txs.size() != blk.tx_hashes.size())
+        {
+            response["message"] = "Cannot read every overview transaction";
+            return response;
+        }
+        uint64_t fees = 0;
+        for (const auto& tx : txs)
+        {
+            const uint64_t fee = get_tx_fee(tx);
+            if (fee > std::numeric_limits<uint64_t>::max() - fees)
+            {
+                response["message"] = "Overview fee total overflow";
+                return response;
+            }
+            fees += fee;
+        }
+        const uint64_t coinbase = get_outs_money_amount(blk.miner_tx);
+        blocks.push_back(json {
+                {"height", height},
+                {"hash", pod_to_hex(core_storage->get_block_id_by_height(height))},
+                {"timestamp", blk.timestamp},
+                {"regular_tx_count", blk.tx_hashes.size()},
+                {"total_tx_count", blk.tx_hashes.size() + 1},
+                {"difficulty", core_storage->get_db().get_block_difficulty(height).str()},
+                {"fees_qwc", format_atomic_amount(fees, COIN, 8)},
+                {"coinbase_total_qwc", format_atomic_amount(coinbase, COIN, 8)},
+                {"weight_kb", fmt::format("{:0.2f}",
+                    static_cast<double>(core_storage->get_db().get_block_weight(height)) / 1024.0)}
+        });
+    }
+    if (core_storage->get_current_blockchain_height() != block_count
+        || pod_to_hex(core_storage->get_block_id_by_height(block_count - 1)) != tip_hash)
+    {
+        response["message"] = "Canonical chain changed during overview snapshot";
+        return response;
+    }
+    network["data"]["rpc_db_anchor_matches"] =
+            network["data"].value("height", uint64_t {0}) == block_count
+            && network["data"].value("top_block_hash", string {}) == tip_hash;
+
+    json mempool_rows = json::array();
+    const auto mempool = MempoolStatus::get_mempool_snapshot(25);
+    if (mempool.transactions)
+    {
+        for (const auto& tx : *mempool.transactions)
+        {
+            mempool_rows.push_back(json {
+                    {"hash", pod_to_hex(tx.tx_hash)},
+                    {"timestamp", tx.receive_time},
+                    {"fee_qwc", tx.fee_str},
+                    {"outputs", tx.xmr_outputs_str},
+                    {"amount_availability", tx.confidential_amounts ? "confidential" : "public"},
+                    {"input_count", tx.no_inputs},
+                    {"output_count", tx.no_outputs},
+                    {"size_kb", tx.txsize}
+            });
+        }
+    }
+    response["data"] = json {
+            {"network", network.at("data")},
+            {"supply", supply.at("data")},
+            {"blocks", blocks},
+            {"mempool", {{"total_count", mempool.total_count},
+                         {"returned_count", mempool_rows.size()},
+                         {"size_kb", fmt::format("{:0.2f}",
+                             static_cast<double>(mempool.size_bytes) / 1024.0)},
+                         {"observed_at_unix", mempool.observed_at},
+                         {"refresh_interval_seconds", MempoolStatus::mempool_refresh_time},
+                         {"transactions", mempool_rows}}},
+            {"block_count", block_count},
+            {"tip_height", block_count - 1},
+            {"tip_hash", tip_hash},
+            {"rendered_at_unix", now},
+            {"cache_seconds", 5}
+    };
+    response["status"] = "success";
+    overview_cache = response;
+    overview_cache_time = now;
+    return response;
+}
+
+json
 json_epose_info()
 {
+    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+    std::lock_guard<std::mutex> cache_lock {epose_info_cache_mutex};
+    if (!epose_info_cache.is_null() && now >= epose_info_cache_time
+        && now - epose_info_cache_time < 15)
+        return epose_info_cache;
     json j_response {
             {"status", "fail"},
             {"data",   json {}}
@@ -5793,8 +5981,12 @@ json_epose_info()
     {
         j_response["status"] = "error";
         j_response["message"] = "Cant get EPoSE info";
+        epose_info_cache = j_response;
+        epose_info_cache_time = now;
         return j_response;
     }
+
+    const uint64_t observer_block_count = core_storage->get_current_blockchain_height();
 
     j_response["data"] = json {
             {"enabled", info.enabled},
@@ -5802,8 +5994,12 @@ json_epose_info()
             {"current_epoch", info.current_epoch},
             {"epoch_start_height", info.epoch_start_height},
             {"epoch_end_height", info.epoch_end_height},
+            {"observer_block_count", observer_block_count},
+            {"observer_tip_height", observer_block_count > 0
+                    ? json(observer_block_count - 1) : json(nullptr)},
             {"service_node_count", info.service_node_count},
             {"qualified_count", info.qualified_count},
+            {"qualification_availability", "current"},
             {"attestation_count", info.attestation_count},
             {"state_hash", info.state_hash},
             {"service_reward_bps", info.service_reward_bps},
@@ -5815,10 +6011,14 @@ json_epose_info()
             {"local_service_node_expiry_epoch", info.local_service_node_expiry_epoch},
             {"local_service_public_key", info.local_service_public_key},
             {"local_service_reward_address", info.local_service_reward_address},
-            {"local_service_endpoint_commitment", info.local_service_endpoint_commitment}
+            {"local_service_endpoint_commitment", info.local_service_endpoint_commitment},
+            {"observed_at_unix", now},
+            {"cache_seconds", 15}
     };
 
     j_response["status"] = "success";
+    epose_info_cache = j_response;
+    epose_info_cache_time = now;
 
     return j_response;
 }
@@ -5826,6 +6026,11 @@ json_epose_info()
 json
 json_epose_service_nodes()
 {
+    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+    std::lock_guard<std::mutex> cache_lock {epose_nodes_cache_mutex};
+    if (!epose_nodes_cache.is_null() && now >= epose_nodes_cache_time
+        && now - epose_nodes_cache_time < 15)
+        return epose_nodes_cache;
     json j_response {
             {"status", "fail"},
             {"data",   json {}}
@@ -5837,52 +6042,60 @@ json_epose_service_nodes()
     {
         j_response["status"] = "error";
         j_response["message"] = "Cant get EPoSE service nodes";
+        epose_nodes_cache = j_response;
+        epose_nodes_cache_time = now;
+        return j_response;
+    }
+
+    COMMAND_RPC_GET_EPOSE_INFO::response epoch_info;
+    if (!rpc.get_epose_info(epoch_info))
+    {
+        j_response["status"] = "error";
+        j_response["message"] = "Cant obtain the EPoSE source epoch";
+        epose_nodes_cache = j_response;
+        epose_nodes_cache_time = now;
         return j_response;
     }
 
     json nodes = json::array();
 
-    const auto get_node_label = [](const std::string& service_public_key) -> std::string
-    {
-        if (service_public_key == "09cbd8bdf57da129fdd0fe4a1ff74dc958e89bd1bbcd01d547ad73fb622196f0")
-            return "seed-00.qwertycoin";
-        if (service_public_key == "0822c57a18cfbe23cc1a7ee5526e3082456e7b0e82a2c5fb6c607735954293e1")
-            return "seed-01.qwertycoin";
-        if (service_public_key == "dd02d835223816e7c7da6240b26ee49e727d7c0848806f62f4addb40fc742659")
-            return "seed-02.qwertycoin";
-        if (service_public_key == "02781373c92caac6ddb60f2a5a7134b49d6c75b62a1d1fccb35e795fe604b7e2")
-            return "operator-smoke";
-
-        return "";
-    };
-
     for (const auto& node: info.service_nodes)
     {
-        const std::string node_label = get_node_label(node.service_public_key);
-
         nodes.push_back(json {
-                {"name", node_label},
-                {"label", node_label},
-                {"display_name", node_label.empty() ? node.service_public_key : node_label},
+                {"identity_id", node.identity_id},
                 {"service_public_key", node.service_public_key},
+                {"operator_authorization_public_key", node.operator_authorization_public_key},
                 {"reward_view_public_key", node.reward_view_public_key},
                 {"reward_spend_public_key", node.reward_spend_public_key},
                 {"endpoint_commitment", node.endpoint_commitment},
                 {"admission_hash", node.admission_hash},
+                {"descriptor_sequence", node.descriptor_sequence},
+                {"effective_epoch", node.effective_epoch},
                 {"registration_epoch", node.registration_epoch},
                 {"expiry_epoch", node.expiry_epoch},
-                {"active", node.active},
-                {"qualified", node.qualified}
+                {"protocol_active", node.active},
+                {"qualified_for_source_epoch", node.qualified},
+                {"qualification_availability", "current"},
+                {"reachability", "unsupported"}
         });
     }
 
     j_response["data"] = json {
             {"service_nodes", nodes},
             {"total_count", info.total_count},
-            {"returned_count", info.returned_count}
+            {"returned_count", info.returned_count},
+            {"source_epoch", epoch_info.current_epoch},
+            {"observed_at_unix", now},
+            {"identity_key", "identity_id"},
+            {"reachability_capability", "unsupported"},
+            {"snapshot_consistency", "unanchored"},
+            {"truncated", info.returned_count < info.total_count},
+            {"cache_seconds", 15}
     };
 
     j_response["status"] = "success";
+    epose_nodes_cache = j_response;
+    epose_nodes_cache_time = now;
 
     return j_response;
 }
@@ -5890,6 +6103,11 @@ json_epose_service_nodes()
 json
 json_epose_rewards()
 {
+    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
+    std::lock_guard<std::mutex> cache_lock {epose_rewards_cache_mutex};
+    if (!epose_rewards_cache.is_null() && now >= epose_rewards_cache_time
+        && now - epose_rewards_cache_time < 15)
+        return epose_rewards_cache;
     json j_response {
             {"status", "fail"},
             {"data",   json {}}
@@ -5901,22 +6119,105 @@ json_epose_rewards()
     {
         j_response["status"] = "error";
         j_response["message"] = "Cant get EPoSE service rewards";
+        epose_rewards_cache = j_response;
+        epose_rewards_cache_time = now;
         return j_response;
     }
 
     j_response["data"] = json {
+            {"preview_available", info.preview_available},
             {"service_reward_active", info.service_reward_active},
+            {"protocol_version", info.protocol_version},
             {"height", info.height},
             {"epoch", info.epoch},
             {"service_reward_bps", info.service_reward_bps},
             {"qualified_count", info.qualified_count},
-            {"expected_payee_service_public_key", info.expected_payee_service_public_key},
-            {"expected_reward_view_public_key", info.expected_reward_view_public_key},
-            {"expected_reward_spend_public_key", info.expected_reward_spend_public_key}
+            {"expected_payee_service_public_key", info.preview_available
+                    ? json(info.expected_payee_service_public_key) : json(nullptr)},
+            {"expected_reward_view_public_key", info.preview_available
+                    ? json(info.expected_reward_view_public_key) : json(nullptr)},
+            {"expected_reward_spend_public_key", info.preview_available
+                    ? json(info.expected_reward_spend_public_key) : json(nullptr)},
+            {"availability", info.preview_available ? "current" : "unsupported"},
+            {"observed_at_unix", now},
+            {"cache_seconds", 15}
     };
 
     j_response["status"] = "success";
+    epose_rewards_cache = j_response;
+    epose_rewards_cache_time = now;
 
+    return j_response;
+}
+
+json
+json_identity()
+{
+    json j_response {{"status", "fail"}, {"data", json {}}};
+    const uint64_t chain_height = core_storage->get_current_blockchain_height();
+    if (chain_height == 0)
+    {
+        j_response["status"] = "error";
+        j_response["message"] = "Chain identity is unavailable";
+        return j_response;
+    }
+
+    const json network = json_networkinfo();
+    const json epose = json_epose_info();
+    if (network.value("status", "error") != "success"
+        || epose.value("status", "error") != "success")
+    {
+        j_response["status"] = "error";
+        j_response["message"] = "Required observer identity data is unavailable";
+        return j_response;
+    }
+
+    const json& network_data = network.at("data");
+    const json& epose_data = epose.at("data");
+    const string actual_genesis = pod_to_hex(core_storage->get_block_id_by_height(0));
+    const string expected_genesis = qwertycoin::epose::MAINNET_FINAL_GENESIS_HASH_V2;
+    const bool mainnet = !network_data.value("testnet", true)
+            && !network_data.value("stagenet", true);
+    const bool snapshot_current = network_data.value("current", false);
+    const string db_tip_hash = pod_to_hex(core_storage->get_block_id_by_height(chain_height - 1));
+    const bool anchor_matches = network_data.value("height", uint64_t {0}) == chain_height
+            && network_data.value("top_block_hash", string {}) == db_tip_hash;
+    const bool hf17 = network_data.value("current_hf_version", 0u) == 17;
+    const bool epose_v2 = epose_data.value("enabled", false)
+            && epose_data.value("protocol_version", 0u) == 2;
+    const bool genesis_matches = actual_genesis == expected_genesis;
+    const string core_sha = QWC_SOURCE_SHA;
+    const bool core_sha_recorded = core_sha.size() == 40
+            && std::all_of(core_sha.begin(), core_sha.end(), [](unsigned char c) {
+                return std::isxdigit(c) != 0;
+            });
+    const bool compatible = mainnet && snapshot_current && anchor_matches && hf17 && epose_v2
+            && genesis_matches && core_sha_recorded;
+    const uint64_t tip_height = chain_height - 1;
+
+    j_response["data"] = json {
+            {"network", mainnet ? "mainnet" : network_data.value("testnet", false) ? "testnet" : "stagenet"},
+            {"genesis_hash", actual_genesis},
+            {"expected_genesis_hash", expected_genesis},
+            {"genesis_matches", genesis_matches},
+            {"consensus_parameter_fingerprint", qwertycoin::epose::MAINNET_FINAL_PARAMETER_SET_HASH_V2},
+            {"consensus_parameter_fingerprint_source", "compiled core profile"},
+            {"current_hf_version", network_data.value("current_hf_version", 0u)},
+            {"epose_protocol_version", epose_data.value("protocol_version", 0u)},
+            {"epose_enabled", epose_data.value("enabled", false)},
+            {"snapshot_current", snapshot_current},
+            {"rpc_db_anchor_matches", anchor_matches},
+            {"block_count", chain_height},
+            {"tip_height", tip_height},
+            {"chain_anchor", {{"height", tip_height},
+                              {"hash", network_data.value("top_block_hash", string {})}}},
+            {"db_chain_anchor", {{"height", tip_height}, {"hash", db_tip_hash}}},
+            {"explorer_source_sha", string {GIT_COMMIT_HASH}},
+            {"core_source_sha", core_sha},
+            {"core_source_sha_recorded", core_sha_recorded},
+            {"compatible", compatible}
+    };
+    j_response["status"] = "success";
     return j_response;
 }
 
@@ -5986,39 +6287,34 @@ json_feeestimate(string grace_blocks_str)
 json
 json_emission()
 {
-    json j_response {
-            {"status", "fail"},
-            {"data",   json {}}
-    };
-
-    json& j_data = j_response["data"];
-
-    json j_info;
-
-    // get basic network info
-    if (!CurrentBlockchainStatus::is_thread_running())
+    json j_response {{"status", "error"}, {"data", json {}}};
+    if (!supply_index)
     {
-        j_data["title"] = "Emission monitoring thread not enabled.";
+        j_response["message"] = "Supply index is unavailable";
         return j_response;
     }
-    else
-    {
-        CurrentBlockchainStatus::Emission current_values
-                = CurrentBlockchainStatus::get_emission();
-
-        string emission_blk_no   = std::to_string(current_values.blk_no - 1);
-        string emission_coinbase = xmr_amount_to_str(current_values.coinbase, "{:0.3f}");
-        string emission_fee      = xmr_amount_to_str(current_values.fee, "{:0.4f}", false);
-
-        j_data = json {
-                {"blk_no"  , current_values.blk_no - 1},
-                {"coinbase", current_values.coinbase},
-                {"fee"     , current_values.fee},
-        };
-    }
-
-    j_response["status"]  = "success";
-
+    const supply_snapshot current = supply_index->snapshot();
+    j_response["data"] = json {
+            {"availability", current.availability},
+            {"complete", current.complete},
+            {"calculation_version", current.calculation_version},
+            {"chain_reset_id", current.chain_reset_id},
+            {"minted_supply_atomic", current.minted_supply_atomic},
+            {"minted_supply_qwc", format_atomic_decimal_string(current.minted_supply_atomic, 8)},
+            {"gross_coinbase_atomic", current.gross_coinbase_atomic},
+            {"cumulative_fees_atomic", current.cumulative_fees_atomic},
+            {"block_count", current.block_count},
+            {"tip_height", current.tip_height},
+            {"tip_hash", current.tip_hash},
+            {"genesis_hash", current.genesis_hash},
+            {"indexed_block_count", current.indexed_block_count},
+            {"indexed_through_height", current.indexed_through_height},
+            {"indexed_through_hash", current.indexed_through_hash},
+            {"observed_at_unix", current.observed_at}
+    };
+    if (!current.message.empty())
+        j_response["data"]["message"] = current.message;
+    j_response["status"] = "success";
     return j_response;
 }
 
@@ -6042,6 +6338,9 @@ json_version()
             {"last_git_commit_date", string {GIT_COMMIT_DATETIME}},
             {"git_branch_name"     , string {GIT_BRANCH_NAME}},
             {"monero_version_full" , string {MONERO_VERSION_FULL}},
+            {"qwc_source_sha"      , string {QWC_SOURCE_SHA}},
+            {"explorer_source_sha" , string {GIT_COMMIT_HASH}},
+            {"api_contract"        , "v1"},
             {"api"                 , ONIONEXPLORER_RPC_VERSION},
             {"blockchain_height"   , core_storage->get_current_blockchain_height()}
     };
@@ -6221,21 +6520,26 @@ find_our_outputs(
 json
 get_tx_json(const transaction& tx, const tx_details& txd)
 {
+    const bool ringct = !is_coinbase(tx) && tx.rct_signatures.type != rct::RCTTypeNull;
 
     json j_tx {
-            {"tx_hash"     , pod_to_hex(txd.hash)},
-            {"tx_fee"      , txd.fee},
-            {"mixin"       , txd.mixin_no},
-            {"tx_size"     , txd.size},
-            {"xmr_outputs" , txd.xmr_outputs},
-            {"xmr_inputs"  , txd.xmr_inputs},
-            {"tx_version"  , static_cast<uint64_t>(txd.version)},
-            {"rct_type"    , tx.rct_signatures.type},
-            {"coinbase"    , is_coinbase(tx)},
-            {"mixin"       , txd.mixin_no},
-            {"extra"       , txd.get_extra_str()},
-            {"payment_id"  , (txd.payment_id  != null_hash  ? pod_to_hex(txd.payment_id)  : "")},
-            {"payment_id8" , (txd.payment_id8 != null_hash8 ? pod_to_hex(txd.payment_id8) : "")},
+            {"tx_hash"           , pod_to_hex(txd.hash)},
+            {"tx_fee_atomic"     , std::to_string(txd.fee)},
+            {"tx_fee_qwc"        , xmr_amount_to_str(txd.fee, "{:0.8f}", false)},
+            {"mixin"             , txd.mixin_no},
+            {"tx_size_bytes"     , txd.size},
+            {"outputs_atomic"    , ringct ? json(nullptr) : json(std::to_string(txd.xmr_outputs))},
+            {"outputs_qwc"       , ringct ? json(nullptr) : json(xmr_amount_to_str(txd.xmr_outputs, "{:0.8f}", false))},
+            {"inputs_atomic"     , ringct ? json(nullptr) : json(std::to_string(txd.xmr_inputs))},
+            {"inputs_qwc"        , ringct ? json(nullptr) : json(xmr_amount_to_str(txd.xmr_inputs, "{:0.8f}", false))},
+            {"amount_availability", ringct ? "confidential" : "public"},
+            {"tx_version"        , static_cast<uint64_t>(txd.version)},
+            {"is_ringct"         , ringct},
+            {"rct_type"          , tx.rct_signatures.type},
+            {"coinbase"          , is_coinbase(tx)},
+            {"extra"             , txd.get_extra_str()},
+            {"payment_id"        , (txd.payment_id  != null_hash  ? pod_to_hex(txd.payment_id)  : "")},
+            {"payment_id8"       , (txd.payment_id8 != null_hash8 ? pod_to_hex(txd.payment_id8) : "")},
     };
 
     return j_tx;
@@ -6319,6 +6623,8 @@ mstch::map
 construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
 {
     tx_details txd = get_tx_details(tx);
+    const bool confidential_amounts = !cryptonote::is_coinbase(tx)
+            && tx.rct_signatures.type != rct::RCTTypeNull;
 
     const crypto::hash& tx_hash = txd.hash;
 
@@ -6372,8 +6678,6 @@ construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
 
     double tx_size = static_cast<double>(txd.size) / 1024.0;
 
-    double payed_for_kB = XMR_AMOUNT(txd.fee) / tx_size;
-
     // initalise page tempate map with basic info about blockchain
     mstch::map context {
             {"testnet"               , testnet},
@@ -6385,8 +6689,6 @@ construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
             {"tx_blk_height"         , tx_blk_height},
             {"tx_size"               , fmt::format("{:0.4f}", tx_size)},
             {"tx_fee"                , xmreg::xmr_amount_to_str(txd.fee, "{:0.12f}", false)},
-            {"tx_fee_micro"          , xmreg::xmr_amount_to_str(txd.fee*1e6, "{:0.4f}", false)},
-            {"payed_for_kB"          , fmt::format("{:0.12f}", payed_for_kB)},
             {"tx_version"            , static_cast<uint64_t>(txd.version)},
             {"blk_timestamp"         , blk_timestamp},
             {"blk_timestamp_uint"    , blk.timestamp},
@@ -6404,7 +6706,8 @@ construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
             {"with_ring_signatures"  , static_cast<bool>(
                                                with_ring_signatures)},
             {"tx_json"               , tx_json},
-            {"is_ringct"             , (tx.version > 1)},
+            {"is_ringct"             , !cryptonote::is_coinbase(tx)
+                                        && tx.rct_signatures.type != rct::RCTTypeNull},
             {"rct_type"              , tx.rct_signatures.type},
             {"has_error"             , false},
             {"error_msg"             , string("")},
@@ -6513,7 +6816,9 @@ construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
 
         inputs.push_back(mstch::map {
                 {"in_key_img"   , pod_to_hex(in_key.k_image)},
-                {"amount"       , xmreg::xmr_amount_to_str(in_key.amount)},
+                {"amount"       , confidential_amounts
+                        ? string("confidential")
+                        : xmreg::xmr_amount_to_str(in_key.amount, "{:0.8f}", false)},
                 {"input_idx"    , fmt::format("{:02d}", input_idx)},
                 {"mixins"       , mstch::array{}},
                 {"ring_sigs"    , mstch::array{}},
@@ -6679,7 +6984,9 @@ construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
 
     context["have_any_unknown_amount"]  = have_any_unknown_amount;
     context["inputs_xmr_sum_not_zero"]  = (inputs_xmr_sum > 0);
-    context["inputs_xmr_sum"]           = xmreg::xmr_amount_to_str(inputs_xmr_sum);
+    context["inputs_xmr_sum"]           = confidential_amounts
+            ? string("confidential")
+            : xmreg::xmr_amount_to_str(inputs_xmr_sum, "{:0.8f}", false);
     context["server_time"]              = server_time_str;
     context["enable_mixins_details"]    = detailed_view;
     context["enable_as_hex"]            = enable_as_hex;
@@ -6721,9 +7028,6 @@ construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
     mstch::array outputs;
 
     uint64_t outputs_xmr_sum {0};
-    uint64_t miner_reward_sum {0};
-    uint64_t epose_reward_sum {0};
-
     for (output_tuple_with_tag& outp: txd.output_pub_keys)
     {
 
@@ -6741,15 +7045,8 @@ construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
                     = std::to_string(out_amount_indices.at(output_idx));
         }
 
-        outputs_xmr_sum += std::get<1>(outp);
-        if (cryptonote::is_coinbase(tx))
-        {
-            if (output_idx == 0)
-                miner_reward_sum += std::get<1>(outp);
-            else
-                epose_reward_sum += std::get<1>(outp);
-        }
-
+        if (!confidential_amounts)
+            outputs_xmr_sum += std::get<1>(outp);
         std::stringstream ss;
         if (std::get<2>(outp)) {
             ss << *(std::get<2>(outp));
@@ -6762,7 +7059,9 @@ construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
 
         outputs.push_back(mstch::map {
                 {"out_pub_key"           , pod_to_hex(std::get<0>(outp))},
-                {"amount"                , xmreg::xmr_amount_to_str(std::get<1>(outp))},
+                {"amount"                , confidential_amounts
+                        ? string("confidential")
+                        : xmreg::xmr_amount_to_str(std::get<1>(outp), "{:0.8f}", false)},
                 {"amount_idx"            , out_amount_index_str},
                 {"num_outputs"           , num_outputs_amount},
                 {"output_tag"            , view_tag_str},
@@ -6772,14 +7071,10 @@ construct_tx_context(transaction tx, uint16_t with_ring_signatures = 0)
 
     } //  for (pair<public_key, uint64_t>& outp: txd.output_pub_keys)
 
-    context["outputs_xmr_sum"] = xmreg::xmr_amount_to_str(outputs_xmr_sum);
-    context["has_epose_reward_summary"] = cryptonote::is_coinbase(tx) && epose_reward_sum > 0;
-    context["miner_reward_sum"] = xmreg::xmr_amount_to_str(miner_reward_sum);
-    context["epose_reward_sum"] = xmreg::xmr_amount_to_str(epose_reward_sum);
-    context["epose_reward_output_count"] =
-            txd.output_pub_keys.size() > 1
-            ? static_cast<uint64_t>(txd.output_pub_keys.size() - 1)
-            : static_cast<uint64_t>(0);
+    context["outputs_xmr_sum"] = confidential_amounts
+            ? string("confidential")
+            : xmreg::xmr_amount_to_str(outputs_xmr_sum, "{:0.8f}", false);
+    context["coinbase_breakdown_unavailable"] = cryptonote::is_coinbase(tx);
 
     context.emplace("outputs", outputs);
 
@@ -6881,6 +7176,7 @@ get_tx_details(const transaction& tx,
     txd.xmr_inputs        = sum_data[1];
     txd.mixin_no          = sum_data[2];
     txd.num_nonrct_inputs = sum_data[3];
+    txd.confidential_amounts = transaction_amounts_confidential(tx);
 
     txd.fee = 0;
 
@@ -7071,14 +7367,19 @@ get_monero_network_info(json& j_info)
     MempoolStatus::network_info local_copy_network_info
         = MempoolStatus::current_network_info;
 
+    const cryptonote::difficulty_type difficulty = make_difficulty(
+            local_copy_network_info.difficulty,
+            local_copy_network_info.difficulty_top64);
     j_info = json {
        {"status"                    , local_copy_network_info.current},
        {"current"                   , local_copy_network_info.current},
        {"height"                    , local_copy_network_info.height},
        {"target_height"             , local_copy_network_info.target_height},
-       {"difficulty"                , make_difficulty(local_copy_network_info.difficulty, local_copy_network_info.difficulty_top64).str()},
+       {"difficulty"                , difficulty.str()},
        {"target"                    , local_copy_network_info.target},
-       {"hash_rate"                 , local_copy_network_info.hash_rate},
+       {"estimated_hashrate_hps"    , decimal_ratio(difficulty, hashrate_wide {local_copy_network_info.target}, 8)},
+       {"estimated_hashrate_display", format_hashrate_si(difficulty, local_copy_network_info.target)},
+       {"hashrate_estimator"        , "next_block_difficulty_divided_by_target_interval"},
        {"tx_count"                  , local_copy_network_info.tx_count},
        {"tx_pool_size"              , local_copy_network_info.tx_pool_size},
        {"alt_blocks_count"          , local_copy_network_info.alt_blocks_count},
@@ -7094,7 +7395,8 @@ get_monero_network_info(json& j_info)
        {"block_size_median"         , local_copy_network_info.block_size_median},
        {"start_time"                , local_copy_network_info.start_time},
        {"fee_per_kb"                , local_copy_network_info.fee_per_kb},
-       {"current_hf_version"        , local_copy_network_info.current_hf_version}
+       {"current_hf_version"        , local_copy_network_info.current_hf_version},
+       {"observed_at_unix"          , local_copy_network_info.info_timestamp}
     };
 
     return local_copy_network_info.current;
@@ -7181,6 +7483,7 @@ get_footer()
             {"last_git_commit_date", string {GIT_COMMIT_DATETIME}},
             {"git_branch_name"     , string {GIT_BRANCH_NAME}},
             {"monero_version_full" , string {MONERO_VERSION_FULL}},
+            {"qwc_source_sha"      , string {QWC_SOURCE_SHA}},
             {"api"                 , std::to_string(ONIONEXPLORER_RPC_VERSION_MAJOR)
                                      + "."
                                      + std::to_string(ONIONEXPLORER_RPC_VERSION_MINOR)},

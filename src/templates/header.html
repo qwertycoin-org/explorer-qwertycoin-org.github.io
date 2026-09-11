@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192x192.png">
     <link rel="shortcut icon" href="/assets/favicon-192x192.png">
     <META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
-    {{#refresh}}
-        <meta http-equiv="refresh" content="10">
-    {{/refresh}}
+    <script>(function(){var t="";try{t=localStorage.getItem("qwc-theme")||"";}catch(e){}if(t!=="light"&&t!=="dark")t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t;}());</script>
     <title>Qwertycoin Explorer</title>
     <!--<link rel="stylesheet" type="text/css" href="/css/style.css">-->
     <style type="text/css">
@@ -17,6 +16,7 @@
 
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to explorer content</a>
 <header class="site-header">
     <nav class="nav" aria-label="Explorer navigation">
         <a class="brand" href="/" aria-label="Qwertycoin Explorer">
@@ -24,23 +24,36 @@
             <span>Qwertycoin Explorer</span>
         </a>
         <div class="nav-links">
-            <a href="/">Explorer</a>
+            <a href="/">Overview</a>
+            <a href="/blocks">Blocks</a>
             <a href="/txpool">Mempool</a>
-            <a href="https://qwertycoin.org/">Website</a>
-            <a href="https://wallet.qwertycoin.org/">Wallet</a>
+            <a href="/service-nodes">Service Nodes</a>
+            <a href="/epochs">Epochs</a>
+            <a href="/network">Network</a>
+            <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Dark theme</button>
         </div>
     </nav>
 </header>
 
 <section class="explorer-search-hero">
-    <form action="/search" method="get" class="search-panel style-1">
+    <form action="/search" method="post" class="search-panel style-1" autocomplete="off">
         <label for="explorer-search">Search the blockchain</label>
         <div>
             <input id="explorer-search" type="text" name="value"
+                   maxlength="128" required
                    placeholder="Block height, block hash, transaction hash">
             <input type="submit" value="Search">
         </div>
     </form>
 </section>
 
-<main class="explorer-main">
+<main class="explorer-main" id="main-content" tabindex="-1">
+<script>
+(function(){
+    var button=document.getElementById("theme-toggle"); if(!button)return;
+    function current(){return document.documentElement.dataset.theme || (window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}
+    function update(){var dark=current()==="dark";button.setAttribute("aria-pressed",dark?"true":"false");button.textContent=dark?"Light theme":"Dark theme";}
+    button.addEventListener("click",function(){var next=current()==="dark"?"light":"dark";document.documentElement.dataset.theme=next;try{localStorage.setItem("qwc-theme",next);}catch(e){}update();}); update();
+    document.addEventListener("click",function(event){var copy=event.target.closest("[data-copy]");if(!copy||!navigator.clipboard)return;navigator.clipboard.writeText(copy.dataset.copy).then(function(){var label=copy.textContent;copy.textContent="Copied";setTimeout(function(){copy.textContent=label;},1500);});});
+}());
+</script>

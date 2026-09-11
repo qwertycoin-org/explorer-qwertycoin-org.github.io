@@ -17,38 +17,30 @@ macro(configure_files srcDir destDir)
 endmacro(configure_files)
 
 macro(create_git_version)
-    # Get the current working branch
-    execute_process(
-            COMMAND git rev-parse --abbrev-ref HEAD
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            OUTPUT_VARIABLE GIT_BRANCH
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+    set(EXPLORER_SOURCE_SHA "" CACHE STRING "Immutable explorer source SHA")
+    set(EXPLORER_SOURCE_DATE "" CACHE STRING "Explorer source date")
+    set(EXPLORER_SOURCE_BRANCH "" CACHE STRING "Explorer source branch")
+    set(QWC_SOURCE_SHA "unknown" CACHE STRING "Compatible Qwertycoin core source SHA")
 
-    # http://xit0.org/2013/04/cmake-use-git-branch-and-commit-details-in-project/
-    # Get the latest abbreviated commit hash of the working branch
-    execute_process(
-            COMMAND git log -1 --format=%h
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            OUTPUT_VARIABLE GIT_COMMIT_HASH
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-
-    # Get the date and time of last commit
-    execute_process(
-            COMMAND git log -1 --format=%cd --date=short
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            OUTPUT_VARIABLE GIT_COMMIT_DATETIME
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-
-    # Get current branch name
-    execute_process(
-            COMMAND git rev-parse --abbrev-ref HEAD
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            OUTPUT_VARIABLE GIT_BRANCH_NAME
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
+    if(EXPLORER_SOURCE_SHA)
+        set(GIT_COMMIT_HASH "${EXPLORER_SOURCE_SHA}")
+    else()
+        execute_process(COMMAND git rev-parse HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE GIT_COMMIT_HASH OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
+    if(EXPLORER_SOURCE_DATE)
+        set(GIT_COMMIT_DATETIME "${EXPLORER_SOURCE_DATE}")
+    else()
+        execute_process(COMMAND git log -1 --format=%cd --date=short WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE GIT_COMMIT_DATETIME OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
+    if(EXPLORER_SOURCE_BRANCH)
+        set(GIT_BRANCH_NAME "${EXPLORER_SOURCE_BRANCH}")
+    else()
+        execute_process(COMMAND git rev-parse --abbrev-ref HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_VARIABLE GIT_BRANCH_NAME OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
+    set(GIT_BRANCH "${GIT_BRANCH_NAME}")
 
 
 

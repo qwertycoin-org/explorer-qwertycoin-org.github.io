@@ -1,10 +1,12 @@
 
 <section class="center explorer-panel block-detail-panel">
+    <h1 class="sr-only">Block {{blk_height}}</h1>
 
     <div class="block-identity">
         <div class="block-identity-item block-identity-primary">
             <span class="metric-label">Block hash</span>
             <code>{{blk_hash}}</code>
+            <button class="copy-hash" type="button" data-copy="{{blk_hash}}" aria-label="Copy block hash {{blk_hash}}">Copy</button>
             <span class="block-height-pill">Height {{blk_height}}</span>
         </div>
 
@@ -30,21 +32,21 @@
     <table class="center responsive-table block-meta-table">
         <tr>
             <td data-label="Timestamp UTC"><span class="desktop-label">Timestamp [UTC] (epoch): </span>{{blk_timestamp}} ({{blk_timestamp_epoch}})</td>
-            <td data-label="Age"><span class="desktop-label">Age {{age_format}}: </span>{{blk_age}}</td>
-            <td data-label="Delta"><span class="desktop-label">&Delta; [h:m:s]: </span>{{delta_time}}</td>
+            <td data-label="Status"><span class="desktop-label">Status: </span>{{canonical_status}}</td>
+            <td data-label="Confirmations"><span class="desktop-label">Confirmations: </span>{{confirmations}}</td>
         </tr>
         <tr>
             <td data-label="Version"><span class="desktop-label">Major.minor version: </span>{{major_ver}}.{{minor_ver}}</td>
-            <td data-label="Block reward"><span class="desktop-label">Block reward: </span>{{blk_reward}}</td>
-            <td data-label="Block size"><span class="desktop-label">Block size [kB]: </span>{{blk_size}}</td>
+            <td data-label="Coinbase total"><span class="desktop-label">Coinbase total [QWC]: </span>{{coinbase_total}}</td>
+            <td data-label="Block weight"><span class="desktop-label">Block weight [kB]: </span>{{blk_size}}</td>
         </tr>
         <tr>
             <td data-label="Nonce"><span class="desktop-label">Nonce: </span>{{blk_nonce}}</td>
-            <td data-label="Total fees"><span class="desktop-label">Total fees: </span>{{sum_fees}}</td>
-            <td data-label="Transactions"><span class="desktop-label">No of txs: </span>{{no_txs}}</td>
+            <td data-label="Subsidy / fees"><span class="desktop-label">Subsidy / fees [QWC]: </span>{{subsidy}} / {{sum_fees}}</td>
+            <td data-label="Transactions"><span class="desktop-label">Transactions: </span>{{total_txs}} ({{no_txs}} regular + coinbase)</td>
         </tr>
         <tr>
-            <td data-label="PoW hash"><span class="desktop-label">PoW hash: </span><code>{{blk_pow_hash}}</code></td>
+            <td data-label="PoW verification"><span class="desktop-label">PoW verification: </span>validated by canonical chain; not recalculated per page view</td>
             <td data-label="Difficulty"><span class="desktop-label">Difficulty: </span>{{blk_difficulty}}</td>
             {{#is_randomx}}
                 <td data-label="RandomX"><a href="/randomx/{{blk_height}}">RandomX source code</a></td>
@@ -56,15 +58,17 @@
     </table>
     </div>
 
-    <h3 class="tx-section-heading">Miner reward transaction</h3>
+    <p class="data-note">Miner and EPoSE service payout attribution is unavailable until the validating core exposes its canonical v2 payment-to-output mapping.</p>
+    <h3 class="tx-section-heading">Coinbase transaction</h3>
     <div class="table-wrap">
     <table class="center responsive-table block-reward-table">
-        <tr class="table-header-row">
-            <td>hash</td>
-            <td>outputs</td>
-            <td>size [kB]</td>
-            <td>version</td>
-        </tr>
+        <thead><tr class="table-header-row">
+            <th scope="col">Hash</th>
+            <th scope="col">Outputs</th>
+            <th scope="col">Size [kB]</th>
+            <th scope="col">Version</th>
+        </tr></thead>
+        <tbody>
         {{#coinbase_txs}}
             <tr>
                 <td data-label="Hash"><a href="/tx/{{hash}}">{{hash}}</a></td>
@@ -73,7 +77,7 @@
                 <td data-label="Version">{{version}}</td>
             </tr>
         {{/coinbase_txs}}
-
+        </tbody>
     </table>
     </div>
 
@@ -83,14 +87,15 @@
     {{#have_txs}}
         <div class="table-wrap">
         <table class="center responsive-table block-transactions-table" style="width:80%">
-            <tr class="table-header-row">
-                <td>hash</td>
-                <td>outputs</td>
-                <td>fee [QWC]</td>
-                <td>in/out</td>
-                <td>size [kB]</td>
-                <td>version</td>
-            </tr>
+            <thead><tr class="table-header-row">
+                <th scope="col">Hash</th>
+                <th scope="col">Outputs</th>
+                <th scope="col">Fee [QWC]</th>
+                <th scope="col">In/out</th>
+                <th scope="col">Size [kB]</th>
+                <th scope="col">Version</th>
+            </tr></thead>
+            <tbody>
             {{#blk_txs}}
                 <tr>
                     <td data-label="Hash"><a href="/tx/{{hash}}">{{hash}}</a></td>
@@ -101,6 +106,7 @@
                     <td data-label="Version">{{version}}</td>
                 </tr>
             {{/blk_txs}}
+            </tbody>
         </table>
         </div>
     {{/have_txs}}

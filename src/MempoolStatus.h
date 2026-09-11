@@ -13,6 +13,7 @@
 
 #include <iostream>
 #include <memory>
+#include <limits>
 #include <thread>
 #include <mutex>
 #include <atomic>
@@ -36,6 +37,7 @@ struct MempoolStatus
         uint64_t no_inputs {0};
         uint64_t no_outputs {0};
         uint64_t num_nonrct_inputs {0};
+        bool confidential_amounts {false};
         uint64_t mixin_no {0};
 
         string fee_str;
@@ -123,6 +125,7 @@ struct MempoolStatus
 
     static atomic<uint64_t> mempool_no;   // no of txs
     static atomic<uint64_t> mempool_size; // size in bytes.
+    static atomic<uint64_t> mempool_info_timestamp;
 
     static bf::path blockchain_path;
     static string daemon_url;
@@ -142,6 +145,13 @@ struct MempoolStatus
     // the mempool simultaneously. Readers get a reference-counted pointer,
     // writer creates a new vector and atomically swaps the pointer.
     using mempool_txs_ptr = std::shared_ptr<vector<mempool_tx>>;
+    struct mempool_snapshot
+    {
+        mempool_txs_ptr transactions;
+        uint64_t total_count {0};
+        uint64_t size_bytes {0};
+        uint64_t observed_at {0};
+    };
     static mempool_txs_ptr mempool_txs;
 
     static atomic<network_info> current_network_info;
@@ -166,6 +176,9 @@ struct MempoolStatus
     // Returns first no_of_tx transactions (still uses shared_ptr internally)
     static mempool_txs_ptr
     get_mempool_txs(uint64_t no_of_tx);
+
+    static mempool_snapshot
+    get_mempool_snapshot(uint64_t no_of_tx = (std::numeric_limits<uint64_t>::max)());
 
     static bool
     is_thread_running();

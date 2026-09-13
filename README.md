@@ -47,8 +47,9 @@ The node01 deployment uses `Dockerfile.node01` and
 and connects to the Qwertycoin mainnet-mode daemon RPC.
 
 The build requires explicit full explorer/core SHAs and a digest-pinned base
-image; see `deploy/BUILD.env.example`. Do not use this profile as the production
-switch procedure.
+image; see `deploy/BUILD.env.example`. The Dockerfile's audited Ubuntu 22.04
+digest is a reproducible fallback, not permission to replace a reviewed release
+input silently. Do not use this profile as the production switch procedure.
 
 Default node01 explorer settings:
 

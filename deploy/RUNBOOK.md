@@ -11,7 +11,9 @@ wallet data, service identities, or blockchain storage.
    v2 genesis and EPoSE profile.
 2. Resolve the deployment architecture and the matching immutable Ubuntu image
    digest. Copy `BUILD.env.example` outside the repository, fill the immutable
-   values, and do not put credentials in it.
+   values, and do not put credentials in it. The Dockerfile carries the same
+   reviewed Ubuntu 22.04 digest as a lint-safe fallback; release evidence still
+   records the explicitly selected digest.
 3. Build with explicit arguments and retain the build log and exit status. The
    Dockerfile rejects missing source SHAs and runs the regression test target.
    Build only from a clean detached checkout of that SHA:

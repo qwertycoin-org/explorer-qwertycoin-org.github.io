@@ -116,6 +116,12 @@ notifications, malformed envelopes and unsupported HTTP methods must be rejected
 before daemon work. Verify the deployed web wallet can call `get_info`, fetch
 binary sync data, and receive a daemon-level rejection for a deliberately
 malformed transaction without logging any request body.
+The public Nginx edge owns wallet-RPC preflight handling. Verify an `OPTIONS`
+request returns the exact requesting origin for `https://wallet.qwertycoin.org`
+and valid HTTPS `*.pages.dev` previews, while an unrelated origin receives no
+`Access-Control-Allow-Origin` header. Verify a normal allowed `POST` still
+carries exactly one such header. Never replace this allowlist with a wildcard
+or unconditional origin reflection.
 Observe two refresh intervals and a real block when available.
 Record CPU/RAM, response latency, upstream RPC rate, and daemon impact under a
 declared traffic ceiling.

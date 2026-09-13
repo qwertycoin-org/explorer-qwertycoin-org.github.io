@@ -49,6 +49,7 @@ endforeach()
 
 foreach(REQUIRED_BRAND_TEXT
         "/assets/qwertycoin-mark.svg"
+        "/assets/style.css?v={{asset_version}}"
         "/assets/favicon.svg"
         "/favicon.ico"
         "QWERTYCOIN"
@@ -89,11 +90,36 @@ foreach(REQUIRED_ASSET_ROUTE
         "CROW_ROUTE(app, \"/favicon.ico\")"
         "CROW_ROUTE(app, \"/assets/<string>\")"
         "CROW_ROUTE(app, \"/assets/fonts/<string>\")"
+        "./templates/css/style.css"
+        "text/css; charset=utf-8"
+        "max-age=31536000, immutable"
         "font/woff2"
         "image/svg+xml")
     string(FIND "${MAIN_SOURCE}" "${REQUIRED_ASSET_ROUTE}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Local asset route is missing: ${REQUIRED_ASSET_ROUTE}")
+    endif()
+endforeach()
+
+foreach(FORBIDDEN_INLINE_STYLE
+        "<style type=\"text/css\">"
+        "{{#css_styles}}{{/css_styles}}")
+    string(FIND "${HEADER_TEMPLATE}" "${FORBIDDEN_INLINE_STYLE}" FOUND_AT)
+    if(NOT FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Shared stylesheet must not be duplicated inline: ${FORBIDDEN_INLINE_STYLE}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_EDGE_HEADER_TEXT
+        "proxy_hide_header Content-Security-Policy"
+        "proxy_hide_header X-Frame-Options"
+        "proxy_hide_header X-Content-Type-Options"
+        "proxy_hide_header Referrer-Policy"
+        "proxy_hide_header Permissions-Policy"
+        "Strict-Transport-Security \"max-age=31536000\"")
+    string(FIND "${NGINX_SOURCE}" "${REQUIRED_EDGE_HEADER_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Public edge-header contract is missing: ${REQUIRED_EDGE_HEADER_TEXT}")
     endif()
 endforeach()
 

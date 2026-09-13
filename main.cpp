@@ -666,22 +666,27 @@ main(int ac, const char* av[])
 
     CROW_ROUTE(app, "/assets/<string>")
     ([&](const string& asset_name) {
-        static const map<string, string> public_assets {
-            {"qwertycoin-mark.svg", "image/svg+xml"},
-            {"favicon.svg", "image/svg+xml"},
-            {"favicon-16x16.png", "image/png"},
-            {"favicon-32x32.png", "image/png"},
-            {"favicon-192x192.png", "image/png"},
-            {"apple-touch-icon.png", "image/png"},
+        static const map<string, pair<string, string>> public_assets {
+            {"style.css", {"./templates/css/style.css", "text/css; charset=utf-8"}},
+            {"qwertycoin-mark.svg",
+                {"./templates/assets/qwertycoin-mark.svg", "image/svg+xml"}},
+            {"favicon.svg", {"./templates/assets/favicon.svg", "image/svg+xml"}},
+            {"favicon-16x16.png", {"./templates/assets/favicon-16x16.png", "image/png"}},
+            {"favicon-32x32.png", {"./templates/assets/favicon-32x32.png", "image/png"}},
+            {"favicon-192x192.png", {"./templates/assets/favicon-192x192.png", "image/png"}},
+            {"apple-touch-icon.png",
+                {"./templates/assets/apple-touch-icon.png", "image/png"}},
         };
         const auto asset = public_assets.find(asset_name);
         if (asset == public_assets.end())
             return crow::response(404);
         crow::response response;
-        response.set_header("Cache-Control", "public, max-age=86400");
+        response.set_header("Cache-Control", asset_name == "style.css"
+                ? "public, max-age=31536000, immutable"
+                : "public, max-age=86400");
         response.set_header("X-Content-Type-Options", "nosniff");
-        response.set_static_file_info_unsafe("./templates/assets/" + asset_name);
-        response.set_header("Content-Type", asset->second);
+        response.set_static_file_info_unsafe(asset->second.first);
+        response.set_header("Content-Type", asset->second.second);
         return response;
     });
 

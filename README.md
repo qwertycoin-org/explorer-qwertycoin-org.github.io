@@ -94,6 +94,9 @@ secret routes. The `/qwc-rpc/` compatibility adapter terminates at the explorer'
 parser-based method/path policy before reaching the verified restricted daemon
 listener. Its upstream is independent from the frontend upstream so a frontend
 rollback does not disable wallet sync or reopen the historical generic proxy.
+The public edge hides the application's duplicate policy headers and emits one
+authoritative set plus HSTS. The shared stylesheet is served as a versioned,
+immutable asset instead of being repeated in every dynamic HTML response.
 
 ## Local Build
 

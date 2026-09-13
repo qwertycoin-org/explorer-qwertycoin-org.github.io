@@ -118,6 +118,13 @@ Observe two refresh intervals and a real block when available.
 Record CPU/RAM, response latency, upstream RPC rate, and daemon impact under a
 declared traffic ceiling.
 
+Verify that `/assets/style.css?v=<40-character-explorer-sha>` returns the local
+stylesheet with `text/css`, `nosniff`, and immutable caching. Dynamic HTML must
+reference that asset and must not embed the complete stylesheet. At the public
+edge, confirm exactly one value for CSP, X-Frame-Options,
+X-Content-Type-Options, Referrer-Policy, and Permissions-Policy, plus
+`Strict-Transport-Security: max-age=31536000` on HTTPS responses.
+
 ## Public switch
 
 Install the repository's separate explorer-frontend and wallet-gateway upstream

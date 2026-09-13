@@ -169,10 +169,27 @@ endif()
 foreach(REQUIRED_RPC_EDGE_TEXT
         "restricted daemon listener"
         "location /qwc-rpc/"
-        "proxy_pass http://qwertycoin_wallet_rpc_backend")
+        "proxy_pass http://qwertycoin_wallet_rpc_backend"
+        "map $http_origin $qwc_wallet_cors_origin"
+        "\"https://wallet.qwertycoin.org\" $http_origin"
+        "\\.pages\\.dev$ $http_origin"
+        "if ($request_method = OPTIONS)"
+        "add_header Access-Control-Allow-Origin $qwc_wallet_cors_origin always"
+        "add_header Access-Control-Allow-Methods \"POST, OPTIONS\" always"
+        "add_header Access-Control-Allow-Headers \"Content-Type\" always"
+        "add_header Vary \"Origin\" always")
     string(FIND "${NGINX_SOURCE}" "${REQUIRED_RPC_EDGE_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Restricted wallet RPC edge contract is missing: ${REQUIRED_RPC_EDGE_TEXT}")
+    endif()
+endforeach()
+
+foreach(FORBIDDEN_RPC_CORS_TEXT
+        "Access-Control-Allow-Origin \"*\""
+        "Access-Control-Allow-Origin $http_origin")
+    string(FIND "${NGINX_SOURCE}" "${FORBIDDEN_RPC_CORS_TEXT}" FOUND_AT)
+    if(NOT FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Wallet RPC CORS must not reflect arbitrary origins: ${FORBIDDEN_RPC_CORS_TEXT}")
     endif()
 endforeach()
 

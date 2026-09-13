@@ -79,7 +79,6 @@ inline thread_local RandomXThreadCleanup rx_thread_cleanup;
 
 #define TMPL_DIR                    "./templates"
 #define TMPL_PARIALS_DIR            TMPL_DIR "/partials"
-#define TMPL_CSS_STYLES             TMPL_DIR "/css/style.css"
 #define TMPL_INDEX                  TMPL_DIR "/index.html"
 #define TMPL_INDEX2                 TMPL_DIR "/index2.html"
 #define TMPL_MEMPOOL                TMPL_DIR "/mempool.html"
@@ -590,7 +589,6 @@ page(MicroCore* _mcore,
     // read template files for all the pages
     // into template_file map
 
-    template_file["css_styles"]      = xmreg::read(TMPL_CSS_STYLES);
     template_file["header"]          = xmreg::read(TMPL_HEADER);
     template_file["footer"]          = get_footer();
     template_file["index2"]          = get_full_page(xmreg::read(TMPL_INDEX2));
@@ -902,7 +900,7 @@ index2(uint64_t page_no = 0, bool refresh_page = false, string view = "overview"
     // append mempool_html to the index context map
     context["mempool_info"] = mempool_html;
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["index2"], context);
@@ -1007,7 +1005,7 @@ mempool(bool add_header_and_footer = false, uint64_t no_of_mempool_tx = 25)
     if (add_header_and_footer)
     {
         // this is when mempool is on its own page, /mempool
-        add_css_style(context);
+        add_page_assets(context);
 
         context["partial_mempool_shown"] = false;
 
@@ -1082,7 +1080,7 @@ altblocks()
 
     }
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["altblocks"], context);
@@ -1279,7 +1277,7 @@ show_block(uint64_t _blk_height)
             ? xmreg::xmr_amount_to_str(txd_coinbase.xmr_outputs - sum_fees, "{:0.8f}", false)
             : string("unavailable");
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["block"], context);
@@ -1371,7 +1369,7 @@ show_randomx(uint64_t _blk_height)
             {"rx_codes"             , rx_code_str},
     };
 
-    add_css_style(context);
+    add_page_assets(context);
 
     return mstch::render(template_file["randomx"], context);
 }
@@ -1461,7 +1459,7 @@ show_tx(string tx_hash_str, uint16_t with_ring_signatures = 0, bool refresh_page
             {"tx_details", template_file["tx_details"]},
     };
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["tx"], context, partials);
@@ -2786,7 +2784,7 @@ show_my_outputs(string tx_hash_str,
 
     } // if (enable_mixin_guess)
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["my_outputs"], context);
@@ -2815,7 +2813,7 @@ show_rawtx()
             {"stagenet"             , stagenet}
     };
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["rawtx"], context);
@@ -2856,7 +2854,7 @@ show_checkrawtx(string raw_tx_data, string action)
 
     string full_page = template_file["checkrawtx"];
 
-    add_css_style(context);
+    add_page_assets(context);
 
 
     if (unsigned_tx_given)
@@ -3202,7 +3200,7 @@ show_checkrawtx(string raw_tx_data, string action)
                     {"tx_details", template_file["tx_details"]},
             };
 
-            add_css_style(context);
+            add_page_assets(context);
 
 
             // render the page
@@ -3477,7 +3475,7 @@ show_pushrawtx(string raw_tx_data, string action)
     // add header and footer
     string full_page = template_file["pushrawtx"];
 
-    add_css_style(context);
+    add_page_assets(context);
 
     std::vector<tools::wallet2::pending_tx> ptx_vector;
 
@@ -3675,7 +3673,7 @@ show_rawkeyimgs()
             {"stagenet"           , stagenet},
     };
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["rawkeyimgs"], context);
@@ -3690,7 +3688,7 @@ show_rawoutputkeys()
             {"stagenet"           , stagenet}
     };
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["rawoutputkeys"], context);
@@ -3719,7 +3717,7 @@ show_checkrawkeyimgs(string raw_data, string viewkey_str)
     // add header and footer
     string full_page = template_file["checkrawkeyimgs"];
 
-    add_css_style(context);
+    add_page_assets(context);
 
     if (viewkey_str.empty())
     {
@@ -3863,7 +3861,7 @@ show_checkcheckrawoutput(string raw_data, string viewkey_str)
     // add header and footer
     string full_page = template_file["checkoutputkeys"];
 
-    add_css_style(context);
+    add_page_assets(context);
 
     if (viewkey_str.empty())
     {
@@ -4212,7 +4210,7 @@ show_address_details(const address_parse_info& address_info, cryptonote::network
             {"stagenet"           , stagenet},
     };
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["address"], context);
@@ -4240,7 +4238,7 @@ show_integrated_address_details(const address_parse_info& address_info,
             {"stagenet"             , stagenet},
     };
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return mstch::render(template_file["address"], context);
@@ -4436,7 +4434,7 @@ show_search_results(const string& search_text,
             {"tx_table_row" , template_file["tx_table_row"]}
     };
 
-    add_css_style(context);
+    add_page_assets(context);
 
     // render the page
     return  mstch::render(full_page, context, partials);
@@ -7495,13 +7493,11 @@ get_footer()
 }
 
 void
-add_css_style(mstch::map& context)
+add_page_assets(mstch::map& context)
 {
-    // add_css_style goes to every subpage so here we mark
-
-    context["css_styles"] = mstch::lambda{[&](const std::string& text) -> mstch::node {
-        return template_file["css_styles"];
-    }};
+    // Every full page receives the immutable build identifier used to
+    // cache-bust shared assets.
+    context["asset_version"] = string {GIT_COMMIT_HASH};
 }
 
 bool

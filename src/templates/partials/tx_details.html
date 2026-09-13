@@ -1,6 +1,10 @@
 
 <section class="center explorer-panel tx-detail-panel">
-    <h1 class="sr-only">Transaction {{tx_hash}}</h1>
+    <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/">Overview</a><span aria-hidden="true">/</span><a href="/blocks">Blocks</a><span aria-hidden="true">/</span><span aria-current="page">Transaction</span></nav>
+    <div class="panel-heading">
+        <div><p class="eyebrow">Canonical transaction</p><h1>Transaction</h1></div>
+        <span class="status-pill">{{confirmations}} confirmations</span>
+    </div>
 
     <div class="tx-identity">
         <div class="tx-identity-item">
@@ -38,61 +42,48 @@
 
 
     {{#have_prev_hash}}
-        <h5>Previous tx: <a href="/tx/{{prev_hash}}">{{prev_hash}}</a></h5>
+        <p class="detail-links">Previous transaction: <a href="/tx/{{prev_hash}}">{{prev_hash}}</a></p>
     {{/have_prev_hash}}
 
     {{#have_next_hash}}
-        <h5>Next tx: <a href="/tx/{{next_hash}}">{{next_hash}}</a></h5>
+        <p class="detail-links">Next transaction: <a href="/tx/{{next_hash}}">{{next_hash}}</a></p>
     {{/have_next_hash}}
 
 
 
-    <div class="table-wrap">
-    <table class="center responsive-table tx-meta-table" style="width: 80%; margin-top:10px">
+    <dl class="detail-facts" aria-label="Transaction facts">
         {{^have_raw_tx}}
-        <tr>
-            <td data-label="Timestamp"><span class="desktop-label">Timestamp: </span>{{blk_timestamp_uint}}</td>
-            <td data-label="Timestamp UTC"><span class="desktop-label">Timestamp [UTC]: </span>{{blk_timestamp}}</td>
-            <td data-label="Age"><span class="desktop-label">Age [y:d:h:m:s]: </span>{{delta_time}}</td>
-        </tr>
+        <div><dt>Timestamp</dt><dd>{{blk_timestamp_uint}}</dd></div>
+        <div><dt>Timestamp [UTC]</dt><dd>{{blk_timestamp}}</dd></div>
+        <div><dt>Age [y:d:h:m:s]</dt><dd>{{delta_time}}</dd></div>
         {{/have_raw_tx}}
-        <tr>
-            <td data-label="Block"><span class="desktop-label">Block: </span><a href="/block/{{blk_height}}">{{blk_height}}</a></td>
-            <td data-label="Fee"><span class="desktop-label">Fee [QWC]: </span>{{tx_fee}}</td>
-            <td data-label="TX size"><span class="desktop-label">Tx size: </span>{{tx_size}} kB</td>
-        </tr>
-        <tr>
-            <td data-label="TX version"><span class="desktop-label">Tx version: </span>{{tx_version}}</td>
-            <td data-label="Confirmations"><span class="desktop-label">No of confirmations: </span>{{confirmations}}</td>
-            <td data-label="RingCT / type"><span class="desktop-label">RingCT/type: </span>{{#is_ringct}}yes/{{rct_type}}{{/is_ringct}}{{^is_ringct}}no{{/is_ringct}}</td>
-        </tr>
+        <div><dt>Block</dt><dd><a href="/block/{{blk_height}}">{{blk_height}}</a></dd></div>
+        <div><dt>Fee [QWC]</dt><dd>{{tx_fee}}</dd></div>
+        <div><dt>Transaction size</dt><dd>{{tx_size}} kB</dd></div>
+        <div><dt>Transaction version</dt><dd>{{tx_version}}</dd></div>
+        <div><dt>Confirmations</dt><dd>{{confirmations}}</dd></div>
+        <div><dt>RingCT / type</dt><dd>{{#is_ringct}}yes / {{rct_type}}{{/is_ringct}}{{^is_ringct}}no{{/is_ringct}}</dd></div>
+        <div class="detail-fact-wide"><dt>Extra</dt><dd><code>{{extra}}</code></dd></div>
+    </dl>
 
 
-        <tr>
-            <td data-label="Extra" colspan="3"><span class="desktop-label">Extra: </span><code>{{extra}}</code></td>
-        </tr>
-
-
-    </table>
-    </div>
-
-
-  <h3 class="tx-section-heading">{{outputs_no}} output(s) · total amount: {{outputs_xmr_sum}}{{^is_ringct}} QWC{{/is_ringct}}</h3>
+  <h2 class="tx-section-heading">{{outputs_no}} output(s) · total amount: {{outputs_xmr_sum}}{{^is_ringct}} QWC{{/is_ringct}}</h2>
   {{#coinbase_breakdown_unavailable}}
   <aside class="data-note">
       The total coinbase payout is public. Its miner/service split is unavailable
-      until the validating node exposes the canonical EPoSE v2 payment-to-output
+      until the validating node exposes the canonical EPoSe v2 payment-to-output
       mapping; output position is not used as a substitute.
   </aside>
   {{/coinbase_breakdown_unavailable}}
   <div class="table-wrap">
       <table class="center responsive-table tx-outputs-table">
-          <tr class="table-header-row">
-              <td>stealth address</td>
-              <td>amount</td>
-              <td>amount idx</td>
-              <td>tag</td>
-          </tr>
+          <thead><tr class="table-header-row">
+              <th scope="col">Stealth address</th>
+              <th scope="col">Amount</th>
+              <th scope="col">Amount index</th>
+              <th scope="col">Tag</th>
+          </tr></thead>
+          <tbody>
           {{#outputs}}
           <tr>
               <td data-label="Stealth address"><code>{{output_idx}}: {{out_pub_key}}</code></td>
@@ -101,6 +92,7 @@
               <td data-label="Tag">{{output_tag}}</td>
           </tr>
           {{/outputs}}
+          </tbody>
       </table>
   </div>
 
@@ -117,9 +109,9 @@
 
 {{#has_inputs}}
     {{#enable_mixins_details}}
-      <h3>Inputs' ring size time scale (from {{min_mix_time}} till {{max_mix_time}};
+      <h2 class="tx-section-heading">Inputs' ring size time scale (from {{min_mix_time}} till {{max_mix_time}};
         resolution: {{timescales_scale}} days{{#have_raw_tx}}; R - real ring member {{/have_raw_tx}})
-      </h3>
+      </h2>
       <div class="center">
         <ul class="center">
           {{#timescales}}
@@ -130,22 +122,22 @@
     {{/enable_mixins_details}}
 
     {{^inputs_xmr_sum_not_zero}}
-        <h3>{{inputs_no}} input(s) for total of {{inputs_xmr_sum}} QWC</h3>
+        <h2 class="tx-section-heading">{{inputs_no}} input(s) for total of {{inputs_xmr_sum}} QWC</h2>
     {{/inputs_xmr_sum_not_zero}}
     {{#inputs_xmr_sum_not_zero}}
         {{^have_any_unknown_amount}}
-            <h3>{{inputs_no}} inputs(s) for total of {{inputs_xmr_sum}} QWC</h3>
+            <h2 class="tx-section-heading">{{inputs_no}} inputs(s) for total of {{inputs_xmr_sum}} QWC</h2>
         {{/have_any_unknown_amount}}
         {{#have_any_unknown_amount}}
-            <h3>{{inputs_no}} inputs(s) for total of at least {{inputs_xmr_sum}} QWC</h3>
+            <h2 class="tx-section-heading">{{inputs_no}} inputs(s) for total of at least {{inputs_xmr_sum}} QWC</h2>
         {{/have_any_unknown_amount}}
     {{/inputs_xmr_sum_not_zero}}
 
     {{#show_part_of_inputs}}
-        <h5 style="margin-top: 2px">
+        <p class="detail-links">
            Only {{max_no_of_inputs_to_show}} inputs are shown. To see all,
             click "<a href="/tx/{{tx_hash}}/1">more details</a>"
-        </h5>
+        </p>
     {{/show_part_of_inputs}}
 
     <div class="center">
@@ -264,14 +256,14 @@
 {{^have_raw_tx}}
     {{^with_ring_signatures}}
         {{#show_more_details_link}}
-            <h5 style="margin-top:1px">
+            <p class="detail-links">
                 <a href="/tx/{{tx_hash}}/1">More details</a>
                 {{#enable_as_hex}}
                     | <a href="/txhex/{{tx_hash}}">Tx as hex</a>
                     | <a href="/ringmembershex/{{tx_hash}}">Ring member outputs/mixins as hex</a>
                     | <a href="/ringmemberstxhex/{{tx_hash}}">Full ring member txs as hex</a>
                 {{/enable_as_hex}}
-            </h5>
+            </p>
         {{/show_more_details_link}}
     {{/with_ring_signatures}}
     {{#with_ring_signatures}}
@@ -285,7 +277,7 @@
             </div>
         </div>
         <br/><br/>
-        <h5 style="margin-top:1px"><a href="/tx/{{tx_hash}}">Less details</a></h5>
+        <p class="detail-links"><a href="/tx/{{tx_hash}}">Less details</a></p>
     {{/with_ring_signatures}}
 {{/have_raw_tx}}
 

@@ -1,9 +1,9 @@
-<tr>
-        <td>{{timestamp}}</td>
-        <td><a href="/tx/{{hash}}">{{hash}}</a></td>
-	<td>{{sum_outputs}}</td>
-	<td>{{tx_fee}}</td>
-	<td>{{mixin}}</td>
-	<td>{{no_inputs}}/{{no_outputs}}</td>
-	<td>{{tx_size}}</td>
-</tr>
+<tbody><tr>
+    <td data-label="Timestamp">{{timestamp}}</td>
+    <td data-label="Transaction hash"><a href="/tx/{{hash}}">{{hash}}</a></td>
+    <td data-label="Outputs">{{sum_outputs}}</td>
+    <td data-label="Fee">{{tx_fee}}</td>
+    <td data-label="Ring size">{{mixin}}</td>
+    <td data-label="In/out">{{no_inputs}}/{{no_outputs}}</td>
+    <td data-label="Size">{{tx_size}}</td>
+</tr></tbody>

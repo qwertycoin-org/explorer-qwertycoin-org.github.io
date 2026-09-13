@@ -537,7 +537,9 @@ main(int ac, const char* av[])
     ([&](const crow::request& req) -> myxmr::htmlresponse {
         if (req.body.size() > 4096)
         {
-            myxmr::htmlresponse response {string("Search request is too large")};
+            const vector<pair<string, vector<string>>> no_results;
+            myxmr::htmlresponse response {
+                    xmrblocks.show_search_results("request too large", no_results)};
             response.code = 413;
             return response;
         }
@@ -545,7 +547,11 @@ main(int ac, const char* av[])
         const auto value_it = post_body.find("value");
         if (value_it == post_body.end() || value_it->second.empty() || value_it->second.size() > 128)
         {
-            myxmr::htmlresponse response {string("Search requires a block height, block hash, or transaction hash")};
+            const string submitted = value_it == post_body.end()
+                    ? string {} : remove_bad_chars(value_it->second.substr(0, 128));
+            const vector<pair<string, vector<string>>> no_results;
+            myxmr::htmlresponse response {
+                    xmrblocks.show_search_results(submitted, no_results)};
             response.code = 400;
             return response;
         }
@@ -648,10 +654,56 @@ main(int ac, const char* av[])
         return myxmr::htmlresponse(xmrblocks.mempool(true));
     });
 
-    CROW_ROUTE(app, "/assets/favicon-192x192.png")
+    CROW_ROUTE(app, "/favicon.ico")
     ([&]() {
         crow::response response;
-        response.set_static_file_info_unsafe("./templates/assets/favicon-192x192.png");
+        response.set_header("Cache-Control", "public, max-age=86400");
+        response.set_header("X-Content-Type-Options", "nosniff");
+        response.set_static_file_info_unsafe("./templates/assets/favicon.ico");
+        response.set_header("Content-Type", "image/x-icon");
+        return response;
+    });
+
+    CROW_ROUTE(app, "/assets/<string>")
+    ([&](const string& asset_name) {
+        static const map<string, pair<string, string>> public_assets {
+            {"style.css", {"./templates/css/style.css", "text/css; charset=utf-8"}},
+            {"qwertycoin-mark.svg",
+                {"./templates/assets/qwertycoin-mark.svg", "image/svg+xml"}},
+            {"favicon.svg", {"./templates/assets/favicon.svg", "image/svg+xml"}},
+            {"favicon-16x16.png", {"./templates/assets/favicon-16x16.png", "image/png"}},
+            {"favicon-32x32.png", {"./templates/assets/favicon-32x32.png", "image/png"}},
+            {"favicon-192x192.png", {"./templates/assets/favicon-192x192.png", "image/png"}},
+            {"apple-touch-icon.png",
+                {"./templates/assets/apple-touch-icon.png", "image/png"}},
+        };
+        const auto asset = public_assets.find(asset_name);
+        if (asset == public_assets.end())
+            return crow::response(404);
+        crow::response response;
+        response.set_header("Cache-Control", asset_name == "style.css"
+                ? "public, max-age=31536000, immutable"
+                : "public, max-age=86400");
+        response.set_header("X-Content-Type-Options", "nosniff");
+        response.set_static_file_info_unsafe(asset->second.first);
+        response.set_header("Content-Type", asset->second.second);
+        return response;
+    });
+
+    CROW_ROUTE(app, "/assets/fonts/<string>")
+    ([&](const string& font_name) {
+        static const set<string> public_fonts {
+            "archivo-latin-900.woff2",
+            "inter-latin-400.woff2",
+            "inter-latin-600.woff2",
+        };
+        if (public_fonts.count(font_name) == 0)
+            return crow::response(404);
+        crow::response response;
+        response.set_header("Cache-Control", "public, max-age=86400");
+        response.set_header("X-Content-Type-Options", "nosniff");
+        response.set_static_file_info_unsafe("./templates/assets/fonts/" + font_name);
+        response.set_header("Content-Type", "font/woff2");
         return response;
     });
 

@@ -11,7 +11,7 @@ macro(configure_files srcDir destDir)
             configure_file(
                     ${srcTemplatePath}
                     ${destDir}/${templateFile}
-                    @ONLY)
+                    COPYONLY)
         endif(NOT IS_DIRECTORY ${srcTemplatePath})
     endforeach(templateFile)
 endmacro(configure_files)

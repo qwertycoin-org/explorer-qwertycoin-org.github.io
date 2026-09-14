@@ -35,7 +35,8 @@ never a consensus source of truth.
   coinbase outputs minus transaction fees
 - Stable-identity EPoSE views with explicit unsupported/unavailable states
 - Exact eight-decimal QWC formatting and one-row-per-block navigation
-- Persistent light/dark theme and responsive, keyboard-accessible layouts
+- Website-aligned light default with a persistent dark override and responsive,
+  keyboard-accessible layouts
 
 See [the metric dictionary](docs/METRICS.md), [API v1](docs/API_V1.md), and
 [bounded core dependencies](docs/CORE_API_DEPENDENCIES.md).

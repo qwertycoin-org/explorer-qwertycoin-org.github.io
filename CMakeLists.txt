@@ -138,6 +138,7 @@ if(BUILD_TESTING)
     add_test(NAME transaction_semantics_tests COMMAND transaction_semantics_tests)
     add_test(NAME privacy_routes
             COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+                    -DBINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/privacy_routes.cmake)
 endif()
 

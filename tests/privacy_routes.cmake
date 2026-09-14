@@ -47,6 +47,31 @@ foreach(REQUIRED_ASSET
     endif()
 endforeach()
 
+if(DEFINED BINARY_DIR)
+    foreach(ASSET_PATH
+            "assets/qwertycoin-mark.svg"
+            "assets/favicon.svg"
+            "assets/favicon.ico"
+            "assets/favicon-16x16.png"
+            "assets/favicon-32x32.png"
+            "assets/favicon-192x192.png"
+            "assets/apple-touch-icon.png"
+            "assets/fonts/archivo-latin-900.woff2"
+            "assets/fonts/inter-latin-400.woff2"
+            "assets/fonts/inter-latin-600.woff2")
+        set(SOURCE_ASSET "${SOURCE_DIR}/src/templates/${ASSET_PATH}")
+        set(RUNTIME_ASSET "${BINARY_DIR}/templates/${ASSET_PATH}")
+        if(NOT EXISTS "${RUNTIME_ASSET}")
+            message(FATAL_ERROR "Configured runtime asset is missing: ${RUNTIME_ASSET}")
+        endif()
+        file(SHA256 "${SOURCE_ASSET}" SOURCE_ASSET_SHA256)
+        file(SHA256 "${RUNTIME_ASSET}" RUNTIME_ASSET_SHA256)
+        if(NOT SOURCE_ASSET_SHA256 STREQUAL RUNTIME_ASSET_SHA256)
+            message(FATAL_ERROR "Configured runtime asset differs from source: ${ASSET_PATH}")
+        endif()
+    endforeach()
+endif()
+
 foreach(REQUIRED_BRAND_TEXT
         "/assets/qwertycoin-mark.svg"
         "/assets/style.css?v={{asset_version}}"
@@ -57,6 +82,7 @@ foreach(REQUIRED_BRAND_TEXT
         "data-section=\"service-nodes\""
         "aria-current"
         "qwc-theme"
+        "if(t!==\"light\"&&t!==\"dark\")t=\"light\""
         "Close explorer navigation"
         "Copy failed")
     string(FIND "${HEADER_TEMPLATE}" "${REQUIRED_BRAND_TEXT}" FOUND_AT)
@@ -65,6 +91,11 @@ foreach(REQUIRED_BRAND_TEXT
     endif()
 endforeach()
 
+string(FIND "${HEADER_TEMPLATE}" "prefers-color-scheme: dark" SYSTEM_THEME_DEFAULT)
+if(NOT SYSTEM_THEME_DEFAULT EQUAL -1)
+    message(FATAL_ERROR "Explorer must default to light rather than inheriting the operating-system theme")
+endif()
+
 foreach(REQUIRED_DESIGN_TEXT
         "--page: #F5F1E7"
         "--surface: #FFFDF7"
@@ -72,6 +103,10 @@ foreach(REQUIRED_DESIGN_TEXT
         "--violet: #7952FF"
         "font-family: \"Archivo\""
         "font-family: \"Inter\""
+        "min-height: 82px"
+        "backdrop-filter: blur(16px)"
+        "box-shadow: 4px 4px 0 var(--ink)"
+        "@media (max-width: 1100px)"
         "prefers-reduced-motion")
     string(FIND "${STYLE_SOURCE}" "${REQUIRED_DESIGN_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
@@ -127,6 +162,11 @@ file(READ "${SOURCE_DIR}/CMakeLists.txt" CMAKE_SOURCE)
 string(FIND "${CMAKE_SOURCE}" "src/templates/assets/fonts" FONT_COPY_RULE)
 if(FONT_COPY_RULE EQUAL -1)
     message(FATAL_ERROR "Local fonts are not copied into the runtime template tree")
+endif()
+file(READ "${SOURCE_DIR}/cmake/MyUtils.cmake" CMAKE_UTILS_SOURCE)
+string(FIND "${CMAKE_UTILS_SOURCE}" "COPYONLY" BINARY_COPY_RULE)
+if(BINARY_COPY_RULE EQUAL -1)
+    message(FATAL_ERROR "Runtime assets must be copied byte-exactly")
 endif()
 
 foreach(REQUIRED_REFRESH_TEXT

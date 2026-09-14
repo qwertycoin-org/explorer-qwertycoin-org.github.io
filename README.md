@@ -89,6 +89,10 @@ Daemon RPC:  verified restricted observer endpoint (currently port 8198 on the r
 daemon URL, UID/GID, loopback port, container name, and image digest have no
 operational defaults. Resolve them from the actual host. Never
 replace the existing chain mount with an empty directory or new volume.
+The production profile starts separate frontend and wallet-gateway containers.
+The gateway must receive an unused stable IP inside the verified daemon network,
+and that exact address must be the only wallet proxy address configured with the
+Core's `--rpc-ban-exempt-address`; the frontend address is not exempt.
 
 The nginx file is a mergeable reference, not a replacement for the real TLS
 vhost. Preserve the existing certificate workflow and explicitly retire legacy
@@ -96,6 +100,11 @@ secret routes. The `/qwc-rpc/` compatibility adapter terminates at the explorer'
 parser-based method/path policy before reaching the verified restricted daemon
 listener. Its upstream is independent from the frontend upstream so a frontend
 rollback does not disable wallet sync or reopen the historical generic proxy.
+The edge applies separate per-client read and transaction-submission limits.
+`/ha/readyz` composes the wallet gateway's functional mainnet `get_info` probe
+with the frontend's observer identity, LMDB anchor, and supply readiness so an
+application-aware load balancer cannot keep routing to a process-only healthy
+but functionally broken node.
 The public edge hides the application's duplicate policy headers and emits one
 authoritative set plus HSTS. The shared stylesheet is served as a versioned,
 immutable asset instead of being repeated in every dynamic HTML response.

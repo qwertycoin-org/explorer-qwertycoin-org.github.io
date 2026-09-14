@@ -136,6 +136,9 @@ if(BUILD_TESTING)
     add_executable(transaction_semantics_tests tests/transaction_semantics_tests.cpp)
     target_include_directories(transaction_semantics_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME transaction_semantics_tests COMMAND transaction_semantics_tests)
+    add_executable(rpc_reconnect_tests tests/rpc_reconnect_tests.cpp)
+    target_include_directories(rpc_reconnect_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME rpc_reconnect_tests COMMAND rpc_reconnect_tests)
     add_test(NAME privacy_routes
             COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
                     -DBINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}
@@ -231,4 +234,5 @@ set(LIBRARIES ${LIBRARIES} ${HIDAPI_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
 if(BUILD_TESTING)
     target_link_libraries(transaction_semantics_tests ${LIBRARIES})
+    target_link_libraries(rpc_reconnect_tests ${LIBRARIES})
 endif()

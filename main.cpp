@@ -313,6 +313,7 @@ main(int ac, const char* av[])
                 daemon_url, daemon_rpc_login, 20000));
     std::atomic<unsigned> wallet_rpc_inflight {0};
     std::atomic<unsigned> wallet_rpc_next_slot {0};
+    xmreg::rpccalls readiness_rpc(daemon_url, daemon_rpc_login, 2000);
 
     // create instance of page class which
     // contains logic for the website
@@ -347,6 +348,16 @@ main(int ac, const char* av[])
 
     CROW_ROUTE(app, "/readyz")
     ([&]() {
+        cryptonote::COMMAND_RPC_GET_INFO::response wallet_network_info;
+        if (!readiness_rpc.get_network_info(wallet_network_info)
+            || wallet_network_info.status != CORE_RPC_STATUS_OK
+            || wallet_network_info.testnet || wallet_network_info.stagenet
+            || wallet_network_info.height == 0 || wallet_network_info.target == 0)
+        {
+            return myxmr::jsonresponse{nlohmann::json{
+                    {"status", "error"},
+                    {"message", "Restricted wallet RPC probe is unavailable or incompatible"}}};
+        }
         const nlohmann::json identity = xmrblocks.json_identity();
         const nlohmann::json supply = xmrblocks.json_emission();
         if (identity.value("status", "error") != "success"
@@ -360,7 +371,10 @@ main(int ac, const char* av[])
         }
         return myxmr::jsonresponse{nlohmann::json{
                 {"status", "success"},
-                {"data", {{"identity", identity.at("data")},
+                {"data", {{"wallet_rpc", {{"status", "ready"},
+                                             {"height", wallet_network_info.height},
+                                             {"target_height", wallet_network_info.target_height}}},
+                          {"identity", identity.at("data")},
                           {"supply", supply.at("data")}}}}};
     });
 
@@ -627,9 +641,11 @@ main(int ac, const char* av[])
 
         xmreg::rpccalls::raw_response upstream;
         const string content_type = binary ? "application/octet-stream" : "application/json";
+        const bool retry_safe = path == "/json_rpc"
+                || xmreg::wallet_rpc_path_retry_safe(path);
         const unsigned slot = wallet_rpc_next_slot.fetch_add(1) % wallet_rpc_pool.size();
         if (!wallet_rpc_pool[slot]->proxy_wallet_request(
-                path, req.body, content_type, upstream))
+                path, req.body, content_type, upstream, retry_safe))
         {
             response.code = 502;
             response.set_header("Content-Type", "application/json");

@@ -12,15 +12,18 @@ rpccalls::proxy_wallet_request(const string& path,
                                const string& body,
                                const string& content_type,
                                raw_response& response,
+                               bool retry_safe,
                                size_t maximum_response_bytes)
 {
     std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
-    if (!connect_to_monero_daemon())
-        return false;
     const epee::net_utils::http::http_response_info* upstream {nullptr};
     epee::net_utils::http::fields_list headers;
     headers.emplace_back("Content-Type", content_type);
-    if (!m_http_client.invoke_post(path, body, timeout_time_ms, &upstream, headers)
+    if (!invoke_with_reconnect([&]() {
+            upstream = nullptr;
+            return m_http_client.invoke_post(
+                    path, body, timeout_time_ms, &upstream, headers);
+        }, retry_safe)
         || upstream == nullptr || upstream->m_body.size() > maximum_response_bytes)
         return false;
     response.status = upstream->m_response_code;
@@ -73,15 +76,11 @@ rpccalls::get_base_fee_estimate(uint64_t grace_blocks,
 
     req.grace_blocks = grace_blocks;
 
-    if (!connect_to_monero_daemon())
-    {
-        cerr << "get_base_fee_estimate: not connected to daemon" << endl;
-        return false;
-    }
-
-    bool r = epee::net_utils::invoke_http_json(
-            "/get_fee_estimate",
-            req, res, m_http_client, timeout_time_ms);
+    std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
+    const bool r = invoke_with_reconnect([&]() {
+        return epee::net_utils::invoke_http_json(
+                "/get_fee_estimate", req, res, m_http_client, timeout_time_ms);
+    }, true);
 
     fee_estimate = res.fee;
 
@@ -98,15 +97,10 @@ rpccalls::get_current_height()
 
     std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-    if (!connect_to_monero_daemon())
-    {
-        cerr << "get_current_height: not connected to daemon" << endl;
-        return false;
-    }
-
-    bool r = epee::net_utils::invoke_http_json(
-            "/getheight",
-            req, res, m_http_client, timeout_time_ms);
+    const bool r = invoke_with_reconnect([&]() {
+        return epee::net_utils::invoke_http_json(
+                "/getheight", req, res, m_http_client, timeout_time_ms);
+    }, true);
 
     if (!r)
     {
@@ -130,15 +124,11 @@ rpccalls::get_mempool(vector<tx_info>& mempool_txs)
     {
         std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-        if (!connect_to_monero_daemon())
-        {
-            cerr << "get_mempool: not connected to daemon" << endl;
-            return false;
-        }
-
-        r = epee::net_utils::invoke_http_json(
-                "/get_transaction_pool",
-                req, res, m_http_client, timeout_time_ms);
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/get_transaction_pool",
+                    req, res, m_http_client, timeout_time_ms);
+        }, true);
     }
 
     if (!r || res.status != CORE_RPC_STATUS_OK)
@@ -177,15 +167,10 @@ rpccalls::commit_tx(tools::wallet2::pending_tx& ptx, string& error_msg)
 
     std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-    if (!connect_to_monero_daemon())
-    {
-        cerr << "commit_tx: not connected to daemon" << endl;
-        return false;
-    }
-
-    bool r = epee::net_utils::invoke_http_json(
-            "/sendrawtransaction",
-            req, res, m_http_client, timeout_time_ms);
+    const bool r = invoke_with_reconnect([&]() {
+        return epee::net_utils::invoke_http_json(
+                "/sendrawtransaction", req, res, m_http_client, timeout_time_ms);
+    }, false);
 
     if (!r || res.status == "Failed")
     {
@@ -216,15 +201,10 @@ rpccalls::get_network_info(COMMAND_RPC_GET_INFO::response& response)
     {
         std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-        if (!connect_to_monero_daemon())
-        {
-            cerr << "get_network_info: not connected to daemon" << endl;
-            return false;
-        }
-
-        r = epee::net_utils::invoke_http_json("/json_rpc",
-                                              req_t, resp_t,
-                                              m_http_client);
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/json_rpc", req_t, resp_t, m_http_client, timeout_time_ms);
+        }, true);
     }
 
     string err;
@@ -276,14 +256,10 @@ rpccalls::get_epose_info(COMMAND_RPC_GET_EPOSE_INFO::response& response)
     {
         std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-        if (!connect_to_monero_daemon())
-        {
-            cerr << "get_epose_info: not connected to daemon" << endl;
-            return false;
-        }
-
-        r = epee::net_utils::invoke_http_json(
-                "/json_rpc", req_t, resp_t, m_http_client, timeout_time_ms);
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/json_rpc", req_t, resp_t, m_http_client, timeout_time_ms);
+        }, true);
     }
 
     if (!r || resp_t.result.status != CORE_RPC_STATUS_OK)
@@ -311,14 +287,10 @@ rpccalls::get_service_nodes(COMMAND_RPC_GET_SERVICE_NODES::response& response, u
     {
         std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-        if (!connect_to_monero_daemon())
-        {
-            cerr << "get_service_nodes: not connected to daemon" << endl;
-            return false;
-        }
-
-        r = epee::net_utils::invoke_http_json(
-                "/get_service_nodes", req, res, m_http_client, timeout_time_ms);
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/get_service_nodes", req, res, m_http_client, timeout_time_ms);
+        }, true);
     }
 
     if (!r || res.status != CORE_RPC_STATUS_OK)
@@ -346,14 +318,10 @@ rpccalls::get_service_rewards(COMMAND_RPC_GET_SERVICE_REWARDS::response& respons
     {
         std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-        if (!connect_to_monero_daemon())
-        {
-            cerr << "get_service_rewards: not connected to daemon" << endl;
-            return false;
-        }
-
-        r = epee::net_utils::invoke_http_json(
-                "/get_service_rewards", req, res, m_http_client, timeout_time_ms);
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/get_service_rewards", req, res, m_http_client, timeout_time_ms);
+        }, true);
     }
 
     if (!r || res.status != CORE_RPC_STATUS_OK)
@@ -385,15 +353,10 @@ rpccalls::get_hardfork_info(COMMAND_RPC_HARD_FORK_INFO::response& response)
     {
         std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-        if (!connect_to_monero_daemon())
-        {
-            cerr << "get_hardfork_info: not connected to daemon" << endl;
-            return false;
-        }
-
-        r = epee::net_utils::invoke_http_json("/json_rpc",
-                                              req_t, resp_t,
-                                              m_http_client);
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/json_rpc", req_t, resp_t, m_http_client, timeout_time_ms);
+        }, true);
     }
 
 
@@ -453,15 +416,10 @@ rpccalls::get_dynamic_per_kb_fee_estimate(
     {
         std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-        if (!connect_to_monero_daemon())
-        {
-            cerr << "get_dynamic_per_kb_fee_estimate: not connected to daemon" << endl;
-            return false;
-        }
-
-        r = epee::net_utils::invoke_http_json("/json_rpc",
-                                              req_t, resp_t,
-                                              m_http_client);
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/json_rpc", req_t, resp_t, m_http_client, timeout_time_ms);
+        }, true);
     }
 
     string err;
@@ -516,15 +474,10 @@ rpccalls::get_block(string const& blk_hash, block& blk, string& error_msg)
     {
         std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
 
-        if (!connect_to_monero_daemon())
-        {
-            cerr << "get_block: not connected to daemon" << endl;
-            return false;
-        }
-
-        r = epee::net_utils::invoke_http_json("/json_rpc",
-                                              req_t, resp_t,
-                                              m_http_client);
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/json_rpc", req_t, resp_t, m_http_client, timeout_time_ms);
+        }, true);
     }
 
     string err;

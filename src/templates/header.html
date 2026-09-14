@@ -72,7 +72,8 @@
 
     function closeNavigation(returnFocus){navButton.setAttribute("aria-expanded","false");navigation.removeAttribute("data-open");navButton.querySelector(".sr-only").textContent="Open explorer navigation";if(returnFocus)navButton.focus();}
     navButton.addEventListener("click",function(){var open=navButton.getAttribute("aria-expanded")!=="true";navButton.setAttribute("aria-expanded",open?"true":"false");navigation.toggleAttribute("data-open",open);navButton.querySelector(".sr-only").textContent=open?"Close explorer navigation":"Open explorer navigation";});
-    navigation.addEventListener("click",function(event){if(event.target.closest("a")&&window.matchMedia("(max-width: 1100px)").matches)closeNavigation(false);});
+    navigation.addEventListener("click",function(event){if(event.target.closest("a")&&window.matchMedia("(max-width: 1200px)").matches)closeNavigation(false);});
+    window.addEventListener("resize",function(){if(window.matchMedia("(min-width: 1201px)").matches)closeNavigation(false);});
     document.addEventListener("keydown",function(event){if(event.key==="Escape"&&navButton.getAttribute("aria-expanded")==="true")closeNavigation(true);});
 
     var path=window.location.pathname;

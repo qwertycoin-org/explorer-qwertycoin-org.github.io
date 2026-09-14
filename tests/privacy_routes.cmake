@@ -119,7 +119,8 @@ foreach(REQUIRED_DESIGN_TEXT
         "min-height: 82px"
         "backdrop-filter: blur(16px)"
         "box-shadow: 4px 4px 0 var(--ink)"
-        "@media (max-width: 1100px)"
+        ".brand-name { font-size: 0.94rem; }"
+        "@media (max-width: 1200px)"
         "prefers-reduced-motion")
     string(FIND "${STYLE_SOURCE}" "${REQUIRED_DESIGN_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)

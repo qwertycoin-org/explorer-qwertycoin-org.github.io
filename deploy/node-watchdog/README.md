@@ -40,4 +40,5 @@ invariants and quorum immediately before taking action.
 
 `automation.js` is the scheduler payload. It keeps failure counters in scheduler
 state, requires three consecutive service failures, applies per-target cooldowns,
-and returns no notification for healthy checks.
+returns no notification for healthy checks, and verifies the deployed watchdog
+script's SHA-256 before every probe or repair.

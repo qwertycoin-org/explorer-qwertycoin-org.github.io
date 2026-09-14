@@ -1,5 +1,8 @@
-const probeCommand = "/workspace/ops/qwc-node-watchdog/watchdog.sh probe";
-const repairCommand = "/workspace/ops/qwc-node-watchdog/watchdog.sh repair";
+const watchdogPath = "/workspace/ops/qwc-node-watchdog/watchdog.sh";
+const expectedWatchdogSha256 = "1f5aceb28c374671b9159f256677cb44bf6a77c37a9982e96aea4fbbe062555f";
+const verifyWatchdog = `printf '${expectedWatchdogSha256}  ${watchdogPath}\\n' | sha256sum --check --status`;
+const probeCommand = `${verifyWatchdog} && ${watchdogPath} probe`;
+const repairCommand = `${verifyWatchdog} && ${watchdogPath} repair`;
 const now = Date.now();
 const confirmAfter = 3;
 const actionCooldownMs = 15 * 60 * 1000;

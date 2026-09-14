@@ -106,7 +106,7 @@ Do not use `docker compose down -v`, create a replacement chain volume, loosen
 chain permissions, or restart a core daemon. Keep the candidate private on
 loopback or an authenticated operator tunnel.
 
-Verify `/healthz`, `/readyz`, `/api/v1/version`, chain identity, overview, block,
+Verify `/healthz`, `/readyz`, the edge aggregate `/ha/readyz`, `/api/v1/version`, chain identity, overview, block,
 transaction, POST search, mempool, service nodes, epochs, both themes, keyboard
 navigation, 360/390/768/1440 layouts, retired secret routes, and absence of an
 unrestricted RPC proxy. The `/qwc-rpc/` compatibility adapter must forward only
@@ -123,6 +123,13 @@ and valid HTTPS `*.pages.dev` previews, while an unrelated origin receives no
 carries exactly one such header. Never replace this allowlist with a wildcard
 or unconditional origin reflection.
 Observe two refresh intervals and a real block when available.
+Restart only the paired daemon, wait for its restricted RPC to become healthy,
+and prove that both gateway and frontend return to ready without either
+application container being restarted. A failed read may be retried once after
+discarding a stale keep-alive connection; transaction submission must never be
+blindly retried. Also prove that the daemon's exact configured wallet-gateway
+address is RPC-ban-exempt while an unrelated blockable address still accrues
+normal failure scores. Do not use global `--disable-rpc-ban` for this purpose.
 Record CPU/RAM, response latency, upstream RPC rate, and daemon impact under a
 declared traffic ceiling.
 

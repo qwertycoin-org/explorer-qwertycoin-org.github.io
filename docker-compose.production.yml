@@ -26,6 +26,8 @@ services:
       - "${QWC_EXPLORER_DERIVED_PATH:?existing writable explorer-derived path required}:/var/lib/qwertycoin-explorer"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - qwertycoin-mainnet
     read_only: true
     tmpfs:
       - /tmp:size=32m,mode=1777
@@ -47,3 +49,57 @@ services:
       options:
         max-size: 10m
         max-file: "3"
+
+  qwertycoin-wallet-gateway:
+    image: "${QWC_EXPLORER_IMAGE:?immutable explorer image digest required}"
+    container_name: "${QWC_WALLET_GATEWAY_CONTAINER_NAME:?wallet gateway container name required}"
+    restart: unless-stopped
+    stop_grace_period: 30s
+    user: "${QWC_EXPLORER_UID:?uid required}:${QWC_EXPLORER_GID:?gid required}"
+    command:
+      - --port
+      - "8081"
+      - --bindaddr
+      - 0.0.0.0
+      - --bc-path
+      - /home/qwertycoin/.qwertycoin/lmdb
+      - --daemon-url
+      - "${QWC_DAEMON_URL:?restricted observer RPC URL required}"
+      - --derived-data-path
+      - /var/lib/qwertycoin-explorer
+      - --chain-reset-id
+      - "${QWC_CHAIN_RESET_ID:?chain reset context required}"
+    ports:
+      - "127.0.0.1:${QWC_WALLET_GATEWAY_HOST_PORT:?wallet gateway loopback port required}:8081"
+    volumes:
+      - "${QWC_CHAIN_PATH:?existing chain path required}:/home/qwertycoin/.qwertycoin:ro"
+      - "${QWC_WALLET_GATEWAY_DERIVED_PATH:?wallet gateway derived path required}:/var/lib/qwertycoin-explorer"
+    networks:
+      qwertycoin-mainnet:
+        ipv4_address: "${QWC_WALLET_GATEWAY_IPV4:?stable wallet gateway IPv4 required}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 2g
+    cpus: 2.0
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8081/readyz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  qwertycoin-mainnet:
+    external: true
+    name: "${QWC_DOCKER_NETWORK:?verified existing daemon network required}"

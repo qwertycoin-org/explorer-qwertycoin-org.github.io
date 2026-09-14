@@ -48,6 +48,17 @@ method allowlists in `wallet_rpc_policy.h`; batches, notifications, malformed
 envelopes, unknown methods and unknown paths are rejected before the restricted
 daemon is contacted. Request bodies are not access-logged.
 
+`/readyz` requires a live mainnet `get_info` response through the restricted
+wallet RPC transport in addition to compatible observer identity and complete
+supply state. The public edge keeps `/readyz` private and exposes `/ha/readyz`
+as the aggregate load-balancer probe: it succeeds only when both the separate
+wallet-gateway container and the explorer-frontend container are ready.
+
+Read-only wallet RPC transport failures discard the stale keep-alive connection
+and retry once. Transaction-submission paths are never retried automatically,
+because a lost response does not prove that the daemon failed to accept or relay
+the transaction.
+
 HTML search is `POST /search`; values are length-bounded and are not placed in a
 URL. The old secret-processing routes are absent from the application and must
 return 404/410 at the edge.

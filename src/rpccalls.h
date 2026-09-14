@@ -82,6 +82,25 @@ class rpccalls
 
     string port;
 
+    template<typename Invocation>
+    bool
+    invoke_with_reconnect(Invocation&& invocation, bool retry_safe)
+    {
+        const unsigned attempts = retry_safe ? 2 : 1;
+        for (unsigned attempt = 0; attempt < attempts; ++attempt)
+        {
+            if (connect_to_monero_daemon() && invocation())
+                return true;
+
+            // epee's HTTP client can keep a reset keep-alive socket marked as
+            // connected. Always discard a failed transport before the next
+            // request. Only read-only calls are retried in this request; a
+            // transaction submission is left for the wallet to reconcile.
+            m_http_client.disconnect();
+        }
+        return false;
+    }
+
 public:
 
     struct raw_response
@@ -161,9 +180,11 @@ public:
                 return false;
             }
 
-            r = epee::net_utils::invoke_http_json("/get_alt_blocks_hashes",
-                                                  req, resp,
-                                                  m_http_client);
+            r = invoke_with_reconnect([&]() {
+                return epee::net_utils::invoke_http_json(
+                        "/get_alt_blocks_hashes", req, resp,
+                        m_http_client, timeout_time_ms);
+            }, true);
         }
 
         string err;
@@ -216,6 +237,7 @@ public:
                          const string& body,
                          const string& content_type,
                          raw_response& response,
+                         bool retry_safe,
                          size_t maximum_response_bytes = 12 * 1024 * 1024);
 
 };

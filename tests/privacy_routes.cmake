@@ -6,7 +6,9 @@ file(READ "${SOURCE_DIR}/src/templates/partials/tx_details.html" TX_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/page.h" PAGE_SOURCE)
 file(READ "${SOURCE_DIR}/deploy/explorer.qwertycoin.org.nginx.conf" NGINX_SOURCE)
 file(READ "${SOURCE_DIR}/src/wallet_rpc_policy.h" RPC_POLICY_SOURCE)
+file(READ "${SOURCE_DIR}/src/rpccalls.h" RPC_CALLS_HEADER)
 file(READ "${SOURCE_DIR}/src/CmdLineOptions.cpp" OPTIONS_SOURCE)
+file(READ "${SOURCE_DIR}/docker-compose.production.yml" PRODUCTION_COMPOSE)
 
 set(FORBIDDEN_ROUTES
     "CROW_ROUTE(app, \"/myoutputs\""
@@ -19,6 +21,17 @@ foreach(ROUTE IN LISTS FORBIDDEN_ROUTES)
     string(FIND "${MAIN_SOURCE}" "${ROUTE}" FOUND_AT)
     if(NOT FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Retired secret route was registered: ${ROUTE}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_GATEWAY_DEPLOYMENT_TEXT
+        "qwertycoin-wallet-gateway:"
+        "QWC_WALLET_GATEWAY_IPV4"
+        "QWC_WALLET_GATEWAY_DERIVED_PATH"
+        "http://127.0.0.1:8081/readyz")
+    string(FIND "${PRODUCTION_COMPOSE}" "${REQUIRED_GATEWAY_DEPLOYMENT_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Hardened wallet gateway deployment is missing: ${REQUIRED_GATEWAY_DEPLOYMENT_TEXT}")
     endif()
 endforeach()
 
@@ -210,6 +223,11 @@ foreach(REQUIRED_RPC_EDGE_TEXT
         "restricted daemon listener"
         "location /qwc-rpc/"
         "proxy_pass http://qwertycoin_wallet_rpc_backend"
+        "limit_req zone=qwc_wallet_reads"
+        "limit_req zone=qwc_wallet_submits"
+        "location = /ha/readyz"
+        "auth_request /_qwc_wallet_readyz"
+        "proxy_pass http://qwertycoin_wallet_rpc_backend/readyz"
         "map $http_origin $qwc_wallet_cors_origin"
         "\"https://wallet.qwertycoin.org\" $http_origin"
         "\\.pages\\.dev$ $http_origin"
@@ -239,10 +257,20 @@ foreach(REQUIRED_RPC_POLICY_TEXT
         "send_raw_transaction"
         "get_info"
         "get_output_histogram"
+        "wallet_rpc_path_retry_safe"
         "wallet_rpc_policy_result::forbidden")
     string(FIND "${RPC_POLICY_SOURCE}" "${REQUIRED_RPC_POLICY_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Parsed wallet RPC policy contract is missing: ${REQUIRED_RPC_POLICY_TEXT}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_RPC_RECOVERY_TEXT
+        "Restricted wallet RPC probe is unavailable or incompatible"
+        "invoke_with_reconnect")
+    string(FIND "${MAIN_SOURCE}${RPC_CALLS_HEADER}" "${REQUIRED_RPC_RECOVERY_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "RPC recovery/readiness contract is missing: ${REQUIRED_RPC_RECOVERY_TEXT}")
     endif()
 endforeach()
 

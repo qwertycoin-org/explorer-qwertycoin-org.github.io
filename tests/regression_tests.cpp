@@ -123,5 +123,12 @@ int main()
     ok &= expect(xmreg::wallet_rpc_path_allowed("/getblocks.bin")
                  && !xmreg::wallet_rpc_path_allowed("/getblocktemplate"),
                  "wallet RPC path boundary");
+    ok &= expect(xmreg::wallet_rpc_path_retry_safe("/getblocks.bin")
+                 && xmreg::wallet_rpc_path_retry_safe("/get_transactions"),
+                 "wallet read paths are retry-safe");
+    ok &= expect(!xmreg::wallet_rpc_path_retry_safe("/send_raw_transaction")
+                 && !xmreg::wallet_rpc_path_retry_safe("/submit_raw_tx")
+                 && !xmreg::wallet_rpc_path_retry_safe("/sendrawtransaction"),
+                 "wallet transaction submission is never retried");
     return ok ? 0 : 1;
 }

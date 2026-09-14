@@ -22,6 +22,15 @@ inline bool wallet_rpc_path_allowed(const std::string& path)
     return paths.count(path) == 1;
 }
 
+inline bool wallet_rpc_path_retry_safe(const std::string& path)
+{
+    static const std::set<std::string> transaction_submission_paths {
+        "/send_raw_transaction", "/submit_raw_tx", "/sendrawtransaction"
+    };
+    return wallet_rpc_path_allowed(path)
+            && transaction_submission_paths.count(path) == 0;
+}
+
 inline wallet_rpc_policy_result authorize_wallet_json_rpc(const std::string& body,
                                                           std::string& method)
 {

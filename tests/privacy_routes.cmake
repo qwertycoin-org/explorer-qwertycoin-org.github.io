@@ -119,6 +119,8 @@ foreach(REQUIRED_DESIGN_TEXT
         "min-height: 82px"
         "backdrop-filter: blur(16px)"
         "box-shadow: 4px 4px 0 var(--ink)"
+        "grid-template-columns: 42px auto"
+        "letter-spacing: 0.16em"
         ".brand-name { font-size: 0.94rem; }"
         "@media (max-width: 1200px)"
         "prefers-reduced-motion")

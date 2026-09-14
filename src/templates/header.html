@@ -18,7 +18,7 @@
     <link rel="preload" href="/assets/fonts/inter-latin-600.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/style.css?v={{asset_version}}">
     <meta http-equiv="cache-control" content="no-cache">
-    <script>(function(){var t="";try{t=localStorage.getItem("qwc-theme")||"";}catch(e){}if(t!=="light"&&t!=="dark")t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t;}());</script>
+    <script>(function(){var t="";try{t=localStorage.getItem("qwc-theme")||"";}catch(e){}if(t!=="light"&&t!=="dark")t="light";document.documentElement.dataset.theme=t;}());</script>
     <title>Qwertycoin Explorer</title>
 </head>
 <body>
@@ -41,8 +41,8 @@
             <a href="/service-nodes" data-section="service-nodes">Service Nodes</a>
             <a href="/epochs" data-section="epochs">Epochs</a>
             <a href="/network" data-section="network">Network</a>
-            <a class="website-link" href="https://qwertycoin.org/">Website</a>
             <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false"><span aria-hidden="true">◐</span><span class="theme-label">Dark theme</span></button>
+            <a class="website-link" href="https://qwertycoin.org/">Website</a>
         </div>
     </nav>
 </header>
@@ -66,16 +66,13 @@
     var navButton=document.getElementById("nav-toggle");
     var navigation=document.getElementById("primary-navigation");
     var themeMeta=document.querySelector('meta[name="theme-color"]');
-    var media=window.matchMedia("(prefers-color-scheme: dark)");
-    function storedTheme(){try{return localStorage.getItem("qwc-theme")||"";}catch(e){return "";}}
-    function currentTheme(){return document.documentElement.dataset.theme||(media.matches?"dark":"light");}
+    function currentTheme(){return document.documentElement.dataset.theme||"light";}
     function updateTheme(){var dark=currentTheme()==="dark";themeButton.setAttribute("aria-pressed",dark?"true":"false");themeButton.querySelector(".theme-label").textContent=dark?"Light theme":"Dark theme";if(themeMeta)themeMeta.content=dark?"#141414":"#F5F1E7";}
     themeButton.addEventListener("click",function(){var next=currentTheme()==="dark"?"light":"dark";document.documentElement.dataset.theme=next;try{localStorage.setItem("qwc-theme",next);}catch(e){}updateTheme();});
-    media.addEventListener("change",function(event){if(!storedTheme()){document.documentElement.dataset.theme=event.matches?"dark":"light";updateTheme();}});
 
     function closeNavigation(returnFocus){navButton.setAttribute("aria-expanded","false");navigation.removeAttribute("data-open");navButton.querySelector(".sr-only").textContent="Open explorer navigation";if(returnFocus)navButton.focus();}
     navButton.addEventListener("click",function(){var open=navButton.getAttribute("aria-expanded")!=="true";navButton.setAttribute("aria-expanded",open?"true":"false");navigation.toggleAttribute("data-open",open);navButton.querySelector(".sr-only").textContent=open?"Close explorer navigation":"Open explorer navigation";});
-    navigation.addEventListener("click",function(event){if(event.target.closest("a")&&window.matchMedia("(max-width: 1120px)").matches)closeNavigation(false);});
+    navigation.addEventListener("click",function(event){if(event.target.closest("a")&&window.matchMedia("(max-width: 1100px)").matches)closeNavigation(false);});
     document.addEventListener("keydown",function(event){if(event.key==="Escape"&&navButton.getAttribute("aria-expanded")==="true")closeNavigation(true);});
 
     var path=window.location.pathname;

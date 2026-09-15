@@ -30,6 +30,7 @@
 #include "SupplyIndex.h"
 #include "exact_amount.h"
 #include "hashrate.h"
+#include "epose_endpoint_view.h"
 #include "transaction_amounts.h"
 
 #include "../ext/crow_all.h"
@@ -535,6 +536,7 @@ std::mutex epose_rewards_cache_mutex;
 json epose_info_cache;
 json epose_nodes_cache;
 json epose_rewards_cache;
+map<string, json> epose_endpoint_cache;
 uint64_t epose_info_cache_time {0};
 uint64_t epose_nodes_cache_time {0};
 uint64_t epose_rewards_cache_time {0};
@@ -6056,9 +6058,49 @@ json_epose_service_nodes()
     }
 
     json nodes = json::array();
+    map<string, json> current_endpoint_cache;
 
     for (const auto& node: info.service_nodes)
     {
+        json endpoint {
+                {"availability", "unavailable"},
+                {"authority", nullptr},
+                {"host", nullptr},
+                {"port", nullptr},
+                {"transport", nullptr},
+                {"source", "core-validated signed descriptor"}
+        };
+
+        const auto cached_endpoint = epose_endpoint_cache.find(node.endpoint_commitment);
+        if (cached_endpoint != epose_endpoint_cache.end())
+        {
+            endpoint = cached_endpoint->second;
+        }
+        else
+        {
+            COMMAND_RPC_GET_EPOSE_SERVICE_ENDPOINT_V2::response advertised;
+            if (rpc.get_epose_service_endpoint_v2(node.endpoint_commitment, advertised)
+                && valid_epose_advertised_endpoint(
+                        advertised.ready,
+                        advertised.descriptor_hash, node.endpoint_commitment,
+                        advertised.service_public_key, node.service_public_key,
+                        advertised.host, advertised.port, advertised.transport))
+            {
+                endpoint = json {
+                        {"availability", "current"},
+                        {"authority", format_epose_endpoint_authority(
+                                advertised.host, advertised.port, advertised.transport)},
+                        {"host", advertised.host},
+                        {"port", advertised.port},
+                        {"transport", epose_endpoint_transport_name(advertised.transport)},
+                        {"source", "core-validated signed descriptor"}
+                };
+            }
+        }
+
+        if (endpoint.value("availability", "unavailable") == "current")
+            current_endpoint_cache.emplace(node.endpoint_commitment, endpoint);
+
         nodes.push_back(json {
                 {"identity_id", node.identity_id},
                 {"service_public_key", node.service_public_key},
@@ -6074,9 +6116,12 @@ json_epose_service_nodes()
                 {"protocol_active", node.active},
                 {"qualified_for_source_epoch", node.qualified},
                 {"qualification_availability", "current"},
+                {"advertised_endpoint", endpoint},
                 {"reachability", "unsupported"}
         });
     }
+
+    epose_endpoint_cache.swap(current_endpoint_cache);
 
     j_response["data"] = json {
             {"service_nodes", nodes},
@@ -6085,6 +6130,7 @@ json_epose_service_nodes()
             {"source_epoch", epoch_info.current_epoch},
             {"observed_at_unix", now},
             {"identity_key", "identity_id"},
+            {"endpoint_capability", "signed_descriptor_lookup"},
             {"reachability_capability", "unsupported"},
             {"snapshot_consistency", "unanchored"},
             {"truncated", info.returned_count < info.total_count},

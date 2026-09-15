@@ -208,6 +208,13 @@ tbody tr:hover, tbody tr:focus-within { background: var(--violet-soft); }
 .epose-reward-summary > div { padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-offset); }
 .epose-reward-summary strong, .epose-reward-summary small { display: block; }
 .epose-reward-summary small { margin-top: 4px; color: var(--muted); }
+.epose-endpoint { display: block; overflow-wrap: anywhere; }
+.epose-table td small { display: block; margin-top: 4px; color: var(--muted); }
+.epose-identity-details { min-width: 190px; }
+.epose-identity-details summary { color: var(--violet); cursor: pointer; font-size: 0.78rem; font-weight: 600; }
+.epose-identity-details > div { margin-top: 9px; }
+.epose-identity-label { display: block; margin-bottom: 3px; color: var(--muted); font-size: 0.7rem; }
+.epose-identity-details code { font-size: 0.72rem; }
 .node-label { color: var(--ink); font-weight: 600; }
 .advanced-row > td { padding-top: 0; }
 

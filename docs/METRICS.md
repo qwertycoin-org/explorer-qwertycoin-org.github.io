@@ -18,11 +18,12 @@ quantities such as kB.
 | Transaction count | transactions | Canonical block | Regular transaction hash count plus one coinbase transaction | Convention is stated in the table caption and row |
 | Fees | QWC | Regular transactions in the selected block | Checked sum of exact atomic fees, formatted to 8 decimals | `unavailable` if any transaction is missing or checked addition fails |
 | Coinbase total | QWC | Coinbase transaction outputs | Exact public output total, formatted to 8 decimals | Miner/service split remains unavailable without canonical v2 payment mapping |
-| EPoSE source epoch | epoch | `get_epose_info` adjacent to `get_service_nodes` | Current observer epoch | Marked `unanchored` until core supplies one common height/hash anchor |
+| EPoSE source epoch | epoch | `get_epose_info` adjacent to `get_service_nodes` | Current observer epoch | Presented as an independent RPC snapshot until core supplies one common height/hash anchor |
+| Advertised service endpoint | host and port | `get_epose_service_endpoint_v2` keyed by the node's on-chain `endpoint_commitment` | Core validates the signed descriptor; the explorer additionally requires an exact descriptor-hash and service-key match | A missing or mismatched lookup is `unavailable`; it is not presented as an online check |
 | Protocol-active | boolean | Current identity descriptor interval | `effective_epoch <= epoch < expiry_epoch` in core | Does not mean endpoint reachable |
 | Qualified | boolean | Current core qualification view | The RPC result is preserved exactly, including `false` and a valid zero qualified count | Zero/false remain distinct from an unavailable RPC response |
-| Reachability | availability state | No supported public observer source | Not calculated | Always `unsupported` in this release |
-| Reward preview | availability state | `get_service_rewards` | No browser-side payee selection | `unsupported` unless core explicitly returns `preview_available=true` |
+| Independent online check | availability state | No supported public observer source | Not calculated | Displayed as `Not exposed by Core` in this release |
+| Next service reward | availability state | `get_service_rewards` | No browser-side payee selection | Displayed as `Preview not exposed by Core` unless core explicitly returns `preview_available=true` |
 
 ## Deliberately omitted metrics
 

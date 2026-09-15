@@ -80,16 +80,16 @@
         <span class="status-pill" id="epose-status" aria-live="polite">Loading</span>
     </div>
     <div class="status-grid compact">
-        <div class="metric"><span>Source epoch</span><strong id="epose-epoch">—</strong></div>
-        <div class="metric"><span>Current descriptors</span><strong id="epose-node-count">—</strong></div>
-        <div class="metric"><span>Qualified (EPoSe info epoch)</span><strong id="epose-qualified">—</strong></div>
-        <div class="metric"><span>Reward preview</span><strong id="epose-reward-preview">—</strong></div>
+        <div class="metric"><span>Observed EPoSE epoch</span><strong id="epose-epoch">—</strong></div>
+        <div class="metric"><span>Registered service nodes</span><strong id="epose-node-count">—</strong></div>
+        <div class="metric"><span>Qualified for rewards</span><strong id="epose-qualified">—</strong></div>
+        <div class="metric"><span>Next service reward</span><strong id="epose-reward-preview">—</strong></div>
     </div>
-    <p class="data-note">Lifecycle-active and qualified are protocol observations for the stated epoch. They do not prove endpoint reachability. Reachability is currently unsupported. The available core calls are not block-anchored as one atomic snapshot, so independently loaded EPoSe sections are explicitly marked unanchored.</p>
+    <p class="data-note">The advertised endpoint is taken from the signed descriptor validated by Core. It identifies where a node says its service is available; it is not an independent online check. Active and qualified are protocol observations for the stated epoch. EPoSE sections come from separate RPC snapshots because Core does not yet expose one common atomic block anchor.</p>
     <div class="table-wrap">
         <table class="responsive-table epose-table">
-            <caption class="sr-only">Current service-node descriptors keyed by stable identity.</caption>
-            <thead><tr><th scope="col">Stable identity</th><th scope="col">Current service key</th><th scope="col">Descriptor</th><th scope="col">Protocol state</th><th scope="col">Reachability</th></tr></thead>
+            <caption class="sr-only">Current EPoSE service-node endpoints and protocol state.</caption>
+            <thead><tr><th scope="col">Advertised endpoint</th><th scope="col">Service period</th><th scope="col">Protocol eligibility</th><th scope="col">Independent online check</th><th scope="col">Technical identity</th></tr></thead>
             <tbody id="epose-service-node-rows"><tr><td colspan="5">Loading service-node data…</td></tr></tbody>
         </table>
     </div>
@@ -243,6 +243,11 @@
     function text(id, value) { var el = byId(id); if (el) el.textContent = value === null || value === undefined || value === "" ? "—" : String(value); }
     function short(value) { value = String(value || ""); return value.length > 22 ? value.slice(0, 12) + "…" + value.slice(-8) : (value || "—"); }
     function state(value) { return value === true ? "yes" : value === false ? "no" : "unknown"; }
+    function appendIdentity(details, label, value) {
+        var item = document.createElement("div"); var name = document.createElement("span"); var code = document.createElement("code");
+        name.className = "epose-identity-label"; name.textContent = label; code.className = "hash-value"; code.textContent = value || "—";
+        item.appendChild(name); item.appendChild(code); details.appendChild(item);
+    }
     var timer = null, controllers = [], delay = 30000;
     function request(path) {
         var controller = new AbortController(); controllers.push(controller); var timeout = setTimeout(function () { controller.abort(); }, 8000);
@@ -264,11 +269,16 @@
         }
         nodes.forEach(function (node) {
             var row = tbody.insertRow();
-            var identity = row.insertCell(); identity.dataset.label = "Stable identity"; var identityCode = document.createElement("code"); identityCode.className = "hash-value"; identityCode.textContent = node.identity_id || "—"; identity.appendChild(identityCode);
-            var service = row.insertCell(); service.dataset.label = "Current service key"; var serviceCode = document.createElement("code"); serviceCode.className = "hash-value"; serviceCode.textContent = node.service_public_key || "—"; service.appendChild(serviceCode);
-            var descriptor = row.insertCell(); descriptor.dataset.label = "Descriptor"; descriptor.textContent = "sequence " + node.descriptor_sequence + ", epochs " + node.effective_epoch + "–" + node.expiry_epoch;
-            var protocol = row.insertCell(); protocol.dataset.label = "Protocol state"; protocol.textContent = "active: " + state(node.protocol_active) + "; qualified: " + state(node.qualified_for_source_epoch);
-            var reachability = row.insertCell(); reachability.dataset.label = "Reachability"; reachability.textContent = node.reachability || "unavailable";
+            var advertised = node.advertised_endpoint || {};
+            var endpoint = row.insertCell(); endpoint.dataset.label = "Advertised endpoint";
+            var endpointName = document.createElement("strong"); endpointName.className = "epose-endpoint"; endpointName.textContent = advertised.availability === "current" ? advertised.authority : "Not available from Core"; endpoint.appendChild(endpointName);
+            var endpointSource = document.createElement("small"); endpointSource.textContent = advertised.availability === "current" ? "Core-validated signed descriptor · " + String(advertised.transport || "unknown").toUpperCase() : "Descriptor lookup unavailable"; endpoint.appendChild(endpointSource);
+            var descriptor = row.insertCell(); descriptor.dataset.label = "Service period"; descriptor.textContent = "Sequence " + node.descriptor_sequence + ", epochs " + node.effective_epoch + "–" + node.expiry_epoch;
+            var protocol = row.insertCell(); protocol.dataset.label = "Protocol eligibility"; protocol.textContent = "Active: " + state(node.protocol_active) + "; qualified: " + state(node.qualified_for_source_epoch);
+            var reachability = row.insertCell(); reachability.dataset.label = "Independent online check"; reachability.textContent = "Not exposed by Core";
+            var identity = row.insertCell(); identity.dataset.label = "Technical identity";
+            var details = document.createElement("details"); details.className = "epose-identity-details"; var summary = document.createElement("summary"); summary.textContent = "Show cryptographic IDs"; details.appendChild(summary);
+            appendIdentity(details, "Persistent node ID", node.identity_id); appendIdentity(details, "Current service verification key", node.service_public_key); appendIdentity(details, "Endpoint descriptor hash", node.endpoint_commitment); identity.appendChild(details);
         });
     }
     function refresh() { controllers = [];
@@ -276,7 +286,7 @@
         var hadFailure = results.some(function (result) { return result.status === "rejected"; });
         delay = hadFailure ? Math.min(delay * 2, 120000) : 30000;
         var infoResult = results[0], nodesResult = results[1], rewardsResult = results[2];
-        text("epose-status", hadFailure ? "Partial observer data · unanchored" : "Unanchored observer data"); byId("epose-status").classList.add("warning");
+        text("epose-status", hadFailure ? "Partial EPoSE data · independent snapshots" : "EPoSE data · independent RPC snapshots"); byId("epose-status").classList.add("warning");
         if (infoResult.status === "fulfilled") {
             var info = infoResult.value;
             text("epose-qualified", info.qualified_count + " · epoch " + info.current_epoch);
@@ -305,7 +315,7 @@
         }
         if (rewardsResult.status === "fulfilled") {
             var rewards = rewardsResult.value;
-            text("epose-reward-preview", rewards.preview_available === true ? "available" : rewards.availability || "unavailable");
+            text("epose-reward-preview", rewards.preview_available === true ? "Available" : "Preview not exposed by Core");
         } else {
             text("epose-reward-preview", "unavailable");
         }

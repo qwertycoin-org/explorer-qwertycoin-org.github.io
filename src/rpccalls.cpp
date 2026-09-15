@@ -306,6 +306,35 @@ rpccalls::get_service_nodes(COMMAND_RPC_GET_SERVICE_NODES::response& response, u
 }
 
 bool
+rpccalls::get_epose_service_endpoint_v2(
+        const string& descriptor_hash,
+        COMMAND_RPC_GET_EPOSE_SERVICE_ENDPOINT_V2::response& response)
+{
+    COMMAND_RPC_GET_EPOSE_SERVICE_ENDPOINT_V2::request req;
+    COMMAND_RPC_GET_EPOSE_SERVICE_ENDPOINT_V2::response res;
+
+    req.descriptor_hash = descriptor_hash;
+
+    bool r {false};
+
+    {
+        std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
+
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/get_epose_service_endpoint_v2", req, res,
+                    m_http_client, timeout_time_ms);
+        }, true);
+    }
+
+    if (!r || res.status != CORE_RPC_STATUS_OK || !res.ready)
+        return false;
+
+    response = res;
+    return true;
+}
+
+bool
 rpccalls::get_service_rewards(COMMAND_RPC_GET_SERVICE_REWARDS::response& response, uint64_t height)
 {
     COMMAND_RPC_GET_SERVICE_REWARDS::request req;

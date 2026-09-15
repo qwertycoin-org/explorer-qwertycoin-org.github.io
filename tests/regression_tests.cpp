@@ -1,4 +1,5 @@
 #include "src/exact_amount.h"
+#include "src/epose_endpoint_view.h"
 #include "src/pagination.h"
 #include "src/hashrate.h"
 #include "src/supply_math.h"
@@ -54,6 +55,25 @@ int main()
                  "hashrate SI format");
     ok &= expect(xmreg::format_hashrate_si(difficulty, 0) == "unavailable",
                  "zero target rejected");
+
+    ok &= expect(xmreg::valid_epose_advertised_endpoint(
+            true, "commitment", "commitment", "service-key", "service-key",
+            "seed-01.qwertycoin.org", 8198, 3),
+            "matching signed endpoint accepted");
+    ok &= expect(!xmreg::valid_epose_advertised_endpoint(
+            true, "other", "commitment", "service-key", "service-key",
+            "seed-01.qwertycoin.org", 8198, 3),
+            "endpoint commitment mismatch rejected");
+    ok &= expect(!xmreg::valid_epose_advertised_endpoint(
+            true, "commitment", "commitment", "other-key", "service-key",
+            "seed-01.qwertycoin.org", 8198, 3),
+            "service-key mismatch rejected");
+    ok &= expect(xmreg::format_epose_endpoint_authority(
+            "seed-01.qwertycoin.org", 8198, 3) == "seed-01.qwertycoin.org:8198",
+            "DNS endpoint authority");
+    ok &= expect(xmreg::format_epose_endpoint_authority(
+            "2001:db8::1", 8198, 2) == "[2001:db8::1]:8198",
+            "IPv6 endpoint authority");
 
     uint64_t minted {0};
     ok &= expect(xmreg::minted_delta(1025000000, 25000000, minted)

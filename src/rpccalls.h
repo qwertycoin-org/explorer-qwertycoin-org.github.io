@@ -138,6 +138,11 @@ public:
     get_service_nodes(COMMAND_RPC_GET_SERVICE_NODES::response& info, uint64_t limit = 250);
 
     bool
+    get_epose_service_endpoint_v2(
+            const string& descriptor_hash,
+            COMMAND_RPC_GET_EPOSE_SERVICE_ENDPOINT_V2::response& info);
+
+    bool
     get_service_rewards(COMMAND_RPC_GET_SERVICE_REWARDS::response& info, uint64_t height = 0);
 
     bool

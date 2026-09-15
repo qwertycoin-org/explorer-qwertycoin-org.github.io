@@ -17,7 +17,7 @@ requests to change consensus.
 3. **Typed qualification availability:** distinguish valid-empty membership from
    missing, unsupported, stale, or unavailable state; remove the ambiguous
    `epoch=0 means latest` selector.
-4. **Identity history:** bounded lookup by stable `identity_id`, descriptor/key
+4. **Identity history:** bounded lookup by persistent `identity_id`, descriptor/key
    rotations and recovery, admission evidence, freeze membership, receipts, and
    actual payment history at a requested epoch/height.
 5. **Epoch evidence:** parameter-derived start/end/cutoff/freeze boundaries,
@@ -27,5 +27,8 @@ requests to change consensus.
    privacy-reviewed observer interface is adopted. Registration or protocol
    activity must not be repurposed as online status.
 
-Until these interfaces exist, the corresponding UI fields remain explicitly
-`unsupported`, `unavailable`, `unknown`, or `unanchored`.
+The signed advertised endpoint is already available through
+`get_epose_service_endpoint_v2` and is displayed separately from reachability.
+Until the remaining interfaces exist, machine-readable API fields remain
+explicitly `unsupported`, `unavailable`, `unknown`, or `unanchored`; the UI uses
+plain-language explanations for those states.

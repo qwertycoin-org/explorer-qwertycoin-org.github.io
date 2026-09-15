@@ -96,7 +96,8 @@ Every link below is a full-page PNG captured from the controlled baseline or the
 
 ## Known limitations
 
-- Reachability remains unsupported by the current core API and is labelled accordingly.
-- EPoSe calls are not exposed as one common block-anchored atomic snapshot; independently loaded sections remain labelled unanchored.
+- Signed advertised endpoints are resolved through `get_epose_service_endpoint_v2` and shown as `hostname:port`; cryptographic identifiers remain available in expandable technical details.
+- Independent reachability remains unavailable from the current core API and is labelled `Not exposed by Core` rather than conflated with the advertised endpoint.
+- EPoSe calls are not exposed as one common block-anchored atomic snapshot; the UI describes the independently loaded sections as `independent RPC snapshots`.
 - Optional transaction pusher, autorefresh and hex tooling were not enabled in the reproduced production command and were not expanded by this visual-only change.
 - INP requires field data; only deterministic interaction and main-thread checks are available here.

@@ -28,6 +28,15 @@ must not expose a generic daemon RPC route.
 - `GET /api/v1/epose/service-nodes`
 - `GET /api/v1/epose/rewards`
 
+Each row returned by `/api/v1/epose/service-nodes` includes an
+`advertised_endpoint` object. The explorer resolves it with
+`get_epose_service_endpoint_v2`, keyed by the on-chain
+`endpoint_commitment`, and publishes it only when the returned descriptor hash
+and service public key match the membership row exactly. `availability` is
+`current` or `unavailable`; `authority` contains the display-safe `host:port`
+form. This is a Core-validated signed advertisement, not independent evidence
+that the endpoint is currently reachable.
+
 `/api/v1/overview` is a bounded, five-second server snapshot used by the
 dashboard refresh controller. It contains independently timestamped network,
 supply and mempool data plus a canonical-tip-validated recent-block window.
@@ -68,4 +77,6 @@ return 404/410 at the edge.
 The selected core does not yet attach a common tip height/hash, genesis hash,
 parameter fingerprint, or deployment-reset generation to all EPoSE responses.
 The service-node adapter therefore reports `snapshot_consistency: "unanchored"`
-instead of implying one consistent multi-source snapshot.
+for machine consumers. The UI explains the same condition as "independent RPC
+snapshots" instead of implying one consistent multi-source snapshot or a chain
+fault.

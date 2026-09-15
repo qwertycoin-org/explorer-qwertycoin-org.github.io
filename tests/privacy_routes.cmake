@@ -7,6 +7,7 @@ file(READ "${SOURCE_DIR}/src/page.h" PAGE_SOURCE)
 file(READ "${SOURCE_DIR}/deploy/explorer.qwertycoin.org.nginx.conf" NGINX_SOURCE)
 file(READ "${SOURCE_DIR}/src/wallet_rpc_policy.h" RPC_POLICY_SOURCE)
 file(READ "${SOURCE_DIR}/src/rpccalls.h" RPC_CALLS_HEADER)
+file(READ "${SOURCE_DIR}/src/rpccalls.cpp" RPC_CALLS_SOURCE)
 file(READ "${SOURCE_DIR}/src/CmdLineOptions.cpp" OPTIONS_SOURCE)
 file(READ "${SOURCE_DIR}/docker-compose.production.yml" PRODUCTION_COMPOSE)
 
@@ -21,6 +22,59 @@ foreach(ROUTE IN LISTS FORBIDDEN_ROUTES)
     string(FIND "${MAIN_SOURCE}" "${ROUTE}" FOUND_AT)
     if(NOT FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Retired secret route was registered: ${ROUTE}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_EPOSE_TEXT
+        "Advertised endpoint"
+        "Service period"
+        "Protocol eligibility"
+        "Independent online check"
+        "Technical identity"
+        "Persistent node ID"
+        "Current service verification key"
+        "Endpoint descriptor hash"
+        "Not exposed by Core"
+        "Preview not exposed by Core"
+        "EPoSE data · independent RPC snapshots"
+        "endpointName.textContent"
+        "code.textContent")
+    string(FIND "${OVERVIEW_TEMPLATE}" "${REQUIRED_EPOSE_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Readable EPoSE presentation contract is missing: ${REQUIRED_EPOSE_TEXT}")
+    endif()
+endforeach()
+
+foreach(FORBIDDEN_EPOSE_TEXT
+        "Stable identity"
+        "Current service key"
+        "Unanchored observer data"
+        ">Reward preview<"
+        ">Reachability<")
+    string(FIND "${OVERVIEW_TEMPLATE}" "${FORBIDDEN_EPOSE_TEXT}" FOUND_AT)
+    if(NOT FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Cryptic EPoSE presentation text remains: ${FORBIDDEN_EPOSE_TEXT}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_EPOSE_RPC_TEXT
+        "get_epose_service_endpoint_v2"
+        "/get_epose_service_endpoint_v2"
+        "descriptor_hash")
+    string(FIND "${RPC_CALLS_SOURCE}" "${REQUIRED_EPOSE_RPC_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "EPoSE endpoint lookup contract is missing: ${REQUIRED_EPOSE_RPC_TEXT}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_EPOSE_API_TEXT
+        "valid_epose_advertised_endpoint"
+        "advertised_endpoint"
+        "signed_descriptor_lookup"
+        "core-validated signed descriptor")
+    string(FIND "${PAGE_SOURCE}" "${REQUIRED_EPOSE_API_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "EPoSE endpoint adapter contract is missing: ${REQUIRED_EPOSE_API_TEXT}")
     endif()
 endforeach()
 

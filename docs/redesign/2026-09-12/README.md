@@ -18,7 +18,7 @@ The preview ran in a separate hardened container. It mounted the active chain re
 - Kept the explorer data-dense: search, four primary metrics and canonical block rows remain above the first desktop fold.
 - Preserved the existing server-rendered Crow/mstch architecture. JavaScript remains progressive enhancement for theme, mobile navigation, copy feedback and existing refresh behavior.
 - Kept public wording at **EPoSe** while retaining protocol/RPC terminology where technically required.
-- Replaced the obsolete rehearsal/reset banner with a factual final-mainnet notice: final genesis is active and the page is a read-only observer.
+- Removed the obsolete rehearsal/reset banner without replacing it with a persistent launch-status notice.
 - Kept lifecycle-active, qualified and reachable as separate states. Unsupported, unanchored, stale, unavailable and empty states remain explicit.
 
 ## Route and behavior verification
@@ -97,7 +97,7 @@ Every link below is a full-page PNG captured from the controlled baseline or the
 ## Known limitations
 
 - Signed advertised endpoints are resolved through `get_epose_service_endpoint_v2` and shown as `hostname:port`; cryptographic identifiers remain available in expandable technical details.
-- Independent reachability remains unavailable from the current core API and is labelled `Not exposed by Core` rather than conflated with the advertised endpoint.
-- EPoSe calls are not exposed as one common block-anchored atomic snapshot; the UI describes the independently loaded sections as `independent RPC snapshots`.
+- Independent reachability remains unavailable from the current core API and is therefore not shown as an empty table column or conflated with the advertised endpoint.
+- EPoSe calls are not exposed as one common block-anchored atomic snapshot; machine consumers can inspect `snapshot_consistency` while the compact UI avoids a persistent implementation note.
 - Optional transaction pusher, autorefresh and hex tooling were not enabled in the reproduced production command and were not expanded by this visual-only change.
 - INP requires field data; only deterministic interaction and main-thread checks are available here.

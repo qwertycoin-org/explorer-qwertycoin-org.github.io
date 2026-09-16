@@ -30,19 +30,35 @@ foreach(REQUIRED_EPOSE_TEXT
         "Advertised endpoint"
         "Service period"
         "Current epoch eligibility"
-        "Independent online check"
+        "Reward-source eligibility"
         "Technical identity"
+        "column-help"
+        "EPoSE service protocol version"
+        "Endpoint descriptor schema version"
         "Persistent node ID"
         "Current service verification key"
         "Endpoint descriptor hash"
-        "Not exposed by Core"
         "Preview not exposed by Core"
-        "EPoSE data · independent RPC snapshots"
+        "EPoSE data loaded"
         "endpointName.textContent"
         "code.textContent")
     string(FIND "${OVERVIEW_TEMPLATE}" "${REQUIRED_EPOSE_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Readable EPoSE presentation contract is missing: ${REQUIRED_EPOSE_TEXT}")
+    endif()
+endforeach()
+
+foreach(FORBIDDEN_EPOSE_PRESENTATION_TEXT
+        "Independent online check"
+        "Not exposed by Core"
+        "Current-epoch qualification is still evolving"
+        "one common atomic block anchor"
+        "Qwertycoin v2 mainnet"
+        "Final genesis is active"
+        "validating read-only observer")
+    string(FIND "${OVERVIEW_TEMPLATE}" "${FORBIDDEN_EPOSE_PRESENTATION_TEXT}" FOUND_AT)
+    if(NOT FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Removed explorer presentation text remains: ${FORBIDDEN_EPOSE_PRESENTATION_TEXT}")
     endif()
 endforeach()
 
@@ -71,6 +87,8 @@ endforeach()
 foreach(REQUIRED_EPOSE_API_TEXT
         "valid_epose_advertised_endpoint"
         "advertised_endpoint"
+        "descriptor_version"
+        "service_version"
         "signed_descriptor_lookup"
         "core-validated signed descriptor")
     string(FIND "${PAGE_SOURCE}" "${REQUIRED_EPOSE_API_TEXT}" FOUND_AT)
@@ -245,6 +263,8 @@ foreach(REQUIRED_REFRESH_TEXT
         "new AbortController()"
         "document.hidden"
         "Math.min(delay * 2, 120000)"
+        "var refreshBlockRows = {{#is_page_zero}}true{{/is_page_zero}}{{^is_page_zero}}false{{/is_page_zero}}"
+        "if (refreshBlockRows) renderBlocks(data.blocks)"
         "renderMempool(data.mempool)")
     string(FIND "${OVERVIEW_TEMPLATE}" "${REQUIRED_REFRESH_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)

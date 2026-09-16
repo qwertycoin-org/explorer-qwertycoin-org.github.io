@@ -1,8 +1,3 @@
-<section class="center launch-banner" role="status">
-    <strong>Qwertycoin v2 mainnet</strong>
-    <span>Final genesis is active. Data is reported by a validating read-only observer.</span>
-</section>
-
 <div class="center page-tools">
     <span class="tool-status" id="observer-status">Rendered: {{server_timestamp}} UTC</span>
     <a href="" aria-label="Refresh explorer data">Refresh</a>
@@ -86,12 +81,17 @@
         <div class="metric"><span>Reward source qualification</span><strong id="epose-reward-qualified">—</strong></div>
         <div class="metric"><span>Next service reward</span><strong id="epose-reward-preview">—</strong></div>
     </div>
-    <p class="data-note">Current-epoch qualification is still evolving. Reward payouts use the finalized qualification set from the prior source epoch shown separately above. The advertised endpoint is taken from the signed descriptor validated by Core; it is not an independent online check. EPoSE sections come from separate RPC snapshots because Core does not yet expose one common atomic block anchor.</p>
     <div class="table-wrap">
         <table class="responsive-table epose-table">
             <caption class="sr-only">Current EPoSE service-node endpoints and protocol state.</caption>
-            <thead><tr><th scope="col">Advertised endpoint</th><th scope="col">Service period</th><th scope="col">Current epoch eligibility</th><th scope="col">Reward-source eligibility</th><th scope="col">Independent online check</th><th scope="col">Technical identity</th></tr></thead>
-            <tbody id="epose-service-node-rows"><tr><td colspan="6">Loading service-node data…</td></tr></tbody>
+            <thead><tr>
+                <th scope="col"><span class="column-help" tabindex="0" title="Signed hostname or IP address and port from the endpoint descriptor validated by Core. This is an advertisement, not a reachability test." aria-label="Advertised endpoint. Signed hostname or IP address and port from the endpoint descriptor validated by Core. This is an advertisement, not a reachability test.">Advertised endpoint</span></th>
+                <th scope="col"><span class="column-help" tabindex="0" title="Descriptor sequence and the first through last epochs for which this service registration applies." aria-label="Service period. Descriptor sequence and the first through last epochs for which this service registration applies.">Service period</span></th>
+                <th scope="col"><span class="column-help" tabindex="0" title="Whether the registration is active and qualified in the currently observed epoch. Current qualification can still change until the epoch is finalized." aria-label="Current epoch eligibility. Whether the registration is active and qualified in the currently observed epoch. Current qualification can still change until the epoch is finalized.">Current epoch eligibility</span></th>
+                <th scope="col"><span class="column-help" tabindex="0" title="Whether this node qualified in the finalized source epoch used for service-reward selection." aria-label="Reward-source eligibility. Whether this node qualified in the finalized source epoch used for service-reward selection.">Reward-source eligibility</span></th>
+                <th scope="col"><span class="column-help" tabindex="0" title="EPoSE service-protocol and descriptor versions plus the cryptographic identifiers that bind this endpoint to the persistent service-node identity." aria-label="Technical identity. EPoSE service-protocol and descriptor versions plus the cryptographic identifiers that bind this endpoint to the persistent service-node identity.">Technical identity</span></th>
+            </tr></thead>
+            <tbody id="epose-service-node-rows"><tr><td colspan="5">Loading service-node data…</td></tr></tbody>
         </table>
     </div>
     <details class="advanced-details" id="epochs" {{#show_epoch_details}}open{{/show_epoch_details}}>
@@ -139,6 +139,7 @@
 (function () {
     "use strict";
     var timer = null, controller = null, delay = 15000;
+    var refreshBlockRows = {{#is_page_zero}}true{{/is_page_zero}}{{^is_page_zero}}false{{/is_page_zero}};
     function byId(id) { return document.getElementById(id); }
     function setText(id, value) { var el = byId(id); if (el) el.textContent = value === null || value === undefined ? "—" : String(value); }
     function relativeAge(timestamp) {
@@ -217,7 +218,7 @@
             networkStatus.textContent = anchored ? "RPC/DB anchor current" : "RPC/DB anchor stale or inconsistent";
             networkStatus.classList.toggle("ok", anchored); networkStatus.classList.toggle("warning", !anchored);
         }
-        renderBlocks(data.blocks);
+        if (refreshBlockRows) renderBlocks(data.blocks);
         renderMempool(data.mempool);
     }
     function schedule(ms) { clearTimeout(timer); if (!document.hidden) timer = setTimeout(refresh, ms); }
@@ -266,7 +267,7 @@
         if (tbody.contains(document.activeElement)) return;
         tbody.textContent = "";
         if (!nodes.length) {
-            var emptyRow = tbody.insertRow(); var emptyCell = emptyRow.insertCell(); emptyCell.colSpan = 6; emptyCell.textContent = "Successful empty set for current epoch " + payload.current_epoch + "."; return;
+            var emptyRow = tbody.insertRow(); var emptyCell = emptyRow.insertCell(); emptyCell.colSpan = 5; emptyCell.textContent = "Successful empty set for current epoch " + payload.current_epoch + "."; return;
         }
         nodes.forEach(function (node) {
             var row = tbody.insertRow();
@@ -277,9 +278,12 @@
             var descriptor = row.insertCell(); descriptor.dataset.label = "Service period"; descriptor.textContent = "Sequence " + node.descriptor_sequence + ", epochs " + node.effective_epoch + "–" + node.expiry_epoch;
             var protocol = row.insertCell(); protocol.dataset.label = "Current epoch eligibility"; protocol.textContent = "Epoch " + node.qualification_epoch + " · active: " + state(node.protocol_active) + "; qualified: " + state(node.qualified_for_current_epoch);
             var rewardSource = row.insertCell(); rewardSource.dataset.label = "Reward-source eligibility"; rewardSource.textContent = "Epoch " + node.source_qualification_epoch + " · qualified: " + state(node.qualified_for_source_epoch);
-            var reachability = row.insertCell(); reachability.dataset.label = "Independent online check"; reachability.textContent = "Not exposed by Core";
             var identity = row.insertCell(); identity.dataset.label = "Technical identity";
+            var serviceVersion = Number(advertised.service_version); var descriptorVersion = Number(advertised.descriptor_version);
+            var version = document.createElement("small"); version.className = "epose-identity-version"; version.textContent = Number.isSafeInteger(serviceVersion) && serviceVersion > 0 ? "EPoSE service protocol v" + serviceVersion : "Service protocol version unavailable"; identity.appendChild(version);
             var details = document.createElement("details"); details.className = "epose-identity-details"; var summary = document.createElement("summary"); summary.textContent = "Show cryptographic IDs"; details.appendChild(summary);
+            appendIdentity(details, "EPoSE service protocol version", Number.isSafeInteger(serviceVersion) && serviceVersion > 0 ? "v" + serviceVersion : "unavailable");
+            appendIdentity(details, "Endpoint descriptor schema version", Number.isSafeInteger(descriptorVersion) && descriptorVersion > 0 ? "v" + descriptorVersion : "unavailable");
             appendIdentity(details, "Persistent node ID", node.identity_id); appendIdentity(details, "Current service verification key", node.service_public_key); appendIdentity(details, "Endpoint descriptor hash", node.endpoint_commitment); identity.appendChild(details);
         });
     }
@@ -288,7 +292,7 @@
         var hadFailure = results.some(function (result) { return result.status === "rejected"; });
         delay = hadFailure ? Math.min(delay * 2, 120000) : 30000;
         var infoResult = results[0], nodesResult = results[1], rewardsResult = results[2];
-        text("epose-status", hadFailure ? "Partial EPoSE data · independent snapshots" : "EPoSE data · independent RPC snapshots"); byId("epose-status").classList.add("warning");
+        text("epose-status", hadFailure ? "Partial EPoSE data" : "EPoSE data loaded"); var eposeStatus = byId("epose-status"); eposeStatus.classList.toggle("warning", hadFailure); eposeStatus.classList.toggle("ok", !hadFailure);
         if (infoResult.status === "fulfilled") {
             var info = infoResult.value;
             text("epose-qualified", info.qualified_count + " · epoch " + info.current_epoch);
@@ -310,10 +314,10 @@
             text("epose-epoch", nodes.current_epoch); text("epose-node-count", "showing " + nodes.returned_count + " of " + nodes.total_count + (nodes.returned_count < nodes.total_count ? " (truncated)" : ""));
             var observed = Number(nodes.observed_at_unix);
             text("epose-observed-at", Number.isFinite(observed) && observed > 0 ? new Date(observed * 1000).toISOString() : "unavailable");
-            try { renderNodes(nodes); } catch (error) { text("epose-node-count", "unavailable"); var failedBody = byId("epose-service-node-rows"); failedBody.textContent = ""; var failedRow = failedBody.insertRow(); var failedCell = failedRow.insertCell(); failedCell.colSpan = 6; failedCell.textContent = error.message; delay = Math.min(delay * 2, 120000); }
+            try { renderNodes(nodes); } catch (error) { text("epose-node-count", "unavailable"); var failedBody = byId("epose-service-node-rows"); failedBody.textContent = ""; var failedRow = failedBody.insertRow(); var failedCell = failedRow.insertCell(); failedCell.colSpan = 5; failedCell.textContent = error.message; delay = Math.min(delay * 2, 120000); }
         } else {
             text("epose-epoch", "unavailable"); text("epose-node-count", "unavailable"); text("epose-observed-at", "unavailable");
-            var tbody = byId("epose-service-node-rows"); tbody.textContent = ""; var row = tbody.insertRow(); var cell = row.insertCell(); cell.colSpan = 6; cell.textContent = nodesResult.reason.message;
+            var tbody = byId("epose-service-node-rows"); tbody.textContent = ""; var row = tbody.insertRow(); var cell = row.insertCell(); cell.colSpan = 5; cell.textContent = nodesResult.reason.message;
         }
         if (rewardsResult.status === "fulfilled") {
             var rewards = rewardsResult.value;

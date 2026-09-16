@@ -365,6 +365,37 @@ rpccalls::get_service_rewards(COMMAND_RPC_GET_SERVICE_REWARDS::response& respons
     return true;
 }
 
+bool
+rpccalls::get_epose_block_reward(
+        const string& block_hash,
+        COMMAND_RPC_GET_EPOSE_BLOCK_REWARD::response& response)
+{
+    COMMAND_RPC_GET_EPOSE_BLOCK_REWARD::request req;
+    COMMAND_RPC_GET_EPOSE_BLOCK_REWARD::response res;
+
+    req.block_hash = block_hash;
+
+    bool r {false};
+    {
+        std::lock_guard<std::mutex> guard(m_daemon_rpc_mutex);
+        r = invoke_with_reconnect([&]() {
+            return epee::net_utils::invoke_http_json(
+                    "/get_epose_block_reward", req, res,
+                    m_http_client, timeout_time_ms);
+        }, true);
+    }
+
+    if (!r || res.status != CORE_RPC_STATUS_OK || !res.mapping_available)
+    {
+        cerr << "Error getting canonical EPoSE block reward mapping from "
+             << daemon_url << ": " << res.status << endl;
+        return false;
+    }
+
+    response = res;
+    return true;
+}
+
 
 bool
 rpccalls::get_hardfork_info(COMMAND_RPC_HARD_FORK_INFO::response& response)

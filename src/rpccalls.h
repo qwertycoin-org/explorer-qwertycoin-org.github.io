@@ -146,6 +146,11 @@ public:
     get_service_rewards(COMMAND_RPC_GET_SERVICE_REWARDS::response& info, uint64_t height = 0);
 
     bool
+    get_epose_block_reward(
+            const string& block_hash,
+            COMMAND_RPC_GET_EPOSE_BLOCK_REWARD::response& info);
+
+    bool
     get_base_fee_estimate(uint64_t grace_blocks, uint64_t& fee_estimate);
 
     bool

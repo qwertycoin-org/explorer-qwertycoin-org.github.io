@@ -17,8 +17,12 @@ quantities such as kB.
 | Block weight | kB (display) | Local LMDB consensus weight | Core DB block weight divided by 1024 for display | Called weight, never serialized size |
 | Transaction count | transactions | Canonical block | Regular transaction hash count plus one coinbase transaction | Convention is stated in the table caption and row |
 | Fees | QWC | Regular transactions in the selected block | Checked sum of exact atomic fees, formatted to 8 decimals | `unavailable` if any transaction is missing or checked addition fails |
-| Coinbase total | QWC | Coinbase transaction outputs | Exact public output total, formatted to 8 decimals | Miner/service split remains unavailable without canonical v2 payment mapping |
-| EPoSE source epoch | epoch | `get_epose_info` adjacent to `get_service_nodes` | Current observer epoch | Presented as an independent RPC snapshot until core supplies one common height/hash anchor |
+| Coinbase total | QWC | Coinbase transaction outputs | Exact public output total, formatted to 8 decimals | Bound to the selected canonical block |
+| Miner / pool payout | QWC | `get_epose_block_reward` | Canonical Core v2 allocation, including the miner fee share | Shown only when block hash, height, coinbase total and the complete payment proof match the local canonical block |
+| EPoSE service payout | QWC | `get_epose_block_reward` | Sum of the exact denominated outputs accepted by Core's production payment verifier | Shown only with a valid block-bound proof; the raw output rows remain available in the block details |
+| Current epoch qualification | nodes | `get_epose_info` | Current, still-evolving qualification view | Explicitly labelled current; it does not describe the source set paid by an already-mined block |
+| Reward source qualification | nodes | `get_service_rewards` | Finalized prior/source epoch used for the next payout selection | The source epoch and count are displayed together |
+| Service-node observation epoch | epoch | `get_epose_info` adjacent to `get_service_nodes` | Current observer epoch | Presented as an independent RPC snapshot until core supplies one common height/hash anchor |
 | Advertised service endpoint | host and port | `get_epose_service_endpoint_v2` keyed by the node's on-chain `endpoint_commitment` | Core validates the signed descriptor; the explorer additionally requires an exact descriptor-hash and service-key match | A missing or mismatched lookup is `unavailable`; it is not presented as an online check |
 | Protocol-active | boolean | Current identity descriptor interval | `effective_epoch <= epoch < expiry_epoch` in core | Does not mean endpoint reachable |
 | Qualified | boolean | Current core qualification view | The RPC result is preserved exactly, including `false` and a valid zero qualified count | Zero/false remain distinct from an unavailable RPC response |
@@ -31,5 +35,3 @@ quantities such as kB.
   not evidence that private wallet outputs are mature, unspent or accessible.
 - **Peer count:** restricted daemon responses can redact it; zero is not accepted
   as evidence of no peers.
-- **Miner/service coinbase split:** omitted until the validating core exposes its
-  canonical, block-anchored EPoSE v2 payment-to-output mapping.

@@ -1,5 +1,6 @@
 #include "src/exact_amount.h"
 #include "src/epose_endpoint_view.h"
+#include "src/epose_reward_view.h"
 #include "src/pagination.h"
 #include "src/hashrate.h"
 #include "src/supply_math.h"
@@ -11,6 +12,50 @@
 
 namespace
 {
+struct reward_output
+{
+    uint64_t index;
+    uint64_t amount;
+    std::string public_key;
+};
+
+struct reward_response
+{
+    bool mapping_available {true};
+    bool payment_proof_valid {true};
+    bool service_reward_active {true};
+    uint64_t height {1700};
+    uint64_t payout_epoch {2};
+    uint64_t source_epoch {1};
+    uint64_t qualified_count {4};
+    uint64_t scheduled_subsidy {35070471671ULL};
+    uint64_t transaction_fees {0};
+    uint64_t miner_subsidy {31563424504ULL};
+    uint64_t miner_fees {0};
+    uint64_t issued_subsidy {35070471671ULL};
+    uint64_t emission_advance {35070471671ULL};
+    uint64_t coinbase_total {35070471671ULL};
+    uint64_t miner_reward {31563424504ULL};
+    uint64_t service_reward {3507047167ULL};
+    uint64_t permanently_unissued {0};
+    std::string block_hash {std::string(64, 'a')};
+    std::string parent_hash {std::string(64, 'b')};
+    std::string qualification_hash {std::string(64, 'c')};
+    std::string payee_service_public_key {std::string(64, 'd')};
+    std::string reward_view_public_key {std::string(64, 'e')};
+    std::string reward_spend_public_key {std::string(64, 'f')};
+    std::vector<reward_output> service_outputs {
+        {1, 7, std::string(64, '1')},
+        {2, 60, std::string(64, '2')},
+        {3, 100, std::string(64, '3')},
+        {4, 7000, std::string(64, '4')},
+        {5, 40000, std::string(64, '5')},
+        {6, 7000000, std::string(64, '6')},
+        {7, 500000000, std::string(64, '7')},
+        {8, 3000000000ULL, std::string(64, '8')}
+    };
+};
+
 bool expect(bool condition, const char* message)
 {
     if (!condition)
@@ -74,6 +119,28 @@ int main()
     ok &= expect(xmreg::format_epose_endpoint_authority(
             "2001:db8::1", 8198, 2) == "[2001:db8::1]:8198",
             "IPv6 endpoint authority");
+
+    reward_response reward;
+    xmreg::epose_reward_view reward_view;
+    ok &= expect(xmreg::make_epose_reward_view(
+            reward, reward.block_hash, reward.height,
+            reward.coinbase_total, 9, reward_view),
+            "canonical EPoSE reward mapping accepted");
+    ok &= expect(reward_view.miner_reward == 31563424504ULL
+                 && reward_view.service_reward == 3507047167ULL
+                 && reward_view.service_outputs.size() == 8,
+                 "miner and denominated service outputs remain separated");
+    reward.block_hash = std::string(64, '9');
+    ok &= expect(!xmreg::make_epose_reward_view(
+            reward, std::string(64, 'a'), reward.height,
+            reward.coinbase_total, 9, reward_view),
+            "wrong canonical block binding rejected");
+    reward.block_hash = std::string(64, 'a');
+    reward.service_outputs.back().amount -= 1;
+    ok &= expect(!xmreg::make_epose_reward_view(
+            reward, reward.block_hash, reward.height,
+            reward.coinbase_total, 9, reward_view),
+            "incomplete service reward decomposition rejected");
 
     uint64_t minted {0};
     ok &= expect(xmreg::minted_delta(1025000000, 25000000, minted)

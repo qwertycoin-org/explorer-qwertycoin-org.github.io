@@ -31,6 +31,7 @@
 #include "exact_amount.h"
 #include "hashrate.h"
 #include "epose_endpoint_view.h"
+#include "epose_reward_view.h"
 #include "transaction_amounts.h"
 
 #include "../ext/crow_all.h"
@@ -1178,6 +1179,15 @@ show_block(uint64_t _blk_height)
     tx_details txd_coinbase = get_tx_details(blk.miner_tx, true,
                                              _blk_height, current_blockchain_height);
 
+    COMMAND_RPC_GET_EPOSE_BLOCK_REWARD::response reward_response;
+    epose_reward_view reward_view;
+    const bool reward_mapping_available =
+            rpc.get_epose_block_reward(blk_hash_str, reward_response)
+            && make_epose_reward_view(
+                    reward_response, blk_hash_str, _blk_height,
+                    txd_coinbase.xmr_outputs, blk.miner_tx.vout.size(),
+                    reward_view);
+
     // initalise page tempate map with basic info about blockchain
 
     cryptonote::difficulty_type blk_difficulty = core_storage->get_db().get_block_difficulty(_blk_height);
@@ -1213,6 +1223,8 @@ show_block(uint64_t _blk_height)
             {"minor_ver"            , std::to_string(blk.minor_version)},
             {"blk_size"             , fmt::format("{:0.4f}",
                                                   static_cast<double>(blk_size) / 1024.0)},
+            {"epose_reward_mapping_available", reward_mapping_available},
+            {"epose_reward_mapping_unavailable", !reward_mapping_available},
     };
     context.emplace("coinbase_txs", mstch::array{{txd_coinbase.get_mstch_map()}});
     context.emplace("blk_txs"     , mstch::array());
@@ -1278,6 +1290,32 @@ show_block(uint64_t _blk_height)
     context["subsidy"] = fees_available && txd_coinbase.xmr_outputs >= sum_fees
             ? xmreg::xmr_amount_to_str(txd_coinbase.xmr_outputs - sum_fees, "{:0.8f}", false)
             : string("unavailable");
+
+    if (reward_mapping_available)
+    {
+        context["miner_reward"] = xmreg::format_atomic_amount(
+                reward_view.miner_reward, COIN, 8);
+        context["service_reward"] = xmreg::format_atomic_amount(
+                reward_view.service_reward, COIN, 8);
+        context["epose_service_reward_active"] = reward_view.service_reward_active;
+        context["epose_service_reward_inactive"] = !reward_view.service_reward_active;
+        context["epose_payout_epoch"] = reward_view.payout_epoch;
+        context["epose_source_epoch"] = reward_view.source_epoch;
+        context["epose_source_qualified_count"] = reward_view.qualified_count;
+        context["epose_qualification_hash"] = reward_view.qualification_hash;
+        context["epose_payee_service_public_key"] =
+                reward_view.payee_service_public_key;
+        mstch::array outputs;
+        for (const epose_reward_output_view& output : reward_view.service_outputs)
+        {
+            outputs.push_back(mstch::map {
+                    {"index", output.index},
+                    {"amount", xmreg::format_atomic_amount(output.amount, COIN, 8)},
+                    {"public_key", output.public_key}
+            });
+        }
+        context["epose_service_outputs"] = std::move(outputs);
+    }
 
     add_page_assets(context);
 
@@ -4888,6 +4926,16 @@ json_block(string block_no_or_hash)
                                              block_height,
                                              current_blockchain_height);
 
+    const string canonical_block_hash = pod_to_hex(blk_hash);
+    COMMAND_RPC_GET_EPOSE_BLOCK_REWARD::response reward_response;
+    epose_reward_view reward_view;
+    const bool reward_mapping_available =
+            rpc.get_epose_block_reward(canonical_block_hash, reward_response)
+            && make_epose_reward_view(
+                    reward_response, canonical_block_hash, block_height,
+                    txd_coinbase.xmr_outputs, blk.miner_tx.vout.size(),
+                    reward_view);
+
     json j_txs;
 
     j_txs.push_back(get_tx_json(coinbase_tx, txd_coinbase));
@@ -4928,6 +4976,60 @@ json_block(string block_no_or_hash)
             {"txs"           , j_txs},
             {"current_height", current_blockchain_height}
     };
+
+    if (reward_mapping_available)
+    {
+        json service_outputs = json::array();
+        for (const epose_reward_output_view& output : reward_view.service_outputs)
+        {
+            service_outputs.push_back(json {
+                    {"index", output.index},
+                    {"amount_atomic", std::to_string(output.amount)},
+                    {"amount_qwc", xmreg::format_atomic_amount(output.amount, COIN, 8)},
+                    {"public_key", output.public_key}
+            });
+        }
+        j_data["epose_reward"] = json {
+                {"availability", "canonical"},
+                {"payment_proof_valid", reward_view.service_reward_active},
+                {"service_reward_active", reward_view.service_reward_active},
+                {"payout_epoch", reward_view.payout_epoch},
+                {"source_epoch", reward_view.source_epoch},
+                {"source_qualified_count", reward_view.qualified_count},
+                {"scheduled_subsidy_atomic", std::to_string(
+                        reward_view.scheduled_subsidy)},
+                {"transaction_fees_atomic", std::to_string(
+                        reward_view.transaction_fees)},
+                {"miner_subsidy_atomic", std::to_string(
+                        reward_view.miner_subsidy)},
+                {"miner_fees_atomic", std::to_string(reward_view.miner_fees)},
+                {"issued_subsidy_atomic", std::to_string(
+                        reward_view.issued_subsidy)},
+                {"emission_advance_atomic", std::to_string(
+                        reward_view.emission_advance)},
+                {"coinbase_total_atomic", std::to_string(reward_view.coinbase_total)},
+                {"coinbase_total_qwc", xmreg::format_atomic_amount(
+                        reward_view.coinbase_total, COIN, 8)},
+                {"miner_reward_atomic", std::to_string(reward_view.miner_reward)},
+                {"miner_reward_qwc", xmreg::format_atomic_amount(
+                        reward_view.miner_reward, COIN, 8)},
+                {"service_reward_atomic", std::to_string(reward_view.service_reward)},
+                {"service_reward_qwc", xmreg::format_atomic_amount(
+                        reward_view.service_reward, COIN, 8)},
+                {"permanently_unissued_atomic", std::to_string(
+                        reward_view.permanently_unissued)},
+                {"qualification_hash", reward_view.qualification_hash},
+                {"payee_service_public_key", reward_view.service_reward_active
+                        ? json(reward_view.payee_service_public_key) : json(nullptr)},
+                {"service_outputs", service_outputs}
+        };
+    }
+    else
+    {
+        j_data["epose_reward"] = json {
+                {"availability", "unavailable"}
+        };
+    }
 
     j_response["status"] = "success";
 
@@ -6114,7 +6216,9 @@ json_epose_service_nodes()
                 {"registration_epoch", node.registration_epoch},
                 {"expiry_epoch", node.expiry_epoch},
                 {"protocol_active", node.active},
+                {"qualified_for_current_epoch", node.qualified},
                 {"qualified_for_source_epoch", node.qualified},
+                {"qualification_epoch", epoch_info.current_epoch},
                 {"qualification_availability", "current"},
                 {"advertised_endpoint", endpoint},
                 {"reachability", "unsupported"}
@@ -6127,6 +6231,7 @@ json_epose_service_nodes()
             {"service_nodes", nodes},
             {"total_count", info.total_count},
             {"returned_count", info.returned_count},
+            {"current_epoch", epoch_info.current_epoch},
             {"source_epoch", epoch_info.current_epoch},
             {"observed_at_unix", now},
             {"identity_key", "identity_id"},

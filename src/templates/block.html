@@ -47,7 +47,39 @@
         <div><dt>RandomX</dt><dd>{{#is_randomx}}<a href="/randomx/{{blk_height}}">Source code</a>{{/is_randomx}}{{^is_randomx}}Unavailable{{/is_randomx}}</dd></div>
     </dl>
 
-    <p class="data-note">Miner and EPoSe service payout attribution is unavailable until the validating core exposes its canonical v2 payment-to-output mapping.</p>
+    {{#epose_reward_mapping_available}}
+    <h2 class="tx-section-heading">Coinbase reward allocation</h2>
+    <div class="epose-reward-summary" aria-label="Canonical coinbase reward allocation">
+        <div><span class="metric-label">Miner / pool payout</span><strong>{{miner_reward}} QWC</strong><small>Includes the miner fee share</small></div>
+        <div><span class="metric-label">EPoSe service payout</span><strong>{{service_reward}} QWC</strong><small>Canonical Core v2 payment proof</small></div>
+    </div>
+    <p class="data-note">Payout epoch {{epose_payout_epoch}} uses the finalized qualification set from source epoch {{epose_source_epoch}} ({{epose_source_qualified_count}} qualified nodes). This is separate from current-epoch qualification.</p>
+    {{#epose_service_reward_active}}
+    <details class="advanced-details">
+        <summary>Verified EPoSe payout outputs</summary>
+        <dl class="epose-detail-grid">
+            <div><dt>Payee service key</dt><dd><code>{{epose_payee_service_public_key}}</code></dd></div>
+            <div><dt>Qualification commitment</dt><dd><code>{{epose_qualification_hash}}</code></dd></div>
+        </dl>
+        <div class="table-wrap">
+            <table class="responsive-table block-reward-table">
+                <thead><tr><th scope="col">Coinbase output</th><th scope="col">Amount [QWC]</th><th scope="col">One-time public key</th></tr></thead>
+                <tbody>
+                {{#epose_service_outputs}}
+                    <tr><td data-label="Coinbase output">{{index}}</td><td data-label="Amount">{{amount}}</td><td data-label="One-time public key"><code>{{public_key}}</code></td></tr>
+                {{/epose_service_outputs}}
+                </tbody>
+            </table>
+        </div>
+    </details>
+    {{/epose_service_reward_active}}
+    {{#epose_service_reward_inactive}}
+    <p class="data-note">No EPoSe payout is active for this block; Core assigns the full coinbase amount to the miner.</p>
+    {{/epose_service_reward_inactive}}
+    {{/epose_reward_mapping_available}}
+    {{#epose_reward_mapping_unavailable}}
+    <p class="data-note">Canonical miner and EPoSe payout attribution is unavailable from the validating Core. The explorer does not infer recipients from output position.</p>
+    {{/epose_reward_mapping_unavailable}}
     <h2 class="tx-section-heading">Coinbase transaction</h2>
     <div class="table-wrap">
     <table class="center responsive-table block-reward-table">

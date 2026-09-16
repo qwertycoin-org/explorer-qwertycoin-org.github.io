@@ -28,6 +28,14 @@ must not expose a generic daemon RPC route.
 - `GET /api/v1/epose/service-nodes`
 - `GET /api/v1/epose/rewards`
 
+The legacy read endpoint `GET /api/block/<height-or-hash>` includes an
+`epose_reward` object. When `availability` is `canonical`, its block-bound
+fields separate `miner_reward_*` and `service_reward_*`, identify payout and
+source epochs, and list every verifier-bound EPoSE coinbase output. Atomic
+amounts are decimal strings. When proof binding fails or the selected Core does
+not support the mapping, the object contains only
+`availability: "unavailable"`; the explorer never guesses from output order.
+
 Each row returned by `/api/v1/epose/service-nodes` includes an
 `advertised_endpoint` object. The explorer resolves it with
 `get_epose_service_endpoint_v2`, keyed by the on-chain
@@ -36,6 +44,13 @@ and service public key match the membership row exactly. `availability` is
 `current` or `unavailable`; `authority` contains the display-safe `host:port`
 form. This is a Core-validated signed advertisement, not independent evidence
 that the endpoint is currently reachable.
+
+Service-node rows expose `qualified_for_current_epoch` together with
+`qualification_epoch`. The older `qualified_for_source_epoch` key is retained
+as a compatibility alias for this same current observation; consumers that
+need the finalized payout source set must use `/api/v1/epose/rewards` and its
+`epoch` plus `qualified_count` fields. At the response level, `current_epoch`
+is authoritative and `source_epoch` remains a compatibility alias.
 
 `/api/v1/overview` is a bounded, five-second server snapshot used by the
 dashboard refresh controller. It contains independently timestamped network,
@@ -72,10 +87,12 @@ HTML search is `POST /search`; values are length-bounded and are not placed in a
 URL. The old secret-processing routes are absent from the application and must
 return 404/410 at the edge.
 
-## Current anchoring limit
+## Current multi-response anchoring limit
 
 The selected core does not yet attach a common tip height/hash, genesis hash,
 parameter fingerprint, or deployment-reset generation to all EPoSE responses.
+The per-block reward mapping is the exception: it is bound to the requested
+canonical block hash and validated independently before display.
 The service-node adapter therefore reports `snapshot_consistency: "unanchored"`
 for machine consumers. The UI explains the same condition as "independent RPC
 snapshots" instead of implying one consistent multi-source snapshot or a chain

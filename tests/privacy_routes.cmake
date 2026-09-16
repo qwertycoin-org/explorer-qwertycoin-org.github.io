@@ -1,5 +1,6 @@
 file(READ "${SOURCE_DIR}/main.cpp" MAIN_SOURCE)
 file(READ "${SOURCE_DIR}/src/templates/index2.html" OVERVIEW_TEMPLATE)
+file(READ "${SOURCE_DIR}/src/templates/block.html" BLOCK_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/templates/css/style.css" STYLE_SOURCE)
 file(READ "${SOURCE_DIR}/src/templates/header.html" HEADER_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/templates/partials/tx_details.html" TX_TEMPLATE)
@@ -28,7 +29,7 @@ endforeach()
 foreach(REQUIRED_EPOSE_TEXT
         "Advertised endpoint"
         "Service period"
-        "Protocol eligibility"
+        "Current epoch eligibility"
         "Independent online check"
         "Technical identity"
         "Persistent node ID"
@@ -339,6 +340,9 @@ endif()
 foreach(REQUIRED_TEXT
         "{\"qualified_count\", info.qualified_count}"
         "{\"qualified_for_source_epoch\", node.qualified}"
+        "{\"qualified_for_current_epoch\", node.qualified}"
+        "get_epose_block_reward"
+        "make_epose_reward_view"
         "confidential_amounts ? \"confidential\" : \"public\""
         "{\"rpc_db_anchor_matches\", anchor_matches}"
         "MAINNET_FINAL_GENESIS_HASH_V2"
@@ -346,6 +350,17 @@ foreach(REQUIRED_TEXT
     string(FIND "${PAGE_SOURCE}" "${REQUIRED_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Required fail-closed correctness contract is missing: ${REQUIRED_TEXT}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_BLOCK_REWARD_TEXT
+        "Miner / pool payout"
+        "EPoSe service payout"
+        "source epoch"
+        "The explorer does not infer recipients from output position")
+    string(FIND "${BLOCK_TEMPLATE}" "${REQUIRED_BLOCK_REWARD_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Canonical block reward presentation is missing: ${REQUIRED_BLOCK_REWARD_TEXT}")
     endif()
 endforeach()
 

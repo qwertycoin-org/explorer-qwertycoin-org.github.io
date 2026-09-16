@@ -43,7 +43,10 @@ Each row returned by `/api/v1/epose/service-nodes` includes an
 and service public key match the membership row exactly. `availability` is
 `current` or `unavailable`; `authority` contains the display-safe `host:port`
 form. This is a Core-validated signed advertisement, not independent evidence
-that the endpoint is currently reachable.
+that the endpoint is currently reachable. When available,
+`descriptor_version`, `service_kind` and `service_version` are copied from the
+same validated descriptor. They describe the EPoSE descriptor/service protocol,
+not the remote daemon's software release.
 
 Service-node rows expose `qualified_for_current_epoch` together with
 `qualification_epoch`. The older `qualified_for_source_epoch` key is retained
@@ -94,6 +97,7 @@ parameter fingerprint, or deployment-reset generation to all EPoSE responses.
 The per-block reward mapping is the exception: it is bound to the requested
 canonical block hash and validated independently before display.
 The service-node adapter therefore reports `snapshot_consistency: "unanchored"`
-for machine consumers. The UI explains the same condition as "independent RPC
-snapshots" instead of implying one consistent multi-source snapshot or a chain
-fault.
+for machine consumers. Specifically, a common `{height, block_hash}` pair is
+missing from `get_epose_info`, `get_service_nodes` and `get_service_rewards`, so
+the explorer cannot prove that all three independently fetched responses were
+created against exactly the same canonical tip.

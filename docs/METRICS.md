@@ -24,9 +24,9 @@ quantities such as kB.
 | Reward source qualification | nodes | `get_service_rewards` | Finalized prior/source epoch used for the next payout selection | The source epoch and count are displayed together |
 | Service-node observation epoch | epoch | `get_epose_info` adjacent to `get_service_nodes` | Current observer epoch | Presented as an independent RPC snapshot until core supplies one common height/hash anchor |
 | Advertised service endpoint | host and port | `get_epose_service_endpoint_v2` keyed by the node's on-chain `endpoint_commitment` | Core validates the signed descriptor; the explorer additionally requires an exact descriptor-hash and service-key match | A missing or mismatched lookup is `unavailable`; it is not presented as an online check |
+| EPoSE service/descriptor version | unsigned version | Core-validated signed endpoint descriptor | Published only with the same exact descriptor-hash and service-key binding as the endpoint | This is the EPoSE service protocol and descriptor schema version, not the daemon release version |
 | Protocol-active | boolean | Current identity descriptor interval | `effective_epoch <= epoch < expiry_epoch` in core | Does not mean endpoint reachable |
 | Qualified | boolean | Current core qualification view | The RPC result is preserved exactly, including `false` and a valid zero qualified count | Zero/false remain distinct from an unavailable RPC response |
-| Independent online check | availability state | No supported public observer source | Not calculated | Displayed as `Not exposed by Core` in this release |
 | Next service reward | availability state | `get_service_rewards` | No browser-side payee selection | Displayed as `Preview not exposed by Core` unless core explicitly returns `preview_available=true` |
 
 ## Deliberately omitted metrics

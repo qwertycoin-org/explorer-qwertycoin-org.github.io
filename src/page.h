@@ -6201,6 +6201,9 @@ json_epose_service_nodes()
                 {"host", nullptr},
                 {"port", nullptr},
                 {"transport", nullptr},
+                {"descriptor_version", nullptr},
+                {"service_kind", nullptr},
+                {"service_version", nullptr},
                 {"source", "core-validated signed descriptor"}
         };
 
@@ -6226,6 +6229,9 @@ json_epose_service_nodes()
                         {"host", advertised.host},
                         {"port", advertised.port},
                         {"transport", epose_endpoint_transport_name(advertised.transport)},
+                        {"descriptor_version", advertised.version},
+                        {"service_kind", advertised.service_kind},
+                        {"service_version", advertised.service_version},
                         {"source", "core-validated signed descriptor"}
                 };
             }

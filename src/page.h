@@ -74,6 +74,7 @@ inline thread_local RandomXThreadCleanup rx_thread_cleanup;
 #include <algorithm>
 #include <cctype>
 #include <limits>
+#include <set>
 #include <ctime>
 #include <future>
 #include <type_traits>
@@ -6159,6 +6160,36 @@ json_epose_service_nodes()
         return j_response;
     }
 
+    COMMAND_RPC_GET_SERVICE_REWARDS::response rewards;
+    if (!rpc.get_service_rewards(rewards))
+    {
+        j_response["status"] = "error";
+        j_response["message"] = "Cant obtain finalized EPoSE reward-source qualification";
+        epose_nodes_cache = j_response;
+        epose_nodes_cache_time = now;
+        return j_response;
+    }
+
+    std::set<string> source_qualified_service_keys;
+    bool source_qualification_valid =
+            rewards.qualified_service_public_keys.size() == rewards.qualified_count;
+    for (const auto& key: rewards.qualified_service_public_keys)
+    {
+        crypto::public_key parsed_key {};
+        source_qualification_valid = source_qualification_valid
+                && epee::string_tools::hex_to_pod(key, parsed_key)
+                && epee::string_tools::pod_to_hex(parsed_key) == key
+                && source_qualified_service_keys.emplace(key).second;
+    }
+    if (!source_qualification_valid)
+    {
+        j_response["status"] = "error";
+        j_response["message"] = "Core returned an inconsistent finalized EPoSE qualification set";
+        epose_nodes_cache = j_response;
+        epose_nodes_cache_time = now;
+        return j_response;
+    }
+
     json nodes = json::array();
     map<string, json> current_endpoint_cache;
 
@@ -6217,9 +6248,12 @@ json_epose_service_nodes()
                 {"expiry_epoch", node.expiry_epoch},
                 {"protocol_active", node.active},
                 {"qualified_for_current_epoch", node.qualified},
-                {"qualified_for_source_epoch", node.qualified},
+                {"qualified_for_source_epoch",
+                        source_qualified_service_keys.count(node.service_public_key) == 1},
                 {"qualification_epoch", epoch_info.current_epoch},
                 {"qualification_availability", "current"},
+                {"source_qualification_epoch", rewards.epoch},
+                {"source_qualification_availability", "finalized"},
                 {"advertised_endpoint", endpoint},
                 {"reachability", "unsupported"}
         });
@@ -6232,7 +6266,8 @@ json_epose_service_nodes()
             {"total_count", info.total_count},
             {"returned_count", info.returned_count},
             {"current_epoch", epoch_info.current_epoch},
-            {"source_epoch", epoch_info.current_epoch},
+            {"source_epoch", rewards.epoch},
+            {"source_qualified_count", rewards.qualified_count},
             {"observed_at_unix", now},
             {"identity_key", "identity_id"},
             {"endpoint_capability", "signed_descriptor_lookup"},

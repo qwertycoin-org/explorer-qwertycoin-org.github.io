@@ -339,7 +339,8 @@ endif()
 
 foreach(REQUIRED_TEXT
         "{\"qualified_count\", info.qualified_count}"
-        "{\"qualified_for_source_epoch\", node.qualified}"
+        "source_qualified_service_keys.count(node.service_public_key) == 1"
+        "{\"source_qualification_epoch\", rewards.epoch}"
         "{\"qualified_for_current_epoch\", node.qualified}"
         "get_epose_block_reward"
         "make_epose_reward_view"
@@ -352,6 +353,11 @@ foreach(REQUIRED_TEXT
         message(FATAL_ERROR "Required fail-closed correctness contract is missing: ${REQUIRED_TEXT}")
     endif()
 endforeach()
+
+string(FIND "${PAGE_SOURCE}" "{\"qualified_for_source_epoch\", node.qualified}" ALIASED_QUALIFICATION)
+if(NOT ALIASED_QUALIFICATION EQUAL -1)
+    message(FATAL_ERROR "Current and finalized reward-source qualification were aliased")
+endif()
 
 foreach(REQUIRED_BLOCK_REWARD_TEXT
         "Miner / pool payout"

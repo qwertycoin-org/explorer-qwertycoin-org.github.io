@@ -7,8 +7,7 @@ wallet data, service identities, or blockchain storage.
 
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin
    core SHA. The current compatibility candidate is
-   `e6e0b46b6603bc5c1402df63696b514ba735f8ee`, the merge commit for the final
-   v2 genesis and EPoSE profile.
+   `af759410f63fd9ba7dd7ac890365f3f9962841e8`.
 2. Resolve the deployment architecture and the matching immutable Ubuntu image
    digest. Copy `BUILD.env.example` outside the repository, fill the immutable
    values, and do not put credentials in it. The Dockerfile carries the same
@@ -31,6 +30,44 @@ wallet data, service identities, or blockchain storage.
    `/api/v1/version` output. A local-only preview may use the immutable
    `sha256:<64-hex-image-id>` directly. Do not claim
    byte-for-byte reproducibility while apt package snapshots remain unpinned.
+
+## GitHub build and production deployment
+
+Every reviewed merge to protected `master` builds the supported Linux/amd64
+image in GitHub Actions, publishes it to GHCR, emits SBOM/provenance metadata,
+and deploys the exact registry digest. A moving tag is never used as the
+deployment identity. Pull requests build and test the image but cannot publish
+or deploy it.
+
+The public repository and workflow intentionally contain no production host,
+user, address, SSH port, host key, or private key. Configure only these names in
+the protected GitHub `production` environment:
+
+- secret `QWC_DEPLOY_SSH_PRIVATE_KEY`: dedicated deployment-only private key;
+- secret `QWC_DEPLOY_SSH_KNOWN_HOSTS`: independently verified, hashed SSH host
+  key inventory;
+- secret `QWC_DEPLOY_TARGETS`: four ordered `user@host` lines, canary first;
+- variable `QWC_EXPLORER_PUBLIC_ORIGIN`: the public HTTPS Explorer origin.
+
+Protect `master` before adding those secrets. Require a pull request and both
+CI jobs, block force pushes/deletion, enforce the rule for administrators, and
+allow the `production` environment to deploy only protected branches. Never
+print environment secrets, enable SSH tracing, use `ssh-keyscan` as trust, or
+disable strict host-key checking.
+
+Install `deploy/github-actions/remote-gate.sh` under the deployment account and
+authorize the dedicated public key with `restrict` plus a forced command that
+points to that absolute path. The gate accepts only an image stream or a
+40-character reviewed Explorer commit. It preserves the existing read-only
+chain mount, derived-data volume, private network/IP and loopback port; refuses
+a Core revision change; validates readiness, source identity and the common
+EPoSe snapshot; and atomically retains the previous stopped container for
+rollback. The secret target order provides the sequential rolling deployment.
+
+The workflow log identifies targets only by ordinal. Keep the GHCR package
+private unless public distribution is explicitly intended; the job-scoped
+`GITHUB_TOKEN` publishes and reads the package without installing registry
+credentials on production hosts.
 
 ## Read-only preflight
 

@@ -5,8 +5,16 @@ on:
   push:
     branches: [master]
 
+concurrency:
+  group: explorer-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: qwertycoin-org/qwertycoin-explorer
 
 jobs:
   focused-behavior:
@@ -23,6 +31,8 @@ jobs:
         run: /tmp/qwc-explorer-regression
       - name: Run EPoSe presentation-state tests
         run: node tests/epose_status.test.js
+      - name: Run deployment automation tests
+        run: node tests/deploy_automation.test.js
       - name: Run supplemental static route contracts
         run: cmake -DSOURCE_DIR=. -P tests/privacy_routes.cmake
       - name: Check patch whitespace
@@ -30,21 +40,93 @@ jobs:
 
   supported-container-build:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        name: Build and optionally publish the supported image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: Dockerfile.node01
-          push: false
-          tags: qwertycoin-explorer:ci
+          platforms: linux/amd64
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:master
+          provenance: mode=max
+          sbom: true
           build-args: |
             UBUNTU_IMAGE=ubuntu:22.04@sha256:79676deb51ebb02885b0b9d33788e78a37cf1045ad79d1bb04c6a222c3556b3d
             QWC_COMMIT=af759410f63fd9ba7dd7ac890365f3f9962841e8
             EXPLORER_SOURCE_SHA=${{ github.sha }}
             EXPLORER_SOURCE_DATE=ci
-            EXPLORER_SOURCE_BRANCH=ci
+            EXPLORER_SOURCE_BRANCH=${{ github.ref_name }}
             NPROC=2
           cache-from: type=gha,scope=qwc-core-af759410f
           cache-to: type=gha,mode=max,scope=qwc-core-af759410f
+      - name: Attest the published image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  production-deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [focused-behavior, supported-container-build]
+    runs-on: ubuntu-22.04
+    environment: production
+    concurrency:
+      group: explorer-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull the attested image by digest
+        env:
+          IMAGE_DIGEST: ${{ needs.supported-container-build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          test "${IMAGE_DIGEST}" != ""
+          docker pull --platform linux/amd64 "${REGISTRY}/${IMAGE_NAME}@${IMAGE_DIGEST}"
+          docker tag "${REGISTRY}/${IMAGE_NAME}@${IMAGE_DIGEST}" "qwertycoin-explorer:deploy-${GITHUB_SHA}"
+      - name: Configure restricted deployment transport
+        env:
+          QWC_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.QWC_DEPLOY_SSH_PRIVATE_KEY }}
+          QWC_DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.QWC_DEPLOY_SSH_KNOWN_HOSTS }}
+        run: node deploy/github-actions/configure-ssh.mjs
+      - name: Roll out the exact image to production
+        env:
+          QWC_DEPLOY_TARGETS: ${{ secrets.QWC_DEPLOY_TARGETS }}
+          QWC_DEPLOY_IMAGE_TAG: qwertycoin-explorer:deploy-${{ github.sha }}
+          QWC_DEPLOY_EXPLORER_SHA: ${{ github.sha }}
+          QWC_DEPLOY_IMAGE_DIGEST: ${{ needs.supported-container-build.outputs.digest }}
+          QWC_EXPLORER_PUBLIC_ORIGIN: ${{ vars.QWC_EXPLORER_PUBLIC_ORIGIN }}
+        run: node deploy/github-actions/deploy.mjs
+      - name: Remove deployment credentials
+        if: always()
+        run: node deploy/github-actions/cleanup-ssh.mjs

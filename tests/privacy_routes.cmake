@@ -64,9 +64,10 @@ foreach(REQUIRED_EPOSE_STATUS_TEXT
         "Registration active"
         "Qualification has not been finalized"
         "snapshotContext"
-        "rewardHeight === tipHeight + 1"
+        "sameAnchor(infoAnchor, nodesAnchor)"
+        "rewardHeight === infoAnchor.blockCount"
         "rewardsEpoch + 1 === currentEpoch"
-        "currentFinal: nodesObserved > infoObserved"
+        "currentFinal: true"
         "expires at start of Epoch"
         "qualification_availability !== \"current\""
         "source_qualification_availability !== \"finalized\""
@@ -81,6 +82,8 @@ endforeach()
 foreach(FORBIDDEN_EPOSE_STATUS_TEXT
         "Pending means participation is confirmed"
         "Qualification is not final yet"
+        "nodesObserved"
+        "infoObserved"
         "Sequence \" + node.descriptor_sequence + \", epochs")
     string(FIND "${OVERVIEW_TEMPLATE}${EPOSE_STATUS_SOURCE}" "${FORBIDDEN_EPOSE_STATUS_TEXT}" FOUND_AT)
     if(NOT FOUND_AT EQUAL -1)
@@ -414,7 +417,7 @@ if(NOT GENERIC_RPC_BLOCK EQUAL -1)
 endif()
 
 foreach(REQUIRED_TEXT
-        "{\"qualified_count\", info.qualified_count}"
+        "{\"qualified_count\", epoch_info.qualified_count}"
         "source_qualified_service_keys.count(node.service_public_key) == 1"
         "{\"source_qualification_epoch\", rewards.epoch}"
         "{\"qualified_for_current_epoch\", node.qualified}"
@@ -427,6 +430,33 @@ foreach(REQUIRED_TEXT
     string(FIND "${PAGE_SOURCE}" "${REQUIRED_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)
         message(FATAL_ERROR "Required fail-closed correctness contract is missing: ${REQUIRED_TEXT}")
+    endif()
+endforeach()
+
+foreach(REQUIRED_EPOSE_ANCHOR_TEXT
+        "capture_epose_chain_anchor"
+        "same_epose_chain_anchor(before, after_core_queries)"
+        "epose_reward_matches_anchor(before, rewards.height)"
+        "same_epose_chain_anchor(before, after_all_queries)"
+        "{\"snapshot_block_count\", before.block_count}"
+        "{\"snapshot_tip_hash\", before.tip_hash}"
+        "{\"snapshot_consistency\", \"anchored\"}"
+        "epose_snapshot_cache_mutex"
+        "json_epose_snapshot_section")
+    string(FIND "${PAGE_SOURCE}" "${REQUIRED_EPOSE_ANCHOR_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "EPoSe atomic snapshot contract is missing: ${REQUIRED_EPOSE_ANCHOR_TEXT}")
+    endif()
+endforeach()
+
+foreach(FORBIDDEN_EPOSE_CACHE_TEXT
+        "epose_info_cache_mutex"
+        "epose_nodes_cache_mutex"
+        "epose_rewards_cache_mutex"
+        "{\"snapshot_consistency\", \"unanchored\"}")
+    string(FIND "${PAGE_SOURCE}" "${FORBIDDEN_EPOSE_CACHE_TEXT}" FOUND_AT)
+    if(NOT FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Independent or unanchored EPoSe cache remains: ${FORBIDDEN_EPOSE_CACHE_TEXT}")
     endif()
 endforeach()
 

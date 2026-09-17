@@ -31,38 +31,62 @@
         return {key: key, label: labels[key], detail: detail || ""};
     }
 
+    function snapshotAnchor(payload) {
+        if (!payload || payload.snapshot_consistency !== "anchored") return null;
+        var blockCount = integer(payload.snapshot_block_count);
+        var tipHeight = integer(payload.snapshot_tip_height);
+        var tipHash = payload.snapshot_tip_hash;
+        if (blockCount === null || blockCount === 0
+                || tipHeight === null || blockCount - 1 !== tipHeight
+                || typeof tipHash !== "string"
+                || !/^[0-9a-f]{64}$/.test(tipHash)) {
+            return null;
+        }
+        return {blockCount: blockCount, tipHeight: tipHeight, tipHash: tipHash};
+    }
+
+    function sameAnchor(lhs, rhs) {
+        return lhs !== null && rhs !== null
+                && lhs.blockCount === rhs.blockCount
+                && lhs.tipHeight === rhs.tipHeight
+                && lhs.tipHash === rhs.tipHash;
+    }
+
     function snapshotContext(info, nodes, rewards) {
+        // observed_at_unix cannot prove chain ordering. Only backend-verified
+        // canonical height/hash anchors may combine independently delivered JSON.
         var unavailable = {
             current: false, currentFinal: false, rewards: false,
             currentEpoch: null, sourceEpoch: null
         };
         if (!info || !nodes) return unavailable;
 
+        var infoAnchor = snapshotAnchor(info);
+        var nodesAnchor = snapshotAnchor(nodes);
+        var rewardsAnchor = snapshotAnchor(rewards);
         var currentEpoch = integer(info.current_epoch);
         var nodesEpoch = integer(nodes.current_epoch);
         var sourceEpoch = integer(nodes.source_epoch);
         var tipHeight = integer(info.observer_tip_height);
-        var infoObserved = integer(info.observed_at_unix);
-        var nodesObserved = integer(nodes.observed_at_unix);
         if (currentEpoch === null || nodesEpoch === null || tipHeight === null
-                || infoObserved === null || nodesObserved === null
+                || !sameAnchor(infoAnchor, nodesAnchor)
+                || infoAnchor.tipHeight !== tipHeight
                 || nodesEpoch !== currentEpoch) {
             return unavailable;
         }
 
         var rewardsEpoch = integer(rewards && rewards.epoch);
         var rewardHeight = integer(rewards && rewards.height);
-        var rewardsObserved = integer(rewards && rewards.observed_at_unix);
         var rewardSnapshotsMatch = sourceEpoch !== null && rewardsEpoch !== null
-                && rewardHeight !== null && rewardsObserved !== null
-                && tipHeight < Number.MAX_SAFE_INTEGER
-                && rewardHeight === tipHeight + 1
+                && rewardHeight !== null
+                && sameAnchor(infoAnchor, rewardsAnchor)
+                && rewardHeight === infoAnchor.blockCount
                 && rewardsEpoch < Number.MAX_SAFE_INTEGER
                 && sourceEpoch === rewardsEpoch
                 && rewardsEpoch + 1 === currentEpoch;
         return {
             current: true,
-            currentFinal: nodesObserved > infoObserved,
+            currentFinal: true,
             rewards: rewardSnapshotsMatch,
             currentEpoch: currentEpoch,
             sourceEpoch: rewardSnapshotsMatch ? sourceEpoch : null
@@ -179,6 +203,7 @@
     return Object.freeze({
         protocolParameters: PROTOCOL_PARAMETERS,
         nonNegativeInteger: integer,
+        snapshotAnchor: snapshotAnchor,
         snapshotContext: snapshotContext,
         qualificationContext: qualificationContext,
         currentQualification: currentQualification,

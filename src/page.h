@@ -32,6 +32,7 @@
 #include "hashrate.h"
 #include "epose_endpoint_view.h"
 #include "epose_reward_view.h"
+#include "epose_snapshot.h"
 #include "transaction_amounts.h"
 
 #include "../ext/crow_all.h"
@@ -532,16 +533,11 @@ map<string, string> template_file;
 std::mutex overview_cache_mutex;
 json overview_cache;
 uint64_t overview_cache_time {0};
-std::mutex epose_info_cache_mutex;
-std::mutex epose_nodes_cache_mutex;
-std::mutex epose_rewards_cache_mutex;
-json epose_info_cache;
-json epose_nodes_cache;
-json epose_rewards_cache;
+std::mutex epose_snapshot_cache_mutex;
+json epose_snapshot_cache;
+epose_chain_anchor epose_snapshot_cache_anchor;
 map<string, json> epose_endpoint_cache;
-uint64_t epose_info_cache_time {0};
-uint64_t epose_nodes_cache_time {0};
-uint64_t epose_rewards_cache_time {0};
+uint64_t epose_snapshot_cache_time {0};
 
 public:
 
@@ -6065,279 +6061,312 @@ json_overview()
     return response;
 }
 
+bool
+capture_epose_chain_anchor(epose_chain_anchor& anchor)
+{
+    anchor = {};
+    try
+    {
+        const uint64_t block_count = core_storage->get_current_blockchain_height();
+        if (block_count == 0)
+            return false;
+        const string tip_hash = pod_to_hex(
+                core_storage->get_block_id_by_height(block_count - 1));
+        const uint64_t verified_block_count = core_storage->get_current_blockchain_height();
+        if (verified_block_count != block_count)
+            return false;
+        const string verified_tip_hash = pod_to_hex(
+                core_storage->get_block_id_by_height(verified_block_count - 1));
+        if (verified_tip_hash != tip_hash)
+            return false;
+        anchor = {block_count, tip_hash};
+        return valid_epose_chain_anchor(anchor);
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+bool
+epose_chain_anchor_is_current(const epose_chain_anchor& expected)
+{
+    epose_chain_anchor current;
+    return capture_epose_chain_anchor(current)
+        && same_epose_chain_anchor(expected, current);
+}
+
+json
+json_epose_snapshot()
+{
+    // Every public EPoSe section is derived from this one cache entry. Wall-clock
+    // timestamps are metadata only; height and tip hash define coherence.
+    std::lock_guard<std::mutex> cache_lock {epose_snapshot_cache_mutex};
+    const uint64_t request_time = static_cast<uint64_t>(std::time(nullptr));
+    if (!epose_snapshot_cache.is_null()
+        && request_time >= epose_snapshot_cache_time)
+    {
+        const bool success = epose_snapshot_cache.value("status", "error") == "success";
+        const uint64_t cache_lifetime = success ? 15 : 1;
+        if (request_time - epose_snapshot_cache_time < cache_lifetime
+            && (!success || epose_chain_anchor_is_current(epose_snapshot_cache_anchor)))
+            return epose_snapshot_cache;
+    }
+
+    auto cache_failure = [&](const string& message) {
+        json response {
+                {"status", "error"},
+                {"message", message},
+                {"data", {{"snapshot_consistency", "unavailable"},
+                          {"cache_seconds", 1}}}
+        };
+        epose_snapshot_cache = response;
+        epose_snapshot_cache_anchor = {};
+        epose_snapshot_cache_time = request_time;
+        return response;
+    };
+
+    string last_error = "Canonical chain changed during EPoSe snapshot";
+    for (unsigned attempt = 0; attempt < 2; ++attempt)
+    {
+        epose_chain_anchor before;
+        if (!capture_epose_chain_anchor(before))
+        {
+            last_error = "Canonical chain anchor is unavailable";
+            continue;
+        }
+
+        COMMAND_RPC_GET_EPOSE_INFO::response epoch_info;
+        if (!rpc.get_epose_info(epoch_info))
+            return cache_failure("Cant get EPoSe info");
+
+        COMMAND_RPC_GET_SERVICE_NODES::response service_node_info;
+        if (!rpc.get_service_nodes(service_node_info))
+            return cache_failure("Cant get EPoSe service nodes");
+
+        COMMAND_RPC_GET_SERVICE_REWARDS::response rewards;
+        if (!rpc.get_service_rewards(rewards))
+            return cache_failure("Cant obtain finalized EPoSe reward-source qualification");
+
+        epose_chain_anchor after_core_queries;
+        if (!capture_epose_chain_anchor(after_core_queries)
+            || !same_epose_chain_anchor(before, after_core_queries)
+            || !epose_reward_matches_anchor(before, rewards.height))
+        {
+            last_error = "Core EPoSe responses did not share one canonical block anchor";
+            continue;
+        }
+
+        std::set<string> source_qualified_service_keys;
+        bool source_qualification_valid =
+                rewards.qualified_service_public_keys.size() == rewards.qualified_count;
+        for (const auto& key: rewards.qualified_service_public_keys)
+        {
+            crypto::public_key parsed_key {};
+            source_qualification_valid = source_qualification_valid
+                    && epee::string_tools::hex_to_pod(key, parsed_key)
+                    && epee::string_tools::pod_to_hex(parsed_key) == key
+                    && source_qualified_service_keys.emplace(key).second;
+        }
+        if (!source_qualification_valid)
+            return cache_failure(
+                    "Core returned an inconsistent finalized EPoSe qualification set");
+
+        json nodes = json::array();
+        map<string, json> current_endpoint_cache;
+        for (const auto& node: service_node_info.service_nodes)
+        {
+            json endpoint {
+                    {"availability", "unavailable"},
+                    {"authority", nullptr},
+                    {"host", nullptr},
+                    {"port", nullptr},
+                    {"transport", nullptr},
+                    {"descriptor_version", nullptr},
+                    {"service_kind", nullptr},
+                    {"service_version", nullptr},
+                    {"source", "core-validated signed descriptor"}
+            };
+
+            const auto cached_endpoint = epose_endpoint_cache.find(node.endpoint_commitment);
+            if (cached_endpoint != epose_endpoint_cache.end())
+            {
+                endpoint = cached_endpoint->second;
+            }
+            else
+            {
+                COMMAND_RPC_GET_EPOSE_SERVICE_ENDPOINT_V2::response advertised;
+                if (rpc.get_epose_service_endpoint_v2(node.endpoint_commitment, advertised)
+                    && valid_epose_advertised_endpoint(
+                            advertised.ready,
+                            advertised.descriptor_hash, node.endpoint_commitment,
+                            advertised.service_public_key, node.service_public_key,
+                            advertised.host, advertised.port, advertised.transport))
+                {
+                    endpoint = json {
+                            {"availability", "current"},
+                            {"authority", format_epose_endpoint_authority(
+                                    advertised.host, advertised.port, advertised.transport)},
+                            {"host", advertised.host},
+                            {"port", advertised.port},
+                            {"transport", epose_endpoint_transport_name(advertised.transport)},
+                            {"descriptor_version", advertised.version},
+                            {"service_kind", advertised.service_kind},
+                            {"service_version", advertised.service_version},
+                            {"source", "core-validated signed descriptor"}
+                    };
+                }
+            }
+
+            if (endpoint.value("availability", "unavailable") == "current")
+                current_endpoint_cache.emplace(node.endpoint_commitment, endpoint);
+
+            nodes.push_back(json {
+                    {"identity_id", node.identity_id},
+                    {"service_public_key", node.service_public_key},
+                    {"operator_authorization_public_key", node.operator_authorization_public_key},
+                    {"reward_view_public_key", node.reward_view_public_key},
+                    {"reward_spend_public_key", node.reward_spend_public_key},
+                    {"endpoint_commitment", node.endpoint_commitment},
+                    {"admission_hash", node.admission_hash},
+                    {"descriptor_sequence", node.descriptor_sequence},
+                    {"effective_epoch", node.effective_epoch},
+                    {"registration_epoch", node.registration_epoch},
+                    {"expiry_epoch", node.expiry_epoch},
+                    {"protocol_active", node.active},
+                    {"qualified_for_current_epoch", node.qualified},
+                    {"qualified_for_source_epoch",
+                            source_qualified_service_keys.count(node.service_public_key) == 1},
+                    {"qualification_epoch", epoch_info.current_epoch},
+                    {"qualification_availability", "current"},
+                    {"source_qualification_epoch", rewards.epoch},
+                    {"source_qualification_availability", "finalized"},
+                    {"advertised_endpoint", endpoint},
+                    {"reachability", "unsupported"}
+            });
+        }
+
+        epose_chain_anchor after_all_queries;
+        if (!capture_epose_chain_anchor(after_all_queries)
+            || !same_epose_chain_anchor(before, after_all_queries))
+        {
+            last_error = "Canonical chain changed while resolving the EPoSe snapshot";
+            continue;
+        }
+
+        const uint64_t observed_at = static_cast<uint64_t>(std::time(nullptr));
+        const json anchor_fields {
+                {"snapshot_block_count", before.block_count},
+                {"snapshot_tip_height", before.block_count - 1},
+                {"snapshot_tip_hash", before.tip_hash},
+                {"snapshot_consistency", "anchored"},
+                {"observed_at_unix", observed_at},
+                {"cache_seconds", 15}
+        };
+
+        json info_data {
+                {"enabled", epoch_info.enabled},
+                {"protocol_version", epoch_info.protocol_version},
+                {"current_epoch", epoch_info.current_epoch},
+                {"epoch_start_height", epoch_info.epoch_start_height},
+                {"epoch_end_height", epoch_info.epoch_end_height},
+                {"observer_block_count", before.block_count},
+                {"observer_tip_height", before.block_count - 1},
+                {"service_node_count", epoch_info.service_node_count},
+                {"qualified_count", epoch_info.qualified_count},
+                {"qualification_availability", "current"},
+                {"attestation_count", epoch_info.attestation_count},
+                {"state_hash", epoch_info.state_hash},
+                {"service_reward_bps", epoch_info.service_reward_bps},
+                {"local_service_node", epoch_info.local_service_node},
+                {"local_service_node_key_loaded", epoch_info.local_service_node_key_loaded},
+                {"local_service_node_registered", epoch_info.local_service_node_registered},
+                {"local_service_node_active", epoch_info.local_service_node_active},
+                {"local_service_node_qualified", epoch_info.local_service_node_qualified},
+                {"local_service_node_expiry_epoch", epoch_info.local_service_node_expiry_epoch},
+                {"local_service_public_key", epoch_info.local_service_public_key},
+                {"local_service_reward_address", epoch_info.local_service_reward_address},
+                {"local_service_endpoint_commitment", epoch_info.local_service_endpoint_commitment}
+        };
+        info_data.update(anchor_fields);
+
+        json node_data {
+                {"service_nodes", nodes},
+                {"total_count", service_node_info.total_count},
+                {"returned_count", service_node_info.returned_count},
+                {"current_epoch", epoch_info.current_epoch},
+                {"source_epoch", rewards.epoch},
+                {"source_qualified_count", rewards.qualified_count},
+                {"identity_key", "identity_id"},
+                {"endpoint_capability", "signed_descriptor_lookup"},
+                {"reachability_capability", "unsupported"},
+                {"truncated", service_node_info.returned_count
+                        < service_node_info.total_count}
+        };
+        node_data.update(anchor_fields);
+
+        json reward_data {
+                {"preview_available", rewards.preview_available},
+                {"service_reward_active", rewards.service_reward_active},
+                {"protocol_version", rewards.protocol_version},
+                {"height", rewards.height},
+                {"epoch", rewards.epoch},
+                {"service_reward_bps", rewards.service_reward_bps},
+                {"qualified_count", rewards.qualified_count},
+                {"expected_payee_service_public_key", rewards.preview_available
+                        ? json(rewards.expected_payee_service_public_key) : json(nullptr)},
+                {"expected_reward_view_public_key", rewards.preview_available
+                        ? json(rewards.expected_reward_view_public_key) : json(nullptr)},
+                {"expected_reward_spend_public_key", rewards.preview_available
+                        ? json(rewards.expected_reward_spend_public_key) : json(nullptr)},
+                {"availability", rewards.preview_available ? "current" : "unsupported"}
+        };
+        reward_data.update(anchor_fields);
+
+        json response {
+                {"status", "success"},
+                {"data", {{"info", info_data},
+                          {"service_nodes", node_data},
+                          {"rewards", reward_data}}}
+        };
+        epose_endpoint_cache.swap(current_endpoint_cache);
+        epose_snapshot_cache = response;
+        epose_snapshot_cache_anchor = before;
+        epose_snapshot_cache_time = observed_at;
+        return response;
+    }
+
+    return cache_failure(last_error);
+}
+
+json
+json_epose_snapshot_section(const char* section)
+{
+    const json snapshot = json_epose_snapshot();
+    if (snapshot.value("status", "error") != "success")
+        return snapshot;
+    return json {
+            {"status", "success"},
+            {"data", snapshot.at("data").at(section)}
+    };
+}
+
 json
 json_epose_info()
 {
-    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
-    std::lock_guard<std::mutex> cache_lock {epose_info_cache_mutex};
-    if (!epose_info_cache.is_null() && now >= epose_info_cache_time
-        && now - epose_info_cache_time < 15)
-        return epose_info_cache;
-    json j_response {
-            {"status", "fail"},
-            {"data",   json {}}
-    };
-
-    COMMAND_RPC_GET_EPOSE_INFO::response info;
-
-    if (!rpc.get_epose_info(info))
-    {
-        j_response["status"] = "error";
-        j_response["message"] = "Cant get EPoSe info";
-        epose_info_cache = j_response;
-        epose_info_cache_time = now;
-        return j_response;
-    }
-
-    const uint64_t observer_block_count = core_storage->get_current_blockchain_height();
-
-    j_response["data"] = json {
-            {"enabled", info.enabled},
-            {"protocol_version", info.protocol_version},
-            {"current_epoch", info.current_epoch},
-            {"epoch_start_height", info.epoch_start_height},
-            {"epoch_end_height", info.epoch_end_height},
-            {"observer_block_count", observer_block_count},
-            {"observer_tip_height", observer_block_count > 0
-                    ? json(observer_block_count - 1) : json(nullptr)},
-            {"service_node_count", info.service_node_count},
-            {"qualified_count", info.qualified_count},
-            {"qualification_availability", "current"},
-            {"attestation_count", info.attestation_count},
-            {"state_hash", info.state_hash},
-            {"service_reward_bps", info.service_reward_bps},
-            {"local_service_node", info.local_service_node},
-            {"local_service_node_key_loaded", info.local_service_node_key_loaded},
-            {"local_service_node_registered", info.local_service_node_registered},
-            {"local_service_node_active", info.local_service_node_active},
-            {"local_service_node_qualified", info.local_service_node_qualified},
-            {"local_service_node_expiry_epoch", info.local_service_node_expiry_epoch},
-            {"local_service_public_key", info.local_service_public_key},
-            {"local_service_reward_address", info.local_service_reward_address},
-            {"local_service_endpoint_commitment", info.local_service_endpoint_commitment},
-            {"observed_at_unix", now},
-            {"cache_seconds", 15}
-    };
-
-    j_response["status"] = "success";
-    epose_info_cache = j_response;
-    epose_info_cache_time = now;
-
-    return j_response;
+    return json_epose_snapshot_section("info");
 }
 
 json
 json_epose_service_nodes()
 {
-    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
-    std::lock_guard<std::mutex> cache_lock {epose_nodes_cache_mutex};
-    if (!epose_nodes_cache.is_null() && now >= epose_nodes_cache_time
-        && now - epose_nodes_cache_time < 15)
-        return epose_nodes_cache;
-    json j_response {
-            {"status", "fail"},
-            {"data",   json {}}
-    };
-
-    COMMAND_RPC_GET_SERVICE_NODES::response info;
-
-    if (!rpc.get_service_nodes(info))
-    {
-        j_response["status"] = "error";
-        j_response["message"] = "Cant get EPoSe service nodes";
-        epose_nodes_cache = j_response;
-        epose_nodes_cache_time = now;
-        return j_response;
-    }
-
-    COMMAND_RPC_GET_EPOSE_INFO::response epoch_info;
-    if (!rpc.get_epose_info(epoch_info))
-    {
-        j_response["status"] = "error";
-        j_response["message"] = "Cant obtain the EPoSe source epoch";
-        epose_nodes_cache = j_response;
-        epose_nodes_cache_time = now;
-        return j_response;
-    }
-
-    COMMAND_RPC_GET_SERVICE_REWARDS::response rewards;
-    if (!rpc.get_service_rewards(rewards))
-    {
-        j_response["status"] = "error";
-        j_response["message"] = "Cant obtain finalized EPoSe reward-source qualification";
-        epose_nodes_cache = j_response;
-        epose_nodes_cache_time = now;
-        return j_response;
-    }
-
-    std::set<string> source_qualified_service_keys;
-    bool source_qualification_valid =
-            rewards.qualified_service_public_keys.size() == rewards.qualified_count;
-    for (const auto& key: rewards.qualified_service_public_keys)
-    {
-        crypto::public_key parsed_key {};
-        source_qualification_valid = source_qualification_valid
-                && epee::string_tools::hex_to_pod(key, parsed_key)
-                && epee::string_tools::pod_to_hex(parsed_key) == key
-                && source_qualified_service_keys.emplace(key).second;
-    }
-    if (!source_qualification_valid)
-    {
-        j_response["status"] = "error";
-        j_response["message"] = "Core returned an inconsistent finalized EPoSe qualification set";
-        epose_nodes_cache = j_response;
-        epose_nodes_cache_time = now;
-        return j_response;
-    }
-
-    json nodes = json::array();
-    map<string, json> current_endpoint_cache;
-
-    for (const auto& node: info.service_nodes)
-    {
-        json endpoint {
-                {"availability", "unavailable"},
-                {"authority", nullptr},
-                {"host", nullptr},
-                {"port", nullptr},
-                {"transport", nullptr},
-                {"descriptor_version", nullptr},
-                {"service_kind", nullptr},
-                {"service_version", nullptr},
-                {"source", "core-validated signed descriptor"}
-        };
-
-        const auto cached_endpoint = epose_endpoint_cache.find(node.endpoint_commitment);
-        if (cached_endpoint != epose_endpoint_cache.end())
-        {
-            endpoint = cached_endpoint->second;
-        }
-        else
-        {
-            COMMAND_RPC_GET_EPOSE_SERVICE_ENDPOINT_V2::response advertised;
-            if (rpc.get_epose_service_endpoint_v2(node.endpoint_commitment, advertised)
-                && valid_epose_advertised_endpoint(
-                        advertised.ready,
-                        advertised.descriptor_hash, node.endpoint_commitment,
-                        advertised.service_public_key, node.service_public_key,
-                        advertised.host, advertised.port, advertised.transport))
-            {
-                endpoint = json {
-                        {"availability", "current"},
-                        {"authority", format_epose_endpoint_authority(
-                                advertised.host, advertised.port, advertised.transport)},
-                        {"host", advertised.host},
-                        {"port", advertised.port},
-                        {"transport", epose_endpoint_transport_name(advertised.transport)},
-                        {"descriptor_version", advertised.version},
-                        {"service_kind", advertised.service_kind},
-                        {"service_version", advertised.service_version},
-                        {"source", "core-validated signed descriptor"}
-                };
-            }
-        }
-
-        if (endpoint.value("availability", "unavailable") == "current")
-            current_endpoint_cache.emplace(node.endpoint_commitment, endpoint);
-
-        nodes.push_back(json {
-                {"identity_id", node.identity_id},
-                {"service_public_key", node.service_public_key},
-                {"operator_authorization_public_key", node.operator_authorization_public_key},
-                {"reward_view_public_key", node.reward_view_public_key},
-                {"reward_spend_public_key", node.reward_spend_public_key},
-                {"endpoint_commitment", node.endpoint_commitment},
-                {"admission_hash", node.admission_hash},
-                {"descriptor_sequence", node.descriptor_sequence},
-                {"effective_epoch", node.effective_epoch},
-                {"registration_epoch", node.registration_epoch},
-                {"expiry_epoch", node.expiry_epoch},
-                {"protocol_active", node.active},
-                {"qualified_for_current_epoch", node.qualified},
-                {"qualified_for_source_epoch",
-                        source_qualified_service_keys.count(node.service_public_key) == 1},
-                {"qualification_epoch", epoch_info.current_epoch},
-                {"qualification_availability", "current"},
-                {"source_qualification_epoch", rewards.epoch},
-                {"source_qualification_availability", "finalized"},
-                {"advertised_endpoint", endpoint},
-                {"reachability", "unsupported"}
-        });
-    }
-
-    epose_endpoint_cache.swap(current_endpoint_cache);
-
-    j_response["data"] = json {
-            {"service_nodes", nodes},
-            {"total_count", info.total_count},
-            {"returned_count", info.returned_count},
-            {"current_epoch", epoch_info.current_epoch},
-            {"source_epoch", rewards.epoch},
-            {"source_qualified_count", rewards.qualified_count},
-            {"observed_at_unix", now},
-            {"identity_key", "identity_id"},
-            {"endpoint_capability", "signed_descriptor_lookup"},
-            {"reachability_capability", "unsupported"},
-            {"snapshot_consistency", "unanchored"},
-            {"truncated", info.returned_count < info.total_count},
-            {"cache_seconds", 15}
-    };
-
-    j_response["status"] = "success";
-    epose_nodes_cache = j_response;
-    epose_nodes_cache_time = now;
-
-    return j_response;
+    return json_epose_snapshot_section("service_nodes");
 }
 
 json
 json_epose_rewards()
 {
-    const uint64_t now = static_cast<uint64_t>(std::time(nullptr));
-    std::lock_guard<std::mutex> cache_lock {epose_rewards_cache_mutex};
-    if (!epose_rewards_cache.is_null() && now >= epose_rewards_cache_time
-        && now - epose_rewards_cache_time < 15)
-        return epose_rewards_cache;
-    json j_response {
-            {"status", "fail"},
-            {"data",   json {}}
-    };
-
-    COMMAND_RPC_GET_SERVICE_REWARDS::response info;
-
-    if (!rpc.get_service_rewards(info))
-    {
-        j_response["status"] = "error";
-        j_response["message"] = "Cant get EPoSe service rewards";
-        epose_rewards_cache = j_response;
-        epose_rewards_cache_time = now;
-        return j_response;
-    }
-
-    j_response["data"] = json {
-            {"preview_available", info.preview_available},
-            {"service_reward_active", info.service_reward_active},
-            {"protocol_version", info.protocol_version},
-            {"height", info.height},
-            {"epoch", info.epoch},
-            {"service_reward_bps", info.service_reward_bps},
-            {"qualified_count", info.qualified_count},
-            {"expected_payee_service_public_key", info.preview_available
-                    ? json(info.expected_payee_service_public_key) : json(nullptr)},
-            {"expected_reward_view_public_key", info.preview_available
-                    ? json(info.expected_reward_view_public_key) : json(nullptr)},
-            {"expected_reward_spend_public_key", info.preview_available
-                    ? json(info.expected_reward_spend_public_key) : json(nullptr)},
-            {"availability", info.preview_available ? "current" : "unsupported"},
-            {"observed_at_unix", now},
-            {"cache_seconds", 15}
-    };
-
-    j_response["status"] = "success";
-    epose_rewards_cache = j_response;
-    epose_rewards_cache_time = now;
-
-    return j_response;
+    return json_epose_snapshot_section("rewards");
 }
 
 json

@@ -8,4 +8,3 @@ if (runnerTemp && path.isAbsolute(runnerTemp)) {
         force: true
     });
 }
-

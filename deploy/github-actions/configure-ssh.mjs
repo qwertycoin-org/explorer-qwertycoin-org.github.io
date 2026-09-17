@@ -27,4 +27,3 @@ await writeFile(path.join(sshDirectory, "known_hosts"), `${knownHosts.trim()}\n`
     encoding: "utf8",
     mode: 0o600
 });
-

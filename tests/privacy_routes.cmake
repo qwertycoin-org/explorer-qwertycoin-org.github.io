@@ -62,6 +62,12 @@ foreach(REQUIRED_EPOSE_STATUS_TEXT
         "Not participating"
         "Unavailable"
         "Registration active"
+        "Qualification has not been finalized"
+        "snapshotContext"
+        "rewardHeight === tipHeight + 1"
+        "rewardsEpoch + 1 === currentEpoch"
+        "currentFinal: nodesObserved > infoObserved"
+        "expires at start of Epoch"
         "qualification_availability !== \"current\""
         "source_qualification_availability !== \"finalized\""
         "tipHeight >= closeHeight"
@@ -71,6 +77,23 @@ foreach(REQUIRED_EPOSE_STATUS_TEXT
         message(FATAL_ERROR "Shared EPoSe status derivation is missing: ${REQUIRED_EPOSE_STATUS_TEXT}")
     endif()
 endforeach()
+
+foreach(FORBIDDEN_EPOSE_STATUS_TEXT
+        "Pending means participation is confirmed"
+        "Qualification is not final yet"
+        "Sequence \" + node.descriptor_sequence + \", epochs")
+    string(FIND "${OVERVIEW_TEMPLATE}${EPOSE_STATUS_SOURCE}" "${FORBIDDEN_EPOSE_STATUS_TEXT}" FOUND_AT)
+    if(NOT FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Ambiguous EPoSe status presentation remains: ${FORBIDDEN_EPOSE_STATUS_TEXT}")
+    endif()
+endforeach()
+
+string(FIND "${OVERVIEW_TEMPLATE}"
+    "qualification.phase === \"closed\" && snapshots.currentFinal !== true"
+    CLOSED_SNAPSHOT_GUARD)
+if(CLOSED_SNAPSHOT_GUARD EQUAL -1)
+    message(FATAL_ERROR "Closed qualification metric must reject an unanchored node snapshot")
+endif()
 
 string(FIND "${OVERVIEW_TEMPLATE}" "EPoSE" LEGACY_PUBLIC_EPOSE_SPELLING)
 if(NOT LEGACY_PUBLIC_EPOSE_SPELLING EQUAL -1)

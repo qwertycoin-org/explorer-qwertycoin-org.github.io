@@ -31,6 +31,44 @@
         return {key: key, label: labels[key], detail: detail || ""};
     }
 
+    function snapshotContext(info, nodes, rewards) {
+        var unavailable = {
+            current: false, currentFinal: false, rewards: false,
+            currentEpoch: null, sourceEpoch: null
+        };
+        if (!info || !nodes) return unavailable;
+
+        var currentEpoch = integer(info.current_epoch);
+        var nodesEpoch = integer(nodes.current_epoch);
+        var sourceEpoch = integer(nodes.source_epoch);
+        var tipHeight = integer(info.observer_tip_height);
+        var infoObserved = integer(info.observed_at_unix);
+        var nodesObserved = integer(nodes.observed_at_unix);
+        if (currentEpoch === null || nodesEpoch === null || tipHeight === null
+                || infoObserved === null || nodesObserved === null
+                || nodesEpoch !== currentEpoch) {
+            return unavailable;
+        }
+
+        var rewardsEpoch = integer(rewards && rewards.epoch);
+        var rewardHeight = integer(rewards && rewards.height);
+        var rewardsObserved = integer(rewards && rewards.observed_at_unix);
+        var rewardSnapshotsMatch = sourceEpoch !== null && rewardsEpoch !== null
+                && rewardHeight !== null && rewardsObserved !== null
+                && tipHeight < Number.MAX_SAFE_INTEGER
+                && rewardHeight === tipHeight + 1
+                && rewardsEpoch < Number.MAX_SAFE_INTEGER
+                && sourceEpoch === rewardsEpoch
+                && rewardsEpoch + 1 === currentEpoch;
+        return {
+            current: true,
+            currentFinal: nodesObserved > infoObserved,
+            rewards: rewardSnapshotsMatch,
+            currentEpoch: currentEpoch,
+            sourceEpoch: rewardSnapshotsMatch ? sourceEpoch : null
+        };
+    }
+
     function qualificationContext(info) {
         if (!info || info.qualification_availability !== "current") {
             return {phase: "unavailable", closeHeight: null, tipHeight: null};
@@ -51,11 +89,15 @@
         };
     }
 
-    function currentQualification(node, info) {
+    function currentQualification(node, info, snapshots) {
         if (!node) return result("unavailable");
+        if (!snapshots || snapshots.current !== true) {
+            return result("unavailable", "Qualification snapshots are inconsistent");
+        }
         var currentEpoch = integer(info && info.current_epoch);
         var qualificationEpoch = integer(node.qualification_epoch);
         if (currentEpoch === null || qualificationEpoch === null
+                || snapshots.currentEpoch !== currentEpoch
                 || currentEpoch !== qualificationEpoch
                 || node.qualification_availability !== "current") {
             return result("unavailable");
@@ -72,20 +114,28 @@
         }
         var context = qualificationContext(info);
         if (context.phase === "pending") {
-            return result("pending", "Qualification is not final yet");
+            return result("pending", "Qualification has not been finalized");
         }
         if (context.phase === "closed") {
+            if (snapshots.currentFinal !== true) {
+                return result("unavailable", "Final node status cannot be matched to the closing snapshot");
+            }
             return result("not_qualified", "Final qualification did not include this node");
         }
         return result("unavailable");
     }
 
-    function rewardQualification(node) {
+    function rewardQualification(node, snapshots) {
+        if (!snapshots || snapshots.rewards !== true) {
+            return result("unavailable", "Reward snapshots do not share a coherent epoch");
+        }
         if (!node || node.source_qualification_availability !== "finalized") {
             return result("unavailable");
         }
         var sourceEpoch = integer(node.source_qualification_epoch);
-        if (sourceEpoch === null) return result("unavailable");
+        if (sourceEpoch === null || snapshots.sourceEpoch !== sourceEpoch) {
+            return result("unavailable");
+        }
         if (node.qualified_for_source_epoch === true) {
             return result("qualified", "Included in the finalized source-epoch set");
         }
@@ -109,12 +159,31 @@
         return {label: "Registration unavailable", active: null};
     }
 
+    function servicePeriod(node) {
+        if (!node) return "Unavailable";
+        var sequence = integer(node.descriptor_sequence);
+        var effectiveEpoch = integer(node.effective_epoch);
+        var expiryEpoch = integer(node.expiry_epoch);
+        if (sequence === null || effectiveEpoch === null || expiryEpoch === null
+                || expiryEpoch <= effectiveEpoch) {
+            return "Unavailable";
+        }
+        var lastActiveEpoch = expiryEpoch - 1;
+        var activeRange = effectiveEpoch === lastActiveEpoch
+                ? "Epoch " + effectiveEpoch
+                : "Epochs " + effectiveEpoch + "–" + lastActiveEpoch;
+        return "Sequence " + sequence + " · " + activeRange
+                + " · expires at start of Epoch " + expiryEpoch;
+    }
+
     return Object.freeze({
         protocolParameters: PROTOCOL_PARAMETERS,
         nonNegativeInteger: integer,
+        snapshotContext: snapshotContext,
         qualificationContext: qualificationContext,
         currentQualification: currentQualification,
         rewardQualification: rewardQualification,
-        registration: registration
+        registration: registration,
+        servicePeriod: servicePeriod
     });
 }));

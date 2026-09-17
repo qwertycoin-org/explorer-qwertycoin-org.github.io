@@ -87,8 +87,8 @@
             <caption class="sr-only">Current EPoSe service-node registrations, qualification, reward eligibility, and technical identity.</caption>
             <thead><tr>
                 <th scope="col"><span class="column-help" tabindex="0" title="Signed hostname or IP address and port from the endpoint descriptor validated by Core. This is an advertisement, not a reachability test." aria-label="Advertised endpoint. Signed hostname or IP address and port from the endpoint descriptor validated by Core. This is an advertisement, not a reachability test.">Advertised endpoint</span></th>
-                <th scope="col"><span class="column-help" tabindex="0" title="Descriptor sequence and the first through last epochs for which this service registration applies." aria-label="Service period. Descriptor sequence and the first through last epochs for which this service registration applies.">Service period</span></th>
-                <th scope="col"><span id="epose-qualification-column" class="column-help" tabindex="0" title="Qualification status for the observed epoch. Pending means participation is confirmed but qualification is not final." aria-label="Qualification. Qualification status for the observed epoch. Pending means participation is confirmed but qualification is not final.">Qualification</span></th>
+                <th scope="col"><span class="column-help" tabindex="0" title="Descriptor sequence, active epochs, and the exclusive expiry epoch. A registration expiring at the start of Epoch 5 is active through Epoch 4." aria-label="Service period. Descriptor sequence, active epochs, and the exclusive expiry epoch. A registration expiring at the start of Epoch 5 is active through Epoch 4.">Service period</span></th>
+                <th scope="col"><span id="epose-qualification-column" class="column-help" tabindex="0" title="Qualification status for the observed epoch. Pending means qualification has not been finalized." aria-label="Qualification. Qualification status for the observed epoch. Pending means qualification has not been finalized.">Qualification</span></th>
                 <th scope="col"><span id="epose-reward-column" class="column-help" tabindex="0" title="Reward eligibility in the payout epoch, based on the finalized qualification set from the prior source epoch." aria-label="Reward eligibility. Reward eligibility in the payout epoch, based on the finalized qualification set from the prior source epoch.">Reward eligibility</span></th>
                 <th scope="col"><span class="column-help" tabindex="0" title="EPoSe protocol and descriptor versions, the persistent node ID, and the epoch-specific service verification key. These identifiers have different lifetimes and purposes." aria-label="Technical identity. EPoSe protocol and descriptor versions, the persistent node ID, and the epoch-specific service verification key. These identifiers have different lifetimes and purposes.">Technical identity</span></th>
             </tr></thead>
@@ -271,7 +271,7 @@
             });
         }).finally(function () { clearTimeout(timeout); });
     }
-    function renderNodes(payload, info) {
+    function renderNodes(payload, info, snapshots) {
         var tbody = byId("epose-service-node-rows");
         if (!Array.isArray(payload.service_nodes)) throw new Error("Malformed service-node list");
         var nodes = payload.service_nodes;
@@ -286,11 +286,11 @@
             var endpoint = row.insertCell(); endpoint.dataset.label = "Advertised endpoint";
             var endpointName = document.createElement("strong"); endpointName.className = "epose-endpoint"; endpointName.textContent = advertised.availability === "current" ? advertised.authority : "Unavailable"; endpoint.appendChild(endpointName);
             var endpointSource = document.createElement("small"); endpointSource.textContent = advertised.availability === "current" ? "Signed endpoint advertisement · " + String(advertised.transport || "unknown").toUpperCase() + " · not a reachability check" : "Signed endpoint advertisement unavailable"; endpoint.appendChild(endpointSource);
-            var descriptor = row.insertCell(); descriptor.dataset.label = "Service period"; descriptor.textContent = "Sequence " + node.descriptor_sequence + ", epochs " + node.effective_epoch + "–" + node.expiry_epoch;
+            var descriptor = row.insertCell(); descriptor.dataset.label = "Service period"; descriptor.textContent = statusLogic.servicePeriod(node);
             var registration = document.createElement("small"); registration.className = "epose-registration"; registration.textContent = statusLogic.registration(node).label; descriptor.appendChild(registration);
-            var protocol = row.insertCell(); protocol.dataset.label = "Qualification · Epoch " + node.qualification_epoch; statusBadge(protocol, statusLogic.currentQualification(node, info));
+            var protocol = row.insertCell(); protocol.dataset.label = "Qualification · Epoch " + node.qualification_epoch; statusBadge(protocol, statusLogic.currentQualification(node, info, snapshots));
             var payoutEpoch = statusLogic.nonNegativeInteger(info && info.current_epoch);
-            var rewardSource = row.insertCell(); rewardSource.dataset.label = payoutEpoch === null ? "Reward eligibility · based on Epoch " + node.source_qualification_epoch : "Reward eligibility · Epoch " + payoutEpoch + ", based on Epoch " + node.source_qualification_epoch; statusBadge(rewardSource, statusLogic.rewardQualification(node));
+            var rewardSource = row.insertCell(); rewardSource.dataset.label = payoutEpoch === null ? "Reward eligibility · based on Epoch " + node.source_qualification_epoch : "Reward eligibility · Epoch " + payoutEpoch + ", based on Epoch " + node.source_qualification_epoch; statusBadge(rewardSource, statusLogic.rewardQualification(node, snapshots));
             var identity = row.insertCell(); identity.dataset.label = "Technical identity";
             var serviceVersion = Number(advertised.service_version); var descriptorVersion = Number(advertised.descriptor_version);
             var version = document.createElement("small"); version.className = "epose-identity-version"; version.textContent = Number.isSafeInteger(serviceVersion) && serviceVersion > 0 ? "EPoSe service protocol v" + serviceVersion : "Service protocol version unavailable"; identity.appendChild(version);
@@ -302,11 +302,18 @@
     }
     function refresh() { controllers = [];
     Promise.allSettled([request("/api/v1/epose"), request("/api/v1/epose/service-nodes"), request("/api/v1/epose/rewards")]).then(function (results) {
-        var hadFailure = results.some(function (result) { return result.status === "rejected"; });
-        delay = hadFailure ? Math.min(delay * 2, 120000) : 30000;
         var infoResult = results[0], nodesResult = results[1], rewardsResult = results[2];
-        text("epose-status", hadFailure ? "Partial EPoSe data" : "EPoSe data loaded"); var eposeStatus = byId("epose-status"); eposeStatus.classList.toggle("warning", hadFailure); eposeStatus.classList.toggle("ok", !hadFailure);
         var info = infoResult.status === "fulfilled" ? infoResult.value : null;
+        var nodes = nodesResult.status === "fulfilled" ? nodesResult.value : null;
+        var rewards = rewardsResult.status === "fulfilled" ? rewardsResult.value : null;
+        var snapshots = statusLogic.snapshotContext(info, nodes, rewards);
+        var hadFailure = results.some(function (result) { return result.status === "rejected"; });
+        var qualificationPhase = statusLogic.qualificationContext(info).phase;
+        var incoherent = !hadFailure && (snapshots.current !== true
+                || snapshots.rewards !== true
+                || (qualificationPhase === "closed" && snapshots.currentFinal !== true));
+        delay = hadFailure || incoherent ? Math.min(delay * 2, 120000) : 30000;
+        text("epose-status", hadFailure ? "Partial EPoSe data" : incoherent ? "EPoSe snapshot mismatch" : "EPoSe data loaded"); var eposeStatus = byId("epose-status"); eposeStatus.classList.toggle("warning", hadFailure || incoherent); eposeStatus.classList.toggle("ok", !hadFailure && !incoherent);
         if (infoResult.status === "fulfilled") {
             var qualification = statusLogic.qualificationContext(info);
             var currentEpoch = statusLogic.nonNegativeInteger(info.current_epoch);
@@ -315,7 +322,9 @@
             var epochEnd = statusLogic.nonNegativeInteger(info.epoch_end_height);
             var observerTip = statusLogic.nonNegativeInteger(info.observer_tip_height);
             text("epose-qualification-label", currentEpoch === null ? "Qualification" : "Qualification · Epoch " + currentEpoch);
-            if (qualification.phase === "pending") {
+            if (snapshots.current !== true || (qualification.phase === "closed" && snapshots.currentFinal !== true)) {
+                text("epose-qualified", "Unavailable"); text("epose-qualification-close", "Qualification snapshots are inconsistent");
+            } else if (qualification.phase === "pending") {
                 text("epose-qualified", "Pending");
                 text("epose-qualification-close", "Qualification closes after block " + qualification.closeHeight + " · processed through " + qualification.tipHeight);
             } else if (qualification.phase === "closed" && qualifiedCount !== null) {
@@ -339,7 +348,6 @@
             text("epose-protocol", "Unavailable"); text("epose-state-hash", "Unavailable");
         }
         if (nodesResult.status === "fulfilled") {
-            var nodes = nodesResult.value;
             var nodeEpoch = statusLogic.nonNegativeInteger(nodes.current_epoch);
             var returnedCount = statusLogic.nonNegativeInteger(nodes.returned_count);
             var totalCount = statusLogic.nonNegativeInteger(nodes.total_count);
@@ -347,19 +355,18 @@
             text("epose-node-count", returnedCount === null || totalCount === null ? "Unavailable" : "showing " + returnedCount + " of " + totalCount + (returnedCount < totalCount ? " (truncated)" : ""));
             var observed = Number(nodes.observed_at_unix);
             text("epose-observed-at", Number.isFinite(observed) && observed > 0 ? new Date(observed * 1000).toISOString() : "Unavailable");
-            try { renderNodes(nodes, info); } catch (error) { text("epose-node-count", "Unavailable"); var failedBody = byId("epose-service-node-rows"); failedBody.textContent = ""; var failedRow = failedBody.insertRow(); var failedCell = failedRow.insertCell(); failedCell.colSpan = 5; failedCell.textContent = error.message; delay = Math.min(delay * 2, 120000); }
+            try { renderNodes(nodes, info, snapshots); } catch (error) { text("epose-node-count", "Unavailable"); var failedBody = byId("epose-service-node-rows"); failedBody.textContent = ""; var failedRow = failedBody.insertRow(); var failedCell = failedRow.insertCell(); failedCell.colSpan = 5; failedCell.textContent = error.message; delay = Math.min(delay * 2, 120000); }
         } else {
             text("epose-epoch", "Unavailable"); text("epose-node-count", "Unavailable"); text("epose-observed-at", "Unavailable");
             var tbody = byId("epose-service-node-rows"); tbody.textContent = ""; var row = tbody.insertRow(); var cell = row.insertCell(); cell.colSpan = 5; cell.textContent = nodesResult.reason.message;
         }
         if (rewardsResult.status === "fulfilled") {
-            var rewards = rewardsResult.value;
             var payoutEpoch = statusLogic.nonNegativeInteger(info && info.current_epoch);
             var sourceEpoch = statusLogic.nonNegativeInteger(rewards.epoch);
             var rewardQualifiedCount = statusLogic.nonNegativeInteger(rewards.qualified_count);
             text("epose-reward-label", sourceEpoch === null ? "Reward eligibility" : payoutEpoch === null ? "Reward eligibility · based on Epoch " + sourceEpoch : "Reward eligibility · Epoch " + payoutEpoch + ", based on Epoch " + sourceEpoch);
             text("epose-reward-column", sourceEpoch === null ? "Reward eligibility" : payoutEpoch === null ? "Reward eligibility · based on Epoch " + sourceEpoch : "Reward eligibility · Epoch " + payoutEpoch + ", based on Epoch " + sourceEpoch);
-            text("epose-reward-qualified", sourceEpoch === null || rewardQualifiedCount === null ? "Unavailable" : rewardQualifiedCount + " qualified");
+            text("epose-reward-qualified", snapshots.rewards !== true || sourceEpoch === null || rewardQualifiedCount === null ? "Unavailable" : rewardQualifiedCount + " qualified");
             text("epose-reward-preview", rewards.preview_available === true ? "Available" : "Preview not exposed by Core");
         } else {
             text("epose-reward-label", "Reward eligibility"); text("epose-reward-qualified", "Unavailable");

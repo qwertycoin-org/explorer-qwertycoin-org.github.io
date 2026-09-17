@@ -216,6 +216,12 @@ tbody tr:hover, tbody tr:focus-within { background: var(--violet-soft); }
 .epose-identity-details > div { margin-top: 9px; }
 .epose-identity-label { display: block; margin-bottom: 3px; color: var(--muted); font-size: 0.7rem; }
 .epose-identity-details code { font-size: 0.72rem; }
+.epose-registration { font-weight: 600; }
+.epose-state { display: inline-flex; align-items: center; min-height: 27px; padding: 3px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-offset); font-size: 0.76rem; }
+.epose-state-qualified { border-color: var(--success); background: var(--success-surface); color: var(--success); }
+.epose-state-pending { border-color: var(--warning); background: var(--warning-surface); color: var(--warning); }
+.epose-state-not_qualified { border-color: var(--danger); background: var(--danger-surface); color: var(--danger); }
+.epose-state-not_participating, .epose-state-unavailable { color: var(--muted); }
 .node-label { color: var(--ink); font-weight: 600; }
 .advanced-row > td { padding-top: 0; }
 

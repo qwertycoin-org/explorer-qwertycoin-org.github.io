@@ -1,6 +1,7 @@
 #include "src/exact_amount.h"
 #include "src/epose_endpoint_view.h"
 #include "src/epose_reward_view.h"
+#include "src/epose_snapshot.h"
 #include "src/pagination.h"
 #include "src/hashrate.h"
 #include "src/supply_math.h"
@@ -119,6 +120,20 @@ int main()
     ok &= expect(xmreg::format_epose_endpoint_authority(
             "2001:db8::1", 8198, 2) == "[2001:db8::1]:8198",
             "IPv6 endpoint authority");
+
+    const xmreg::epose_chain_anchor anchored_tip {2819, std::string(64, 'a')};
+    ok &= expect(xmreg::same_epose_chain_anchor(
+            anchored_tip, {2819, std::string(64, 'a')}),
+            "identical EPoSe height and hash accepted");
+    ok &= expect(!xmreg::same_epose_chain_anchor(
+            anchored_tip, {2818, std::string(64, 'a')}),
+            "stale EPoSe height rejected");
+    ok &= expect(!xmreg::same_epose_chain_anchor(
+            anchored_tip, {2819, std::string(64, 'b')}),
+            "same-height EPoSe reorg rejected");
+    ok &= expect(xmreg::epose_reward_matches_anchor(anchored_tip, 2819)
+                 && !xmreg::epose_reward_matches_anchor(anchored_tip, 2820),
+            "reward next-height must match anchored block count");
 
     reward_response reward;
     xmreg::epose_reward_view reward_view;

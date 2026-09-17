@@ -6083,7 +6083,7 @@ json_epose_info()
     if (!rpc.get_epose_info(info))
     {
         j_response["status"] = "error";
-        j_response["message"] = "Cant get EPoSE info";
+        j_response["message"] = "Cant get EPoSe info";
         epose_info_cache = j_response;
         epose_info_cache_time = now;
         return j_response;
@@ -6144,7 +6144,7 @@ json_epose_service_nodes()
     if (!rpc.get_service_nodes(info))
     {
         j_response["status"] = "error";
-        j_response["message"] = "Cant get EPoSE service nodes";
+        j_response["message"] = "Cant get EPoSe service nodes";
         epose_nodes_cache = j_response;
         epose_nodes_cache_time = now;
         return j_response;
@@ -6154,7 +6154,7 @@ json_epose_service_nodes()
     if (!rpc.get_epose_info(epoch_info))
     {
         j_response["status"] = "error";
-        j_response["message"] = "Cant obtain the EPoSE source epoch";
+        j_response["message"] = "Cant obtain the EPoSe source epoch";
         epose_nodes_cache = j_response;
         epose_nodes_cache_time = now;
         return j_response;
@@ -6164,7 +6164,7 @@ json_epose_service_nodes()
     if (!rpc.get_service_rewards(rewards))
     {
         j_response["status"] = "error";
-        j_response["message"] = "Cant obtain finalized EPoSE reward-source qualification";
+        j_response["message"] = "Cant obtain finalized EPoSe reward-source qualification";
         epose_nodes_cache = j_response;
         epose_nodes_cache_time = now;
         return j_response;
@@ -6184,7 +6184,7 @@ json_epose_service_nodes()
     if (!source_qualification_valid)
     {
         j_response["status"] = "error";
-        j_response["message"] = "Core returned an inconsistent finalized EPoSE qualification set";
+        j_response["message"] = "Core returned an inconsistent finalized EPoSe qualification set";
         epose_nodes_cache = j_response;
         epose_nodes_cache_time = now;
         return j_response;
@@ -6308,7 +6308,7 @@ json_epose_rewards()
     if (!rpc.get_service_rewards(info))
     {
         j_response["status"] = "error";
-        j_response["message"] = "Cant get EPoSE service rewards";
+        j_response["message"] = "Cant get EPoSe service rewards";
         epose_rewards_cache = j_response;
         epose_rewards_cache_time = now;
         return j_response;

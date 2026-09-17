@@ -367,7 +367,7 @@ main(int ac, const char* av[])
         {
             return myxmr::jsonresponse{nlohmann::json{
                     {"status", "error"},
-                    {"message", "Observer identity, freshness, EPoSE v2 compatibility, or supply anchor is unverified"}}};
+                    {"message", "Observer identity, freshness, EPoSe v2 compatibility, or supply anchor is unverified"}}};
         }
         return myxmr::jsonresponse{nlohmann::json{
                 {"status", "success"},
@@ -684,6 +684,8 @@ main(int ac, const char* av[])
     ([&](const string& asset_name) {
         static const map<string, pair<string, string>> public_assets {
             {"style.css", {"./templates/css/style.css", "text/css; charset=utf-8"}},
+            {"epose-status.js", {"./templates/assets/epose-status.js",
+                "text/javascript; charset=utf-8"}},
             {"qwertycoin-mark.svg",
                 {"./templates/assets/qwertycoin-mark.svg", "image/svg+xml"}},
             {"favicon.svg", {"./templates/assets/favicon.svg", "image/svg+xml"}},
@@ -698,6 +700,7 @@ main(int ac, const char* av[])
             return crow::response(404);
         crow::response response;
         response.set_header("Cache-Control", asset_name == "style.css"
+                || asset_name == "epose-status.js"
                 ? "public, max-age=31536000, immutable"
                 : "public, max-age=86400");
         response.set_header("X-Content-Type-Options", "nosniff");

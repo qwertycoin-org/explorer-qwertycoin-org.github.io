@@ -2,6 +2,7 @@ file(READ "${SOURCE_DIR}/main.cpp" MAIN_SOURCE)
 file(READ "${SOURCE_DIR}/src/templates/index2.html" OVERVIEW_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/templates/block.html" BLOCK_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/templates/css/style.css" STYLE_SOURCE)
+file(READ "${SOURCE_DIR}/src/templates/assets/epose-status.js" EPOSE_STATUS_SOURCE)
 file(READ "${SOURCE_DIR}/src/templates/header.html" HEADER_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/templates/partials/tx_details.html" TX_TEMPLATE)
 file(READ "${SOURCE_DIR}/src/page.h" PAGE_SOURCE)
@@ -29,17 +30,22 @@ endforeach()
 foreach(REQUIRED_EPOSE_TEXT
         "Advertised endpoint"
         "Service period"
-        "Current epoch eligibility"
-        "Reward-source eligibility"
+        "Qualification · Epoch"
+        "Reward eligibility · Epoch"
         "Technical identity"
         "column-help"
-        "EPoSE service protocol version"
+        "EPoSe service protocol version"
         "Endpoint descriptor schema version"
-        "Persistent node ID"
-        "Current service verification key"
+        "Persistent node ID (stable)"
+        "Service verification key (current epoch)"
         "Endpoint descriptor hash"
         "Preview not exposed by Core"
-        "EPoSE data loaded"
+        "EPoSe data loaded"
+        "Qualification in this epoch determines reward eligibility in the next epoch."
+        "Qualification closes after block"
+        "Signed endpoint advertisement"
+        "not a reachability check"
+        "/assets/epose-status.js?v={{asset_version}}"
         "endpointName.textContent"
         "code.textContent")
     string(FIND "${OVERVIEW_TEMPLATE}" "${REQUIRED_EPOSE_TEXT}" FOUND_AT)
@@ -47,6 +53,29 @@ foreach(REQUIRED_EPOSE_TEXT
         message(FATAL_ERROR "Readable EPoSE presentation contract is missing: ${REQUIRED_EPOSE_TEXT}")
     endif()
 endforeach()
+
+foreach(REQUIRED_EPOSE_STATUS_TEXT
+        "qualificationAnchorDepth: 60"
+        "Pending"
+        "Qualified"
+        "Not qualified"
+        "Not participating"
+        "Unavailable"
+        "Registration active"
+        "qualification_availability !== \"current\""
+        "source_qualification_availability !== \"finalized\""
+        "tipHeight >= closeHeight"
+        "currentEpoch !== qualificationEpoch")
+    string(FIND "${EPOSE_STATUS_SOURCE}" "${REQUIRED_EPOSE_STATUS_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Shared EPoSe status derivation is missing: ${REQUIRED_EPOSE_STATUS_TEXT}")
+    endif()
+endforeach()
+
+string(FIND "${OVERVIEW_TEMPLATE}" "EPoSE" LEGACY_PUBLIC_EPOSE_SPELLING)
+if(NOT LEGACY_PUBLIC_EPOSE_SPELLING EQUAL -1)
+    message(FATAL_ERROR "Public explorer UI must spell EPoSe consistently")
+endif()
 
 foreach(FORBIDDEN_EPOSE_PRESENTATION_TEXT
         "Independent online check"
@@ -125,6 +154,7 @@ foreach(REQUIRED_ASSET
         "src/templates/assets/favicon-32x32.png"
         "src/templates/assets/favicon-192x192.png"
         "src/templates/assets/apple-touch-icon.png"
+        "src/templates/assets/epose-status.js"
         "src/templates/assets/fonts/archivo-latin-900.woff2"
         "src/templates/assets/fonts/inter-latin-400.woff2"
         "src/templates/assets/fonts/inter-latin-600.woff2")
@@ -142,6 +172,7 @@ if(DEFINED BINARY_DIR)
             "assets/favicon-32x32.png"
             "assets/favicon-192x192.png"
             "assets/apple-touch-icon.png"
+            "assets/epose-status.js"
             "assets/fonts/archivo-latin-900.woff2"
             "assets/fonts/inter-latin-400.woff2"
             "assets/fonts/inter-latin-600.woff2")
@@ -213,6 +244,8 @@ endforeach()
 foreach(REQUIRED_ASSET_ROUTE
         "CROW_ROUTE(app, \"/favicon.ico\")"
         "CROW_ROUTE(app, \"/assets/<string>\")"
+        "epose-status.js"
+        "text/javascript; charset=utf-8"
         "CROW_ROUTE(app, \"/assets/fonts/<string>\")"
         "./templates/css/style.css"
         "text/css; charset=utf-8"

@@ -288,7 +288,7 @@
         button.addEventListener("blur", function () { if (!columnHelpPinned) closeColumnHelp(); });
     });
     document.addEventListener("click", function (event) { if (!event.target.closest("button.column-help") && activeColumnHelp) closeColumnHelp(); });
-    document.addEventListener("keydown", function (event) { if (event.key === "Escape" && activeColumnHelp) { var button = activeColumnHelp; closeColumnHelp(); button.focus(); } });
+    document.addEventListener("keydown", function (event) { if (event.key === "Escape" && activeColumnHelp) { var button = activeColumnHelp; button.focus(); closeColumnHelp(); } });
     window.addEventListener("resize", closeColumnHelp);
     document.addEventListener("scroll", closeColumnHelp, true);
     function short(value) { value = String(value || ""); return value.length > 22 ? value.slice(0, 12) + "…" + value.slice(-8) : (value || "—"); }

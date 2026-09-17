@@ -40,6 +40,7 @@ foreach(REQUIRED_EPOSE_TEXT
         "showColumnHelp"
         "closeColumnHelp"
         "event.key === \"Escape\""
+        "button.focus(); closeColumnHelp();"
         "What the service-node columns mean"
         "EPoSe service protocol version"
         "Endpoint descriptor schema version"

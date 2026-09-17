@@ -27,7 +27,6 @@ quantities such as kB.
 | EPoSE service/descriptor version | unsigned version | Core-validated signed endpoint descriptor | Published only with the same exact descriptor-hash and service-key binding as the endpoint | This is the EPoSE service protocol and descriptor schema version, not the daemon release version |
 | Protocol-active | boolean | Current identity descriptor interval | `effective_epoch <= epoch < expiry_epoch` in core | Does not mean endpoint reachable |
 | Qualified | boolean | Current core qualification view | The RPC result is preserved exactly, including `false` and a valid zero qualified count | Zero/false remain distinct from an unavailable RPC response |
-| Next service reward | availability state | `get_service_rewards` | No browser-side payee selection | Displayed as `Preview not exposed by Core` unless core explicitly returns `preview_available=true` |
 
 ## Deliberately omitted metrics
 
@@ -35,3 +34,6 @@ quantities such as kB.
   not evidence that private wallet outputs are mature, unspent or accessible.
 - **Peer count:** restricted daemon responses can redact it; zero is not accepted
   as evidence of no peers.
+- **Next service-reward recipient:** the current Core contract reports the
+  preview as unsupported and does not return a payee identity. The explorer
+  does not guess a recipient or map one from the service-node list.

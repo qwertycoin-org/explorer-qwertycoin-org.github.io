@@ -79,18 +79,28 @@
         <div class="metric"><span>Registered service nodes</span><strong id="epose-node-count">—</strong></div>
         <div class="metric"><span id="epose-qualification-label">Qualification</span><strong id="epose-qualified">—</strong><small id="epose-qualification-close">—</small></div>
         <div class="metric"><span id="epose-reward-label">Reward eligibility</span><strong id="epose-reward-qualified">—</strong></div>
-        <div class="metric"><span>Next service reward</span><strong id="epose-reward-preview">—</strong></div>
     </div>
     <p class="status-note">Qualification in this epoch determines reward eligibility in the next epoch.</p>
+    <details class="column-help-mobile">
+        <summary>What the service-node columns mean</summary>
+        <dl>
+            <div><dt>Advertised endpoint</dt><dd>Signed hostname or IP address and port from the endpoint descriptor validated by Core. This is an advertisement, not a reachability test.</dd></div>
+            <div><dt>Service period</dt><dd>Descriptor sequence, active epochs, and the exclusive expiry epoch. A registration expiring at the start of Epoch 5 is active through Epoch 4.</dd></div>
+            <div><dt>Qualification</dt><dd>Core-reported qualification status for the observed epoch. Pending means qualification has not been finalized.</dd></div>
+            <div><dt>Reward eligibility</dt><dd>Eligibility for service rewards in the observed payout epoch, based on finalized qualification from the prior source epoch.</dd></div>
+            <div><dt>Technical identity</dt><dd>EPoSe protocol and descriptor versions, the persistent node ID, and the epoch-specific service verification key.</dd></div>
+        </dl>
+    </details>
+    <div id="epose-column-tooltip" class="column-help-tooltip" role="tooltip" hidden></div>
     <div class="table-wrap">
         <table class="responsive-table epose-table">
             <caption class="sr-only">Current EPoSe service-node registrations, qualification, reward eligibility, and technical identity.</caption>
             <thead><tr>
-                <th scope="col"><span class="column-help" tabindex="0" title="Signed hostname or IP address and port from the endpoint descriptor validated by Core. This is an advertisement, not a reachability test." aria-label="Advertised endpoint. Signed hostname or IP address and port from the endpoint descriptor validated by Core. This is an advertisement, not a reachability test.">Advertised endpoint</span></th>
-                <th scope="col"><span class="column-help" tabindex="0" title="Descriptor sequence, active epochs, and the exclusive expiry epoch. A registration expiring at the start of Epoch 5 is active through Epoch 4." aria-label="Service period. Descriptor sequence, active epochs, and the exclusive expiry epoch. A registration expiring at the start of Epoch 5 is active through Epoch 4.">Service period</span></th>
-                <th scope="col"><span id="epose-qualification-column" class="column-help" tabindex="0" title="Qualification status for the observed epoch. Pending means qualification has not been finalized." aria-label="Qualification. Qualification status for the observed epoch. Pending means qualification has not been finalized.">Qualification</span></th>
-                <th scope="col"><span id="epose-reward-column" class="column-help" tabindex="0" title="Reward eligibility in the payout epoch, based on the finalized qualification set from the prior source epoch." aria-label="Reward eligibility. Reward eligibility in the payout epoch, based on the finalized qualification set from the prior source epoch.">Reward eligibility</span></th>
-                <th scope="col"><span class="column-help" tabindex="0" title="EPoSe protocol and descriptor versions, the persistent node ID, and the epoch-specific service verification key. These identifiers have different lifetimes and purposes." aria-label="Technical identity. EPoSe protocol and descriptor versions, the persistent node ID, and the epoch-specific service verification key. These identifiers have different lifetimes and purposes.">Technical identity</span></th>
+                <th scope="col"><button type="button" class="column-help" data-help="Signed hostname or IP address and port from the endpoint descriptor validated by Core. This is an advertisement, not a reachability test." aria-controls="epose-column-tooltip" aria-expanded="false">Advertised endpoint <span class="column-help-mark" aria-hidden="true">?</span></button></th>
+                <th scope="col"><button type="button" class="column-help" data-help="Descriptor sequence, active epochs, and the exclusive expiry epoch. A registration expiring at the start of Epoch 5 is active through Epoch 4." aria-controls="epose-column-tooltip" aria-expanded="false">Service period <span class="column-help-mark" aria-hidden="true">?</span></button></th>
+                <th scope="col"><button type="button" id="epose-qualification-column" class="column-help" data-help="Core-reported qualification status for the observed epoch. Pending means qualification has not been finalized." aria-controls="epose-column-tooltip" aria-expanded="false">Qualification <span class="column-help-mark" aria-hidden="true">?</span></button></th>
+                <th scope="col"><button type="button" id="epose-reward-column" class="column-help" data-help="Eligibility for service rewards in the observed payout epoch, based on finalized qualification from the prior source epoch." aria-controls="epose-column-tooltip" aria-expanded="false">Reward eligibility <span class="column-help-mark" aria-hidden="true">?</span></button></th>
+                <th scope="col"><button type="button" class="column-help" data-help="EPoSe protocol and descriptor versions, the persistent node ID, and the epoch-specific service verification key. These identifiers have different lifetimes and purposes." aria-controls="epose-column-tooltip" aria-expanded="false">Technical identity <span class="column-help-mark" aria-hidden="true">?</span></button></th>
             </tr></thead>
             <tbody id="epose-service-node-rows"><tr><td colspan="5">Loading service-node data…</td></tr></tbody>
         </table>
@@ -246,6 +256,41 @@
     var statusLogic = window.QwcEposeStatus;
     function byId(id) { return document.getElementById(id); }
     function text(id, value) { var el = byId(id); if (el) el.textContent = value === null || value === undefined || value === "" ? "—" : String(value); }
+    var columnTooltip = byId("epose-column-tooltip"), activeColumnHelp = null, columnHelpPinned = false;
+    function closeColumnHelp() {
+        if (activeColumnHelp) activeColumnHelp.setAttribute("aria-expanded", "false");
+        activeColumnHelp = null; columnHelpPinned = false;
+        if (columnTooltip) columnTooltip.hidden = true;
+    }
+    function positionColumnHelp(button) {
+        if (!columnTooltip || columnTooltip.hidden || activeColumnHelp !== button) return;
+        var anchor = button.getBoundingClientRect(), bubble = columnTooltip.getBoundingClientRect();
+        var left = Math.max(8, Math.min(anchor.left, window.innerWidth - bubble.width - 8));
+        var top = anchor.bottom + 8;
+        if (top + bubble.height > window.innerHeight - 8) top = Math.max(8, anchor.top - bubble.height - 8);
+        columnTooltip.style.left = left + "px"; columnTooltip.style.top = top + "px";
+    }
+    function showColumnHelp(button, pinned) {
+        if (!columnTooltip) return;
+        if (activeColumnHelp && activeColumnHelp !== button) activeColumnHelp.setAttribute("aria-expanded", "false");
+        activeColumnHelp = button; columnHelpPinned = pinned === true;
+        button.setAttribute("aria-expanded", "true"); columnTooltip.textContent = button.dataset.help; columnTooltip.hidden = false;
+        window.requestAnimationFrame(function () { positionColumnHelp(button); });
+    }
+    document.querySelectorAll("button.column-help").forEach(function (button) {
+        button.addEventListener("click", function () {
+            if (activeColumnHelp === button && columnHelpPinned) closeColumnHelp();
+            else showColumnHelp(button, true);
+        });
+        button.addEventListener("mouseenter", function () { if (!columnHelpPinned) showColumnHelp(button, false); });
+        button.addEventListener("mouseleave", function () { if (!columnHelpPinned) closeColumnHelp(); });
+        button.addEventListener("focus", function () { if (!columnHelpPinned) showColumnHelp(button, false); });
+        button.addEventListener("blur", function () { if (!columnHelpPinned) closeColumnHelp(); });
+    });
+    document.addEventListener("click", function (event) { if (!event.target.closest("button.column-help") && activeColumnHelp) closeColumnHelp(); });
+    document.addEventListener("keydown", function (event) { if (event.key === "Escape" && activeColumnHelp) { var button = activeColumnHelp; closeColumnHelp(); button.focus(); } });
+    window.addEventListener("resize", closeColumnHelp);
+    document.addEventListener("scroll", closeColumnHelp, true);
     function short(value) { value = String(value || ""); return value.length > 22 ? value.slice(0, 12) + "…" + value.slice(-8) : (value || "—"); }
     function statusBadge(cell, status) {
         var badge = document.createElement("strong");
@@ -288,9 +333,8 @@
             var endpointSource = document.createElement("small"); endpointSource.textContent = advertised.availability === "current" ? "Signed endpoint advertisement · " + String(advertised.transport || "unknown").toUpperCase() + " · not a reachability check" : "Signed endpoint advertisement unavailable"; endpoint.appendChild(endpointSource);
             var descriptor = row.insertCell(); descriptor.dataset.label = "Service period"; descriptor.textContent = statusLogic.servicePeriod(node);
             var registration = document.createElement("small"); registration.className = "epose-registration"; registration.textContent = statusLogic.registration(node).label; descriptor.appendChild(registration);
-            var protocol = row.insertCell(); protocol.dataset.label = "Qualification · Epoch " + node.qualification_epoch; statusBadge(protocol, statusLogic.currentQualification(node, info, snapshots));
-            var payoutEpoch = statusLogic.nonNegativeInteger(info && info.current_epoch);
-            var rewardSource = row.insertCell(); rewardSource.dataset.label = payoutEpoch === null ? "Reward eligibility · based on Epoch " + node.source_qualification_epoch : "Reward eligibility · Epoch " + payoutEpoch + ", based on Epoch " + node.source_qualification_epoch; statusBadge(rewardSource, statusLogic.rewardQualification(node, snapshots));
+            var protocol = row.insertCell(); protocol.dataset.label = "Qualification"; statusBadge(protocol, statusLogic.currentQualification(node, info, snapshots));
+            var rewardSource = row.insertCell(); rewardSource.dataset.label = "Reward eligibility"; statusBadge(rewardSource, statusLogic.rewardQualification(node, snapshots));
             var identity = row.insertCell(); identity.dataset.label = "Technical identity";
             var serviceVersion = Number(advertised.service_version); var descriptorVersion = Number(advertised.descriptor_version);
             var version = document.createElement("small"); version.className = "epose-identity-version"; version.textContent = Number.isSafeInteger(serviceVersion) && serviceVersion > 0 ? "EPoSe service protocol v" + serviceVersion : "Service protocol version unavailable"; identity.appendChild(version);
@@ -316,12 +360,11 @@
         text("epose-status", hadFailure ? "Partial EPoSe data" : incoherent ? "EPoSe snapshot mismatch" : "EPoSe data loaded"); var eposeStatus = byId("epose-status"); eposeStatus.classList.toggle("warning", hadFailure || incoherent); eposeStatus.classList.toggle("ok", !hadFailure && !incoherent);
         if (infoResult.status === "fulfilled") {
             var qualification = statusLogic.qualificationContext(info);
-            var currentEpoch = statusLogic.nonNegativeInteger(info.current_epoch);
             var qualifiedCount = statusLogic.nonNegativeInteger(info.qualified_count);
             var epochStart = statusLogic.nonNegativeInteger(info.epoch_start_height);
             var epochEnd = statusLogic.nonNegativeInteger(info.epoch_end_height);
             var observerTip = statusLogic.nonNegativeInteger(info.observer_tip_height);
-            text("epose-qualification-label", currentEpoch === null ? "Qualification" : "Qualification · Epoch " + currentEpoch);
+            text("epose-qualification-label", "Qualification");
             if (snapshots.current !== true || (qualification.phase === "closed" && snapshots.currentFinal !== true)) {
                 text("epose-qualified", "Unavailable"); text("epose-qualification-close", "Qualification snapshots are inconsistent");
             } else if (qualification.phase === "pending") {
@@ -361,18 +404,13 @@
             var tbody = byId("epose-service-node-rows"); tbody.textContent = ""; var row = tbody.insertRow(); var cell = row.insertCell(); cell.colSpan = 5; cell.textContent = nodesResult.reason.message;
         }
         if (rewardsResult.status === "fulfilled") {
-            var payoutEpoch = statusLogic.nonNegativeInteger(info && info.current_epoch);
             var sourceEpoch = statusLogic.nonNegativeInteger(rewards.epoch);
             var rewardQualifiedCount = statusLogic.nonNegativeInteger(rewards.qualified_count);
-            text("epose-reward-label", sourceEpoch === null ? "Reward eligibility" : payoutEpoch === null ? "Reward eligibility · based on Epoch " + sourceEpoch : "Reward eligibility · Epoch " + payoutEpoch + ", based on Epoch " + sourceEpoch);
-            text("epose-reward-column", sourceEpoch === null ? "Reward eligibility" : payoutEpoch === null ? "Reward eligibility · based on Epoch " + sourceEpoch : "Reward eligibility · Epoch " + payoutEpoch + ", based on Epoch " + sourceEpoch);
+            text("epose-reward-label", "Reward eligibility");
             text("epose-reward-qualified", snapshots.rewards !== true || sourceEpoch === null || rewardQualifiedCount === null ? "Unavailable" : rewardQualifiedCount + " qualified");
-            text("epose-reward-preview", rewards.preview_available === true ? "Available" : "Preview not exposed by Core");
         } else {
             text("epose-reward-label", "Reward eligibility"); text("epose-reward-qualified", "Unavailable");
-            text("epose-reward-preview", "Unavailable");
         }
-        if (info && statusLogic.nonNegativeInteger(info.current_epoch) !== null) text("epose-qualification-column", "Qualification · Epoch " + info.current_epoch);
     }).catch(function () { text("epose-status", "Refresh failed; data may be stale"); delay = Math.min(delay * 2, 120000); }).finally(function () { if (!document.hidden) timer = setTimeout(refresh, delay); }); }
     document.addEventListener("visibilitychange", function () { if (document.hidden) { clearTimeout(timer); controllers.forEach(function (controller) { controller.abort(); }); } else { refresh(); } });
     refresh();

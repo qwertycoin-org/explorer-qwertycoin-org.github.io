@@ -20,6 +20,8 @@ function anchor(blockCount, hashCharacter = "a") {
 (async () => {
     const deploy = await import(pathToFileURL(path.resolve(
         __dirname, "../deploy/github-actions/deploy.mjs")));
+    const integrationDeploy = await import(pathToFileURL(path.resolve(
+        __dirname, "../deploy/github-actions/integration-deploy.mjs")));
 
     assert.deepEqual(deploy.parseTargets([
         "deploy@canary.invalid",
@@ -41,6 +43,13 @@ function anchor(blockCount, hashCharacter = "a") {
         "deploy@one.invalid", "deploy@two.invalid",
         "deploy@three.invalid", "deploy@four.invalid;touch /tmp/bad"
     ].join("\n")));
+    assert.equal(integrationDeploy.parseIntegrationTarget("deploy@integration.invalid"),
+        "deploy@integration.invalid");
+    assert.throws(() => integrationDeploy.parseIntegrationTarget(""));
+    assert.throws(() => integrationDeploy.parseIntegrationTarget(
+        "deploy@integration.invalid\ndeploy@production.invalid"));
+    assert.throws(() => integrationDeploy.parseIntegrationTarget(
+        "deploy@integration.invalid;touch /tmp/bad"));
 
     const info = anchor(2880);
     info.data.current_epoch = 4;
@@ -51,6 +60,7 @@ function anchor(blockCount, hashCharacter = "a") {
     rewards.data.height = 2880;
     rewards.data.epoch = 3;
     assert.equal(deploy.sameSnapshot(info, nodes, rewards), true);
+    assert.equal(integrationDeploy.sameSnapshot(info, nodes, rewards), true);
     assert.equal(deploy.sameSnapshot(info, anchor(2879), rewards), false);
     const reorged = anchor(2880, "b");
     reorged.data.current_epoch = 4;
@@ -65,7 +75,10 @@ function anchor(blockCount, hashCharacter = "a") {
         "deploy/github-actions/configure-ssh.mjs",
         "deploy/github-actions/cleanup-ssh.mjs",
         "deploy/github-actions/deploy.mjs",
-        "deploy/github-actions/remote-gate.sh"
+        "deploy/github-actions/remote-gate.sh",
+        ".github/workflows/integration.yml",
+        "deploy/github-actions/integration-deploy.mjs",
+        "deploy/github-actions/integration-remote-gate.sh"
     ].map((name) => fs.readFileSync(path.resolve(__dirname, "..", name), "utf8"))
         .join("\n");
     const literalAddresses = publicFiles.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [];
@@ -87,12 +100,28 @@ function anchor(blockCount, hashCharacter = "a") {
         .join("\n");
     assert.doesNotMatch(nonActionLines, /\b[a-z_][a-z0-9_-]*@[a-z0-9.-]+\b/i);
 
+    const integrationWorkflow = fs.readFileSync(path.resolve(
+        __dirname, "../.github/workflows/integration.yml"), "utf8");
+    assert.match(integrationWorkflow, /branches: \[integration\]/);
+    assert.match(integrationWorkflow, /environment: integration/);
+    assert.match(integrationWorkflow, /secrets\.QWC_INTEGRATION_DEPLOY_TARGET/);
+    assert.match(integrationWorkflow, /vars\.QWC_INTEGRATION_PUBLIC_ORIGIN/);
+    assert.doesNotMatch(integrationWorkflow, /refs\/heads\/master/);
+
     const remoteGate = fs.readFileSync(path.resolve(
         __dirname, "../deploy/github-actions/remote-gate.sh"), "utf8");
     assert.match(remoteGate, /docker network disconnect/,
         "the stopped rollback container must release its static address");
     assert.match(remoteGate, /docker network connect --ip/,
         "a failed rollout must restore the previous network endpoint");
+
+    const integrationGate = fs.readFileSync(path.resolve(
+        __dirname, "../deploy/github-actions/integration-remote-gate.sh"), "utf8");
+    assert.match(integrationGate, /role_value='integration-explorer'/);
+    assert.match(integrationGate, /org\.qwertycoin\.role=\$\{role_value\}/);
+    assert.match(integrationGate, /INTEGRATION_DERIVED_VOLUME/);
+    assert.doesNotMatch(integrationGate, /docker (?:stop|rename).*production/,
+        "the integration gate must never mutate the production container");
 
     console.log("Deployment automation tests passed");
 })().catch((error) => {

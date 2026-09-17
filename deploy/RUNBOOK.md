@@ -3,6 +3,23 @@
 This explorer is a read-only observer. It must never change consensus settings,
 wallet data, service identities, or blockchain storage.
 
+## Integration branch
+
+Pushes to the protected `integration` branch are built by GitHub Actions and
+published to GHCR with both an immutable `integration-sha-<commit>` tag and the
+moving `integration` tag. The deployment job uses only the protected
+`integration` environment. Its SSH key is restricted on the target to
+`integration-remote-gate.sh`, which can load an image and replace only the
+container labelled `org.qwertycoin.role=integration-explorer`.
+
+The target inventory, pinned SSH host key, private deploy key, public origin,
+host port, Docker volume names, and production-container lookup remain outside
+the public repository. Integration reuses the node's chain volume read-only,
+but has its own writable derived-data volume, active-container state, resource
+limits, and rollback container. Promotion to production still requires a
+separate reviewed merge to `master`; integration never calls the production
+deployment gate.
+
 ## Release pair and build
 
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin

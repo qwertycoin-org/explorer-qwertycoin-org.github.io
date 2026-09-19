@@ -56,14 +56,14 @@ rollout() {
   [[ $(docker inspect "${current}" | jq -r \
     '[.[0].HostConfig.SecurityOpt[]? | select(. == "no-new-privileges:true")] | length') == 1 ]] || fail
 
-  local current_image current_revision current_core_revision
+  local current_image current_revision
   current_image=$(docker inspect "${current}" --format '{{.Image}}') || fail
   current_revision=$(docker image inspect "${current_image}" \
     --format '{{index .Config.Labels "org.opencontainers.image.revision"}}') || fail
-  current_core_revision=$(docker image inspect "${current_image}" \
-    --format '{{index .Config.Labels "org.qwertycoin.core.revision"}}') || fail
   valid_sha "${current_revision}" || fail
-  [[ ${current_core_revision} == "${core_revision}" ]] || fail
+  # A reviewed Core-pin candidate must be deployable while the healthy
+  # rollback container still uses the previous pin. The candidate image is
+  # commit- and Core-bound above and again by the GitHub-side digest gate.
 
   if [[ ${current_revision} == "${explorer_sha}" ]]; then
     printf 'ALREADY_CURRENT\n'

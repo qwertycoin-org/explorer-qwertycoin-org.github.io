@@ -24,7 +24,7 @@ deployment gate.
 
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin
    core SHA. The current compatibility candidate is
-   `af759410f63fd9ba7dd7ac890365f3f9962841e8`.
+   `54308d8473dc5606d054c0ba428cfb2d64e758c1`.
 2. Resolve the deployment architecture and the matching immutable Ubuntu image
    digest. Copy `BUILD.env.example` outside the repository, fill the immutable
    values, and do not put credentials in it. The Dockerfile carries the same

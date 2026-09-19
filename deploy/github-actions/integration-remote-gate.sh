@@ -5,7 +5,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 umask 077
 
-readonly expected_core_sha='af759410f63fd9ba7dd7ac890365f3f9962841e8'
+readonly expected_core_sha='54308d8473dc5606d054c0ba428cfb2d64e758c1'
 readonly role_value='integration-explorer'
 readonly role_label="org.qwertycoin.role=${role_value}"
 readonly production_role_value='public-explorer'

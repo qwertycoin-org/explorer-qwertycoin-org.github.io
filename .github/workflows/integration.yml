@@ -74,13 +74,13 @@ jobs:
           sbom: true
           build-args: |
             UBUNTU_IMAGE=ubuntu:22.04@sha256:79676deb51ebb02885b0b9d33788e78a37cf1045ad79d1bb04c6a222c3556b3d
-            QWC_COMMIT=af759410f63fd9ba7dd7ac890365f3f9962841e8
+            QWC_COMMIT=54308d8473dc5606d054c0ba428cfb2d64e758c1
             EXPLORER_SOURCE_SHA=${{ github.sha }}
             EXPLORER_SOURCE_DATE=ci
             EXPLORER_SOURCE_BRANCH=integration
             NPROC=2
-          cache-from: type=gha,scope=qwc-core-af759410f
-          cache-to: type=gha,mode=max,scope=qwc-core-af759410f
+          cache-from: type=gha,scope=qwc-core-54308d847
+          cache-to: type=gha,mode=max,scope=qwc-core-54308d847
       - name: Attest the published image
         uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
         with:

@@ -122,6 +122,10 @@ function anchor(blockCount, hashCharacter = "a") {
     assert.match(integrationGate, /INTEGRATION_DERIVED_VOLUME/);
     assert.doesNotMatch(integrationGate, /docker (?:stop|rename).*production/,
         "the integration gate must never mutate the production container");
+    assert.doesNotMatch(integrationGate, /production_core/,
+        "a Core-pin candidate must be testable before production uses that pin");
+    assert.equal((integrationGate.match(/== "\$\{expected_core_sha\}"/g) || []).length, 1,
+        "only the integration candidate may be required to use the new Core pin");
 
     console.log("Deployment automation tests passed");
 })().catch((error) => {

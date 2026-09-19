@@ -93,6 +93,10 @@ function anchor(blockCount, hashCharacter = "a") {
         "the stopped rollback container must release its static address");
     assert.match(remoteGate, /docker network connect --ip/,
         "a failed rollout must restore the previous network endpoint");
+    assert.doesNotMatch(remoteGate, /current_core_revision/,
+        "a Core-pin candidate must be deployable before production uses that pin");
+    assert.match(remoteGate, /core_revision=\$\(docker image inspect/,
+        "the candidate image must still expose a validated Core revision");
 
     console.log("Deployment automation tests passed");
 })().catch((error) => {

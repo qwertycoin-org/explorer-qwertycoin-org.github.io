@@ -65,11 +65,12 @@ rollout() {
   [[ $(docker inspect "${production}" --format '{{.State.Health.Status}}') == healthy ]] || fail
   [[ $(docker inspect "${production}" --format '{{index .Config.Labels "org.qwertycoin.role"}}') == "${production_role_value}" ]] || fail
 
-  local production_image production_core network_name chain_volume
-  production_image=$(docker inspect "${production}" --format '{{.Image}}') || fail
-  production_core=$(docker image inspect "${production_image}" \
-    --format '{{index .Config.Labels "org.qwertycoin.core.revision"}}') || fail
-  [[ ${production_core} == "${expected_core_sha}" ]] || fail
+  local network_name chain_volume
+  # The production Explorer is intentionally still on the previous reviewed
+  # Core pin while a new pin is proved in integration. Requiring both images
+  # to match here makes every Core-pin roll-forward impossible. The candidate
+  # image itself is pinned and verified above; production only supplies a
+  # healthy read-only chain mount and must never be mutated by this gate.
   network_name=$(docker inspect "${production}" | jq -er '
     .[0].NetworkSettings.Networks | keys | select(length == 1) | .[0]') || fail
   chain_volume=$(docker inspect "${production}" | jq -er --arg dst "${chain_destination}" '

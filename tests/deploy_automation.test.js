@@ -106,6 +106,7 @@ function anchor(blockCount, hashCharacter = "a") {
     assert.match(integrationWorkflow, /environment: integration/);
     assert.match(integrationWorkflow, /secrets\.QWC_INTEGRATION_DEPLOY_TARGET/);
     assert.match(integrationWorkflow, /vars\.QWC_INTEGRATION_PUBLIC_ORIGIN/);
+    assert.match(integrationWorkflow, /QWC_COMMIT=82cf8703c895663cbe69347188448b5f00f7a0e8/);
     assert.doesNotMatch(integrationWorkflow, /refs\/heads\/master/);
 
     const remoteGate = fs.readFileSync(path.resolve(
@@ -126,6 +127,12 @@ function anchor(blockCount, hashCharacter = "a") {
         "a Core-pin candidate must be testable before production uses that pin");
     assert.equal((integrationGate.match(/== "\$\{expected_core_sha\}"/g) || []).length, 1,
         "only the integration candidate may be required to use the new Core pin");
+
+    const integrationDeploySource = fs.readFileSync(path.resolve(
+        __dirname, "../deploy/github-actions/integration-deploy.mjs"), "utf8");
+    assert.match(integrationDeploySource, /82cf8703c895663cbe69347188448b5f00f7a0e8/);
+    assert.match(integrationDeploySource, /\/api\/v1\/wallet-rpc\/json_rpc/);
+    assert.match(integrationDeploySource, /public integration wallet gateway reports an incompatible daemon/i);
 
     console.log("Deployment automation tests passed");
 })().catch((error) => {

@@ -4,7 +4,7 @@ import path from "node:path";
 import {spawn, spawnSync} from "node:child_process";
 import {pathToFileURL} from "node:url";
 
-const EXPECTED_CORE_SHA = "54308d8473dc5606d054c0ba428cfb2d64e758c1";
+const EXPECTED_CORE_SHA = "82cf8703c895663cbe69347188448b5f00f7a0e8";
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const TARGET_PATTERN = /^[a-z_][a-z0-9_-]*@[a-z0-9.-]+$/i;
@@ -92,6 +92,28 @@ async function getJson(origin, route) {
     return await response.json();
 }
 
+async function verifyWalletGateway(origin) {
+    const response = await fetch(new URL("/api/v1/wallet-rpc/json_rpc", origin), {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+            origin: "https://feature-qms-messenger-web.qwertycoin-web-wallet.pages.dev"
+        },
+        body: JSON.stringify({jsonrpc: "2.0", id: "integration-gate", method: "get_info"}),
+        signal: AbortSignal.timeout(20_000)
+    });
+    if (!response.ok
+            || response.headers.get("access-control-allow-origin")
+                !== "https://feature-qms-messenger-web.qwertycoin-web-wallet.pages.dev") {
+        throw new Error("The public integration wallet gateway is unavailable");
+    }
+    const payload = await response.json();
+    if (payload?.result?.status !== "OK" || !Number.isSafeInteger(payload.result.height)
+            || payload.result.height <= 0 || payload.result.testnet || payload.result.stagenet) {
+        throw new Error("The public integration wallet gateway reports an incompatible daemon");
+    }
+}
+
 async function verifyPublic(origin, explorerSha) {
     const parsedOrigin = new URL(origin);
     if (parsedOrigin.protocol !== "https:" || parsedOrigin.username
@@ -116,6 +138,8 @@ async function verifyPublic(origin, explorerSha) {
         if (!coherent) await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
     if (!coherent) throw new Error("The public integration EPoSe snapshot is incoherent");
+
+    await verifyWalletGateway(parsedOrigin);
 
     for (const route of ["/", "/epochs", "/service-nodes", "/blocks", "/blocks/1"]) {
         const response = await fetch(new URL(route, parsedOrigin), {

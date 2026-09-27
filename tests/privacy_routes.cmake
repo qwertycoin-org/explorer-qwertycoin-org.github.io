@@ -376,6 +376,7 @@ foreach(REQUIRED_RPC_EDGE_TEXT
         "location ~ ^/(?:qwc-rpc|api/v1/wallet-rpc)/"
         "~^/(?:qwc-rpc|api/v1/wallet-rpc)/(?:send_raw_transaction|submit_raw_tx|sendrawtransaction)$"
         "proxy_pass http://qwertycoin_wallet_rpc_backend"
+        "qwertycoin-web-wallet\\.pages\\.dev$ $http_origin"
         "limit_req zone=qwc_wallet_reads"
         "limit_req zone=qwc_wallet_submits"
         "location = /ha/readyz"

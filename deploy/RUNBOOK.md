@@ -163,19 +163,20 @@ loopback or an authenticated operator tunnel.
 Verify `/healthz`, `/readyz`, the edge aggregate `/ha/readyz`, `/api/v1/version`, chain identity, overview, block,
 transaction, POST search, mempool, service nodes, epochs, both themes, keyboard
 navigation, 360/390/768/1440 layouts, retired secret routes, and absence of an
-unrestricted RPC proxy. The `/qwc-rpc/` compatibility adapter must forward only
-the explicit wallet path and parsed JSON-RPC method allowlists to the verified
-restricted daemon listener. Unknown paths and methods, batch requests,
+unrestricted RPC proxy. The `/qwc-rpc/` compatibility adapter and versioned
+`/api/v1/wallet-rpc/` route must forward only the explicit wallet path and
+parsed JSON-RPC method allowlists to the verified restricted daemon listener.
+Unknown paths and methods, batch requests,
 notifications, malformed envelopes and unsupported HTTP methods must be rejected
 before daemon work. Verify the deployed web wallet can call `get_info`, fetch
 binary sync data, and receive a daemon-level rejection for a deliberately
 malformed transaction without logging any request body.
 The public Nginx edge owns wallet-RPC preflight handling. Verify an `OPTIONS`
-request returns the exact requesting origin for `https://wallet.qwertycoin.org`
-and valid HTTPS `*.pages.dev` previews, while an unrelated origin receives no
-`Access-Control-Allow-Origin` header. Verify a normal allowed `POST` still
-carries exactly one such header. Never replace this allowlist with a wildcard
-or unconditional origin reflection.
+request on **both route prefixes** returns the exact requesting origin for
+`https://wallet.qwertycoin.org` and valid HTTPS `*.pages.dev` previews, while
+an unrelated origin receives no `Access-Control-Allow-Origin` header. Verify a
+normal allowed `POST` still carries exactly one such header on each prefix.
+Never replace this allowlist with a wildcard or unconditional origin reflection.
 Observe two refresh intervals and a real block when available.
 Restart only the paired daemon, wait for its restricted RPC to become healthy,
 and prove that both gateway and frontend return to ready without either

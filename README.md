@@ -96,10 +96,12 @@ Core's `--rpc-ban-exempt-address`; the frontend address is not exempt.
 
 The nginx file is a mergeable reference, not a replacement for the real TLS
 vhost. Preserve the existing certificate workflow and explicitly retire legacy
-secret routes. The `/qwc-rpc/` compatibility adapter terminates at the explorer's
-parser-based method/path policy before reaching the verified restricted daemon
-listener. Its upstream is independent from the frontend upstream so a frontend
-rollback does not disable wallet sync or reopen the historical generic proxy.
+secret routes. The `/qwc-rpc/` compatibility adapter and versioned
+`/api/v1/wallet-rpc/` route terminate at the explorer's parser-based method/path
+policy before reaching the verified restricted daemon listener. Their shared
+edge location keeps preflight, limits and upstream behavior identical. Its
+upstream is independent from the frontend upstream so a frontend rollback does
+not disable wallet sync or reopen the historical generic proxy.
 The edge applies separate per-client read and transaction-submission limits.
 `/ha/readyz` composes the wallet gateway's functional mainnet `get_info` probe
 with the frontend's observer identity, LMDB anchor, and supply readiness so an

@@ -106,7 +106,7 @@ function anchor(blockCount, hashCharacter = "a") {
     assert.match(integrationWorkflow, /environment: integration/);
     assert.match(integrationWorkflow, /secrets\.QWC_INTEGRATION_DEPLOY_TARGET/);
     assert.match(integrationWorkflow, /vars\.QWC_INTEGRATION_PUBLIC_ORIGIN/);
-    assert.match(integrationWorkflow, /QWC_COMMIT=54308d8473dc5606d054c0ba428cfb2d64e758c1/);
+    assert.match(integrationWorkflow, /QWC_COMMIT=a71c0eb2c5b5675f9664fde5738e9cd9ba2e1eac/);
     assert.doesNotMatch(integrationWorkflow, /refs\/heads\/master/);
 
     const remoteGate = fs.readFileSync(path.resolve(
@@ -115,6 +115,10 @@ function anchor(blockCount, hashCharacter = "a") {
         "the stopped rollback container must release its static address");
     assert.match(remoteGate, /docker network connect --ip/,
         "a failed rollout must restore the previous network endpoint");
+    assert.doesNotMatch(remoteGate, /current_core_revision/,
+        "a Core-pin candidate must be deployable before production uses that pin");
+    assert.match(remoteGate, /core_revision=\$\(docker image inspect/,
+        "the candidate image must still expose a validated Core revision");
 
     const integrationGate = fs.readFileSync(path.resolve(
         __dirname, "../deploy/github-actions/integration-remote-gate.sh"), "utf8");
@@ -130,7 +134,7 @@ function anchor(blockCount, hashCharacter = "a") {
 
     const integrationDeploySource = fs.readFileSync(path.resolve(
         __dirname, "../deploy/github-actions/integration-deploy.mjs"), "utf8");
-    assert.match(integrationDeploySource, /54308d8473dc5606d054c0ba428cfb2d64e758c1/);
+    assert.match(integrationDeploySource, /a71c0eb2c5b5675f9664fde5738e9cd9ba2e1eac/);
     assert.match(integrationDeploySource, /\/api\/v1\/wallet-rpc\/json_rpc/);
     assert.match(integrationDeploySource, /public integration wallet gateway reports an incompatible daemon/i);
 

@@ -7,7 +7,7 @@ wallet data, service identities, or blockchain storage.
 
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin
    core SHA. The current compatibility candidate is
-   `54308d8473dc5606d054c0ba428cfb2d64e758c1`.
+   `a71c0eb2c5b5675f9664fde5738e9cd9ba2e1eac`.
 2. Resolve the deployment architecture and the matching immutable Ubuntu image
    digest. Copy `BUILD.env.example` outside the repository, fill the immutable
    values, and do not put credentials in it. The Dockerfile carries the same

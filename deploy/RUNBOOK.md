@@ -156,7 +156,8 @@ binary sync data, and receive a daemon-level rejection for a deliberately
 malformed transaction without logging any request body.
 The public Nginx edge owns wallet-RPC preflight handling. Verify an `OPTIONS`
 request on **both route prefixes** returns the exact requesting origin for
-`https://wallet.qwertycoin.org` and valid HTTPS `*.pages.dev` previews, while
+`https://wallet.qwertycoin.org`, `https://qwertycoin-web-wallet.pages.dev`, and
+its single-label HTTPS deployment previews, while
 an unrelated origin receives no `Access-Control-Allow-Origin` header. Verify a
 normal allowed `POST` still carries exactly one such header on each prefix.
 Never replace this allowlist with a wildcard or unconditional origin reflection.

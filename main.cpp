@@ -572,8 +572,7 @@ main(int ac, const char* av[])
         return myxmr::htmlresponse(xmrblocks.search(remove_bad_chars(value_it->second)));
     });
 
-    CROW_ROUTE(app, "/qwc-rpc/<path>").methods("POST"_method, "OPTIONS"_method)
-    ([&](const crow::request& req, string requested_path) {
+    const auto wallet_rpc_handler = [&](const crow::request& req, string requested_path) {
         crow::response response;
         const string origin = req.get_header_value("Origin");
         if (origin == "https://wallet.qwertycoin.org"
@@ -657,7 +656,15 @@ main(int ac, const char* av[])
                                                     : "application/json");
         response.body = std::move(upstream.body);
         return response;
-    });
+    };
+
+    // Preserve the compatibility alias and expose the same restricted,
+    // allowlisted wallet RPC gateway through a stable versioned route.
+    CROW_ROUTE(app, "/qwc-rpc/<path>").methods("POST"_method, "OPTIONS"_method)
+    (wallet_rpc_handler);
+
+    CROW_ROUTE(app, "/api/v1/wallet-rpc/<path>").methods("POST"_method, "OPTIONS"_method)
+    (wallet_rpc_handler);
 
     CROW_ROUTE(app, "/mempool")
     ([&]() {

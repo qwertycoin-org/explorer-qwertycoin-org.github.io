@@ -417,6 +417,8 @@ endforeach()
 
 foreach(REQUIRED_RPC_RECOVERY_TEXT
         "Restricted wallet RPC probe is unavailable or incompatible"
+        "CROW_ROUTE(app, \"/api/v1/wallet-rpc/<path>\")"
+        "const auto wallet_rpc_handler"
         "invoke_with_reconnect")
     string(FIND "${MAIN_SOURCE}${RPC_CALLS_HEADER}" "${REQUIRED_RPC_RECOVERY_TEXT}" FOUND_AT)
     if(FOUND_AT EQUAL -1)

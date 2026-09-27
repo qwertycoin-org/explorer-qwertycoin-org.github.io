@@ -373,7 +373,8 @@ foreach(REQUIRED_RPC_EDGE_TEXT
         "restricted daemon listener"
         "location = /qwc-rpc"
         "location = /api/v1/wallet-rpc"
-        "location ~ ^/(?:qwc-rpc|api/v1/wallet-rpc)/"
+        "location /qwc-rpc/"
+        "location /api/v1/wallet-rpc/"
         "~^/(?:qwc-rpc|api/v1/wallet-rpc)/(?:send_raw_transaction|submit_raw_tx|sendrawtransaction)$"
         "proxy_pass http://qwertycoin_wallet_rpc_backend"
         "qwertycoin-web-wallet\\.pages\\.dev$ $http_origin"
@@ -395,6 +396,40 @@ foreach(REQUIRED_RPC_EDGE_TEXT
         message(FATAL_ERROR "Restricted wallet RPC edge contract is missing: ${REQUIRED_RPC_EDGE_TEXT}")
     endif()
 endforeach()
+
+string(FIND "${NGINX_SOURCE}" "location /qwc-rpc/ {" QWC_RPC_LOCATION_START)
+string(FIND "${NGINX_SOURCE}" "location /api/v1/wallet-rpc/ {" VERSIONED_RPC_LOCATION_START)
+string(FIND "${NGINX_SOURCE}" "location ~ ^/(healthz|readyz)$" HEALTH_LOCATION_START)
+if(QWC_RPC_LOCATION_START EQUAL -1 OR VERSIONED_RPC_LOCATION_START EQUAL -1
+        OR HEALTH_LOCATION_START EQUAL -1
+        OR NOT QWC_RPC_LOCATION_START LESS VERSIONED_RPC_LOCATION_START
+        OR NOT VERSIONED_RPC_LOCATION_START LESS HEALTH_LOCATION_START)
+    message(FATAL_ERROR "Wallet RPC edge locations are missing or out of order")
+endif()
+
+math(EXPR QWC_RPC_LOCATION_LENGTH
+    "${VERSIONED_RPC_LOCATION_START} - ${QWC_RPC_LOCATION_START}")
+string(SUBSTRING "${NGINX_SOURCE}" "${QWC_RPC_LOCATION_START}"
+    "${QWC_RPC_LOCATION_LENGTH}" QWC_RPC_LOCATION_BLOCK)
+string(FIND "${QWC_RPC_LOCATION_BLOCK}"
+    "proxy_pass http://qwertycoin_wallet_rpc_backend;" QWC_RPC_UPSTREAM)
+string(FIND "${QWC_RPC_LOCATION_BLOCK}"
+    "proxy_pass http://qwertycoin_explorer_backend;" QWC_RPC_WRONG_UPSTREAM)
+if(QWC_RPC_UPSTREAM EQUAL -1 OR NOT QWC_RPC_WRONG_UPSTREAM EQUAL -1)
+    message(FATAL_ERROR "Compatibility wallet RPC route uses the wrong upstream")
+endif()
+
+math(EXPR VERSIONED_RPC_LOCATION_LENGTH
+    "${HEALTH_LOCATION_START} - ${VERSIONED_RPC_LOCATION_START}")
+string(SUBSTRING "${NGINX_SOURCE}" "${VERSIONED_RPC_LOCATION_START}"
+    "${VERSIONED_RPC_LOCATION_LENGTH}" VERSIONED_RPC_LOCATION_BLOCK)
+string(FIND "${VERSIONED_RPC_LOCATION_BLOCK}"
+    "proxy_pass http://qwertycoin_explorer_backend;" VERSIONED_RPC_UPSTREAM)
+string(FIND "${VERSIONED_RPC_LOCATION_BLOCK}"
+    "proxy_pass http://qwertycoin_wallet_rpc_backend;" VERSIONED_RPC_WRONG_UPSTREAM)
+if(VERSIONED_RPC_UPSTREAM EQUAL -1 OR NOT VERSIONED_RPC_WRONG_UPSTREAM EQUAL -1)
+    message(FATAL_ERROR "Versioned wallet RPC route uses the wrong upstream")
+endif()
 
 foreach(FORBIDDEN_RPC_CORS_TEXT
         "Access-Control-Allow-Origin \"*\""

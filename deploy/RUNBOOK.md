@@ -149,6 +149,9 @@ navigation, 360/390/768/1440 layouts, retired secret routes, and absence of an
 unrestricted RPC proxy. The `/qwc-rpc/` compatibility adapter and versioned
 `/api/v1/wallet-rpc/` route must forward only the explicit wallet path and
 parsed JSON-RPC method allowlists to the verified restricted daemon listener.
+The compatibility route must retain the dedicated wallet-gateway upstream and
+the versioned route must retain the Explorer application upstream; do not
+collapse the two locations even though their edge policies are identical.
 Unknown paths and methods, batch requests,
 notifications, malformed envelopes and unsupported HTTP methods must be rejected
 before daemon work. Verify the deployed web wallet can call `get_info`, fetch

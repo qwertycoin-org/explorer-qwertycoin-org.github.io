@@ -69,11 +69,13 @@ spendable supply. Consumers must inspect `availability`, `complete`,
 `indexed_through_height`, `tip_height`, `tip_hash`, `genesis_hash`,
 `calculation_version` and `chain_reset_id` before presenting it as current.
 
-The compatibility namespace `/qwc-rpc/` is separate from `/api/v1`. The
-application parses JSON-RPC envelopes and accepts only the wallet path and
-method allowlists in `wallet_rpc_policy.h`; batches, notifications, malformed
-envelopes, unknown methods and unknown paths are rejected before the restricted
-daemon is contacted. Request bodies are not access-logged.
+The wallet gateway is available through versioned
+`/api/v1/wallet-rpc/<path>` and the retained `/qwc-rpc/<path>` compatibility
+alias. Both prefixes share one edge and application handler. The application
+parses JSON-RPC envelopes and accepts only the wallet path and method allowlists
+in `wallet_rpc_policy.h`; batches, notifications, malformed envelopes, unknown
+methods and unknown paths are rejected before the restricted daemon is
+contacted. Request bodies are not access-logged.
 
 `/readyz` requires a live mainnet `get_info` response through the restricted
 wallet RPC transport in addition to compatible observer identity and complete

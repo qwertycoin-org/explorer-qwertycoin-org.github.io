@@ -371,8 +371,12 @@ endif()
 
 foreach(REQUIRED_RPC_EDGE_TEXT
         "restricted daemon listener"
-        "location /qwc-rpc/"
+        "location = /qwc-rpc"
+        "location = /api/v1/wallet-rpc"
+        "location ~ ^/(?:qwc-rpc|api/v1/wallet-rpc)/"
+        "~^/(?:qwc-rpc|api/v1/wallet-rpc)/(?:send_raw_transaction|submit_raw_tx|sendrawtransaction)$"
         "proxy_pass http://qwertycoin_wallet_rpc_backend"
+        "qwertycoin-web-wallet\\.pages\\.dev$ $http_origin"
         "limit_req zone=qwc_wallet_reads"
         "limit_req zone=qwc_wallet_submits"
         "location = /ha/readyz"
@@ -429,6 +433,11 @@ endforeach()
 string(FIND "${NGINX_SOURCE}" "location ^~ /qwc-rpc/" GENERIC_RPC_BLOCK)
 if(NOT GENERIC_RPC_BLOCK EQUAL -1)
     message(FATAL_ERROR "The wallet RPC path was replaced by a generic prefix handler")
+endif()
+
+string(FIND "${NGINX_SOURCE}" "location ^~ /api/v1/wallet-rpc/" GENERIC_VERSIONED_RPC_BLOCK)
+if(NOT GENERIC_VERSIONED_RPC_BLOCK EQUAL -1)
+    message(FATAL_ERROR "The versioned wallet RPC path was replaced by a generic prefix handler")
 endif()
 
 foreach(REQUIRED_TEXT

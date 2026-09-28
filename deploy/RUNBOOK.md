@@ -46,7 +46,8 @@ the protected GitHub `production` environment:
 - secret `QWC_DEPLOY_SSH_PRIVATE_KEY`: dedicated deployment-only private key;
 - secret `QWC_DEPLOY_SSH_KNOWN_HOSTS`: independently verified, hashed SSH host
   key inventory;
-- secret `QWC_DEPLOY_TARGETS`: four ordered `user@host` lines, canary first;
+- secret `QWC_DEPLOY_TARGETS`: exactly one `user@host` line for the sole public
+  production target;
 - variable `QWC_EXPLORER_PUBLIC_ORIGIN`: the public HTTPS Explorer origin.
 
 Protect `master` before adding those secrets. Require a pull request and both
@@ -62,7 +63,8 @@ points to that absolute path. The gate accepts only an image stream or a
 chain mount, derived-data volume, private network/IP and loopback port; refuses
 a Core revision change; validates readiness, source identity and the common
 EPoSe snapshot; and atomically retains the previous stopped container for
-rollback. The secret target order provides the sequential rolling deployment.
+rollback. The protected inventory deliberately limits production deployment to
+that one target.
 
 The workflow log identifies targets only by ordinal. Keep the GHCR package
 private unless public distribution is explicitly intended; the job-scoped

@@ -140,88 +140,71 @@
         </p>
     {{/show_part_of_inputs}}
 
-    <div class="center">
-       <table class="center">
+    <div class="tx-input-list">
       {{#inputs}}
-        <tr>
-          <td style="text-align: left;">
-              key image  {{input_idx}}: {{in_key_img}}
-              {{#have_raw_tx}}
-               Already spent:
-                {{#already_spent}}
-                    <span style="color: red; font-weight: bold;">True</span>
-                {{/already_spent}}
-              {{^already_spent}}
-                False
-              {{/already_spent}}
+        <article class="tx-input-card">
+          <dl class="tx-input-summary">
+            <div class="tx-input-key-image">
+              <dt>Key image {{input_idx}}</dt>
+              <dd><code>{{in_key_img}}</code></dd>
+            </div>
+            <div>
+              <dt>Amount</dt>
+              <dd>{{amount}}</dd>
+            </div>
+            {{#have_raw_tx}}
+            <div>
+              <dt>Already spent</dt>
+              <dd>
+                {{#already_spent}}<strong class="danger-text">True</strong>{{/already_spent}}
+                {{^already_spent}}False{{/already_spent}}
+              </dd>
+            </div>
+            {{/have_raw_tx}}
+          </dl>
 
-              {{/have_raw_tx}}
-          </td>
-          <td>amount: {{amount}}</td>
-       </tr>
-          <tr>
-            <td colspan="2">
-                {{#enable_mixins_details}}
-                    <table style="width:100%; margin-bottom:20px">
-                    <tr>
-                      <td>ring members</td>
-                      {{#have_raw_tx}}
-                        <td>Is it real?</td>
-                      {{/have_raw_tx}}
-                      <td>blk</td>
-                      <td>ring size</td>
-                      <td>in/out</td>
-                      <td>timestamp</td>
-                      <td>age [y:d:h:m:s]</td>
-
-                    </tr>
-                 {{#mixins}}
-                    <tr>
-                      <td> - {{mix_idx}}: <a href="/tx/{{mix_tx_hash}}">{{mix_pub_key}}</a></td>
-                      {{#have_raw_tx}}
-                        {{#mix_is_it_real}}
-                            <td><span style="color: #008009;font-weight: bold">{{mix_is_it_real}}</span></td>
-                        {{/mix_is_it_real}}
-                        {{^mix_is_it_real}}
-                            <td>{{mix_is_it_real}}</td>
-                        {{/mix_is_it_real}}
-                      {{/have_raw_tx}}
-                      <td>{{mix_blk}}</td>
-                      <td>{{mix_mixin_no}}</td>
-                      <td>{{mix_inputs_no}}/{{mix_outputs_no}}</td>
-                      <td>{{mix_timestamp}}</td>
-                      <td>{{mix_age}}</td>
-                    </tr>
-                 {{/mixins}}
-                 </table>
-                {{/enable_mixins_details}}
-                {{^enable_mixins_details}}
-                <table style="width:100%; margin-bottom:20px">
-                    <tr>
-                        <td>ring members</td>
-                        {{#have_raw_tx}}
-                            <td>Is it real?</td>
-                        {{/have_raw_tx}}
-                        <td>blk</td>
-                    </tr>
-                    {{#mixins}}
-                    <tr>
-                        <td> - {{mix_idx}}: {{mix_pub_key}}</td>
-                        {{#have_raw_tx}}
-                            {{#mix_is_it_real}}
-                                <td><span style="color: #008009;font-weight: bold">{{mix_is_it_real}}</span></td>
-                            {{/mix_is_it_real}}
-                            {{^mix_is_it_real}}
-                                <td>{{mix_is_it_real}}</td>
-                            {{/mix_is_it_real}}
-                        {{/have_raw_tx}}
-                        <td>{{mix_blk}}</td>
-                    </tr>
-                    {{/mixins}}
-                </table>
-                {{/enable_mixins_details}}
-           </td>
-         </tr>
+          <div class="table-wrap tx-ring-members-wrap">
+            <table class="responsive-table tx-ring-members-table">
+              <thead>
+                <tr>
+                  <th scope="col">Ring member</th>
+                  {{#have_raw_tx}}<th scope="col">Is it real?</th>{{/have_raw_tx}}
+                  <th scope="col">Block</th>
+                  {{#enable_mixins_details}}
+                  <th scope="col">Ring size</th>
+                  <th scope="col">In/out</th>
+                  <th scope="col">Timestamp</th>
+                  <th scope="col">Age [y:d:h:m:s]</th>
+                  {{/enable_mixins_details}}
+                </tr>
+              </thead>
+              <tbody>
+                {{#mixins}}
+                <tr>
+                  <td data-label="Ring member">
+                    <span class="ring-member-index">{{mix_idx}}:</span>
+                    {{#enable_mixins_details}}<a href="/tx/{{mix_tx_hash}}"><code>{{mix_pub_key}}</code></a>{{/enable_mixins_details}}
+                    {{^enable_mixins_details}}<code>{{mix_pub_key}}</code>{{/enable_mixins_details}}
+                  </td>
+                  {{#have_raw_tx}}
+                  <td data-label="Is it real?">
+                    {{#mix_is_it_real}}<strong class="success-text">{{mix_is_it_real}}</strong>{{/mix_is_it_real}}
+                    {{^mix_is_it_real}}{{mix_is_it_real}}{{/mix_is_it_real}}
+                  </td>
+                  {{/have_raw_tx}}
+                  <td data-label="Block">{{mix_blk}}</td>
+                  {{#enable_mixins_details}}
+                  <td data-label="Ring size">{{mix_mixin_no}}</td>
+                  <td data-label="In/out">{{mix_inputs_no}}/{{mix_outputs_no}}</td>
+                  <td data-label="Timestamp">{{mix_timestamp}}</td>
+                  <td data-label="Age">{{mix_age}}</td>
+                  {{/enable_mixins_details}}
+                </tr>
+                {{/mixins}}
+              </tbody>
+            </table>
+          </div>
+        </article>
 
 <!--
         {{#with_ring_signatures}}
@@ -245,10 +228,7 @@
 -->
 
       {{/inputs}}
-      </table>
-
-
-  </div>
+    </div>
 
 
  {{/has_inputs}}

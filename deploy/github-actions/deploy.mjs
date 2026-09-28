@@ -15,8 +15,8 @@ export function parseTargets(value) {
         .split(/\r?\n/)
         .map((entry) => entry.trim())
         .filter(Boolean);
-    if (targets.length !== 4 || new Set(targets).size !== targets.length) {
-        throw new Error("The production inventory must contain four unique targets");
+    if (targets.length !== 1) {
+        throw new Error("The production inventory must contain exactly one target");
     }
     if (!targets.every((target) => TARGET_PATTERN.test(target))) {
         throw new Error("The production inventory contains a malformed target");

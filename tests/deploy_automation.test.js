@@ -23,26 +23,15 @@ function anchor(blockCount, hashCharacter = "a") {
     const integrationDeploy = await import(pathToFileURL(path.resolve(
         __dirname, "../deploy/github-actions/integration-deploy.mjs")));
 
-    assert.deepEqual(deploy.parseTargets([
-        "deploy@canary.invalid",
-        "deploy@second.invalid",
-        "deploy@third.invalid",
-        "deploy@fourth.invalid"
-    ].join("\n")), [
-        "deploy@canary.invalid",
-        "deploy@second.invalid",
-        "deploy@third.invalid",
-        "deploy@fourth.invalid"
+    assert.deepEqual(deploy.parseTargets("deploy@production.invalid"), [
+        "deploy@production.invalid"
     ]);
-    assert.throws(() => deploy.parseTargets("deploy@only.invalid"));
+    assert.throws(() => deploy.parseTargets(""));
     assert.throws(() => deploy.parseTargets([
-        "deploy@same.invalid", "deploy@same.invalid",
-        "deploy@third.invalid", "deploy@fourth.invalid"
+        "deploy@first.invalid", "deploy@second.invalid"
     ].join("\n")));
-    assert.throws(() => deploy.parseTargets([
-        "deploy@one.invalid", "deploy@two.invalid",
-        "deploy@three.invalid", "deploy@four.invalid;touch /tmp/bad"
-    ].join("\n")));
+    assert.throws(() => deploy.parseTargets(
+        "deploy@production.invalid;touch /tmp/bad"));
     assert.equal(integrationDeploy.parseIntegrationTarget("deploy@integration.invalid"),
         "deploy@integration.invalid");
     assert.throws(() => integrationDeploy.parseIntegrationTarget(""));

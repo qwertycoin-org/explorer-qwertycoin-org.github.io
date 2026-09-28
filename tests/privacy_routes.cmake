@@ -185,6 +185,32 @@ if(NOT HIDDEN_BLOCK_HASH EQUAL -1)
     message(FATAL_ERROR "Mobile block hash must not be hidden by column position")
 endif()
 
+foreach(REQUIRED_TX_INPUT_TEXT
+        "class=\"tx-input-list\""
+        "class=\"tx-input-card\""
+        "class=\"responsive-table tx-ring-members-table\""
+        "data-label=\"Ring member\""
+        "data-label=\"Block\"")
+    string(FIND "${TX_TEMPLATE}" "${REQUIRED_TX_INPUT_TEXT}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Responsive transaction-input contract is missing: ${REQUIRED_TX_INPUT_TEXT}")
+    endif()
+endforeach()
+foreach(REQUIRED_TX_INPUT_STYLE
+        ".tx-input-list { display: grid; min-width: 0;"
+        ".tx-input-card { min-width: 0;"
+        ".tx-ring-members-wrap { max-width: 100%; }"
+        ".tx-ring-members-table :is(td, code, a) { min-width: 0; overflow-wrap: anywhere;")
+    string(FIND "${STYLE_SOURCE}" "${REQUIRED_TX_INPUT_STYLE}" FOUND_AT)
+    if(FOUND_AT EQUAL -1)
+        message(FATAL_ERROR "Responsive transaction-input style is missing: ${REQUIRED_TX_INPUT_STYLE}")
+    endif()
+endforeach()
+string(FIND "${TX_TEMPLATE}" "<div class=\"center\">\n       <table class=\"center\">" LEGACY_TX_INPUT_TABLE)
+if(NOT LEGACY_TX_INPUT_TABLE EQUAL -1)
+    message(FATAL_ERROR "Legacy nested transaction-input tables must not control the mobile viewport")
+endif()
+
 foreach(REQUIRED_ASSET
         "src/templates/assets/qwertycoin-mark.svg"
         "src/templates/assets/favicon.svg"

@@ -200,6 +200,58 @@
                 + " · expires at start of Epoch " + expiryEpoch;
     }
 
+    function compareText(lhs, rhs) {
+        lhs = String(lhs || "").toLowerCase();
+        rhs = String(rhs || "").toLowerCase();
+        if (lhs < rhs) return -1;
+        if (lhs > rhs) return 1;
+        return 0;
+    }
+
+    function endpointSortKey(node) {
+        var advertised = node && node.advertised_endpoint;
+        if (advertised && advertised.availability === "current"
+                && typeof advertised.authority === "string"
+                && advertised.authority.trim() !== "") {
+            return advertised.authority.trim();
+        }
+        return "\uffff";
+    }
+
+    function qualificationSortRank(qualification) {
+        if (qualification && qualification.key === "qualified") return 0;
+        if (qualification && (qualification.key === "not_qualified"
+                || qualification.key === "not_participating")) return 2;
+        return 1;
+    }
+
+    function serviceNodeSortQualification(node, info, snapshots) {
+        // Reward eligibility is the most recent finalized qualification result
+        // visible in the table while the current epoch is still pending.
+        if (snapshots && snapshots.rewards === true) {
+            return rewardQualification(node, snapshots);
+        }
+        return currentQualification(node, info, snapshots);
+    }
+
+    function sortServiceNodes(serviceNodes, info, snapshots) {
+        if (!Array.isArray(serviceNodes)) return [];
+        return serviceNodes.slice().sort(function (lhs, rhs) {
+            var lhsRank = qualificationSortRank(
+                    serviceNodeSortQualification(lhs, info, snapshots));
+            var rhsRank = qualificationSortRank(
+                    serviceNodeSortQualification(rhs, info, snapshots));
+            if (lhsRank !== rhsRank) return lhsRank - rhsRank;
+
+            var endpointOrder = compareText(endpointSortKey(lhs), endpointSortKey(rhs));
+            if (endpointOrder !== 0) return endpointOrder;
+
+            return compareText(
+                    lhs && (lhs.identity_id || lhs.service_public_key),
+                    rhs && (rhs.identity_id || rhs.service_public_key));
+        });
+    }
+
     return Object.freeze({
         protocolParameters: PROTOCOL_PARAMETERS,
         nonNegativeInteger: integer,
@@ -209,6 +261,7 @@
         currentQualification: currentQualification,
         rewardQualification: rewardQualification,
         registration: registration,
-        servicePeriod: servicePeriod
+        servicePeriod: servicePeriod,
+        sortServiceNodes: sortServiceNodes
     });
 }));

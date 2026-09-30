@@ -319,7 +319,7 @@
     function renderNodes(payload, info, snapshots) {
         var tbody = byId("epose-service-node-rows");
         if (!Array.isArray(payload.service_nodes)) throw new Error("Malformed service-node list");
-        var nodes = payload.service_nodes;
+        var nodes = statusLogic.sortServiceNodes(payload.service_nodes, info, snapshots);
         if (tbody.contains(document.activeElement)) return;
         tbody.textContent = "";
         if (!nodes.length) {

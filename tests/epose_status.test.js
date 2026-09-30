@@ -187,4 +187,39 @@ assert.equal(status.currentQualification(node(), info(), {
     current: true, currentFinal: true, currentEpoch: 3
 }).detail, "Qualification has not been finalized");
 
+const sortable = [
+    node({
+        identity_id: "not-qualified",
+        advertised_endpoint: {availability: "current", authority: "zeta.example:8198"}
+    }),
+    node({
+        identity_id: "qualified-zeta",
+        qualified_for_current_epoch: true,
+        advertised_endpoint: {availability: "current", authority: "zeta.example:8198"}
+    }),
+    node({
+        identity_id: "unavailable",
+        qualified_for_current_epoch: null,
+        advertised_endpoint: {availability: "current", authority: "middle.example:8198"}
+    }),
+    node({
+        identity_id: "qualified-alpha",
+        qualified_for_current_epoch: true,
+        advertised_endpoint: {availability: "current", authority: "Alpha.example:8198"}
+    })
+];
+const sorted = status.sortServiceNodes(sortable, closedInfo, coherentAtClose);
+assert.deepEqual(sorted.map((item) => item.identity_id), [
+    "qualified-alpha", "qualified-zeta", "unavailable", "not-qualified"
+]);
+assert.deepEqual(sortable.map((item) => item.identity_id), [
+    "not-qualified", "qualified-zeta", "unavailable", "qualified-alpha"
+], "sorting must not mutate the API response");
+
+const pendingSorted = status.sortServiceNodes([
+    node({identity_id: "beta", advertised_endpoint: {availability: "current", authority: "beta.example:8198"}}),
+    node({identity_id: "alpha", advertised_endpoint: {availability: "current", authority: "alpha.example:8198"}})
+], info(), coherent);
+assert.deepEqual(pendingSorted.map((item) => item.identity_id), ["alpha", "beta"]);
+
 console.log("EPoSe presentation-state tests passed");

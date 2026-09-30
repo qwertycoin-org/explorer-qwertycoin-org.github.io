@@ -194,24 +194,24 @@ const sortable = [
     }),
     node({
         identity_id: "qualified-zeta",
-        qualified_for_current_epoch: true,
+        qualified_for_source_epoch: true,
         advertised_endpoint: {availability: "current", authority: "zeta.example:8198"}
     }),
     node({
         identity_id: "unavailable",
-        qualified_for_current_epoch: null,
+        source_qualification_availability: "unavailable",
         advertised_endpoint: {availability: "current", authority: "middle.example:8198"}
     }),
     node({
         identity_id: "qualified-alpha",
-        qualified_for_current_epoch: true,
+        qualified_for_source_epoch: true,
         advertised_endpoint: {availability: "current", authority: "Alpha.example:8198"}
     })
 ];
-const sorted = status.sortServiceNodes(sortable, closedInfo, coherentAtClose);
+const sorted = status.sortServiceNodes(sortable, info(), coherent);
 assert.deepEqual(sorted.map((item) => item.identity_id), [
     "qualified-alpha", "qualified-zeta", "unavailable", "not-qualified"
-]);
+], "finalized reward eligibility must lead while current qualification is pending");
 assert.deepEqual(sortable.map((item) => item.identity_id), [
     "not-qualified", "qualified-zeta", "unavailable", "qualified-alpha"
 ], "sorting must not mutate the API response");
@@ -221,5 +221,14 @@ const pendingSorted = status.sortServiceNodes([
     node({identity_id: "alpha", advertised_endpoint: {availability: "current", authority: "alpha.example:8198"}})
 ], info(), coherent);
 assert.deepEqual(pendingSorted.map((item) => item.identity_id), ["alpha", "beta"]);
+
+const currentQualificationFallback = status.sortServiceNodes([
+    node({identity_id: "not-qualified", advertised_endpoint: {availability: "current", authority: "alpha.example:8198"}}),
+    node({identity_id: "qualified", qualified_for_current_epoch: true,
+        advertised_endpoint: {availability: "current", authority: "zeta.example:8198"}})
+], closedInfo, Object.assign({}, coherentAtClose, {rewards: false, sourceEpoch: null}));
+assert.deepEqual(currentQualificationFallback.map((item) => item.identity_id), [
+    "qualified", "not-qualified"
+], "current qualification must remain the fallback when reward evidence is unavailable");
 
 console.log("EPoSe presentation-state tests passed");

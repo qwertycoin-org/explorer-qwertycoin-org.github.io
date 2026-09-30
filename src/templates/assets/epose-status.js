@@ -225,11 +225,22 @@
         return 1;
     }
 
+    function serviceNodeSortQualification(node, info, snapshots) {
+        // Reward eligibility is the most recent finalized qualification result
+        // visible in the table while the current epoch is still pending.
+        if (snapshots && snapshots.rewards === true) {
+            return rewardQualification(node, snapshots);
+        }
+        return currentQualification(node, info, snapshots);
+    }
+
     function sortServiceNodes(serviceNodes, info, snapshots) {
         if (!Array.isArray(serviceNodes)) return [];
         return serviceNodes.slice().sort(function (lhs, rhs) {
-            var lhsRank = qualificationSortRank(currentQualification(lhs, info, snapshots));
-            var rhsRank = qualificationSortRank(currentQualification(rhs, info, snapshots));
+            var lhsRank = qualificationSortRank(
+                    serviceNodeSortQualification(lhs, info, snapshots));
+            var rhsRank = qualificationSortRank(
+                    serviceNodeSortQualification(rhs, info, snapshots));
             if (lhsRank !== rhsRank) return lhsRank - rhsRank;
 
             var endpointOrder = compareText(endpointSortKey(lhs), endpointSortKey(rhs));

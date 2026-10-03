@@ -170,7 +170,7 @@ rollout() {
     --cap-drop ALL \
     --security-opt no-new-privileges:true \
     --pids-limit 256 \
-    --memory 1536m \
+    --memory 2g \
     --cpus 1.5 \
     --log-driver json-file \
     --log-opt max-size=10m \

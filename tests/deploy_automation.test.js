@@ -95,7 +95,7 @@ function anchor(blockCount, hashCharacter = "a") {
     assert.match(integrationWorkflow, /environment: integration/);
     assert.match(integrationWorkflow, /secrets\.QWC_INTEGRATION_DEPLOY_TARGET/);
     assert.match(integrationWorkflow, /vars\.QWC_INTEGRATION_PUBLIC_ORIGIN/);
-    assert.match(integrationWorkflow, /QWC_COMMIT=a71c0eb2c5b5675f9664fde5738e9cd9ba2e1eac/);
+    assert.match(integrationWorkflow, /QWC_COMMIT=766839bb49475200977f6302b60c01e34d66e253/);
     assert.doesNotMatch(integrationWorkflow, /refs\/heads\/master/);
 
     const remoteGate = fs.readFileSync(path.resolve(
@@ -123,7 +123,7 @@ function anchor(blockCount, hashCharacter = "a") {
 
     const integrationDeploySource = fs.readFileSync(path.resolve(
         __dirname, "../deploy/github-actions/integration-deploy.mjs"), "utf8");
-    assert.match(integrationDeploySource, /a71c0eb2c5b5675f9664fde5738e9cd9ba2e1eac/);
+    assert.match(integrationDeploySource, /766839bb49475200977f6302b60c01e34d66e253/);
     assert.match(integrationDeploySource, /\/api\/v1\/wallet-rpc\/json_rpc/);
     assert.match(integrationDeploySource, /public integration wallet gateway reports an incompatible daemon/i);
 

@@ -117,6 +117,7 @@ async function verifyPublic(origin, explorerSha) {
     }
 
     let coherent = false;
+    let serviceNodes = null;
     for (let attempt = 0; attempt < 10 && !coherent; ++attempt) {
         const [info, nodes, rewards] = await Promise.all([
             getJson(parsedOrigin, "/api/v1/epose"),
@@ -124,9 +125,19 @@ async function verifyPublic(origin, explorerSha) {
             getJson(parsedOrigin, "/api/v1/epose/rewards")
         ]);
         coherent = sameSnapshot(info, nodes, rewards);
+        serviceNodes = nodes;
         if (!coherent) await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
     if (!coherent) throw new Error("The public EPoSe snapshot is incoherent");
+    const telemetryAvailability = new Set([
+        "reported", "not_reported", "endpoint_unavailable", "unreachable",
+        "rejected", "not_checked_capacity"
+    ]);
+    if (!Array.isArray(serviceNodes?.data?.service_nodes)
+            || !serviceNodes.data.service_nodes.every((node) =>
+                telemetryAvailability.has(node?.node_telemetry?.availability))) {
+        throw new Error("The public service-node telemetry contract is missing");
+    }
 
     const pages = ["/", "/epochs", "/service-nodes", "/blocks", "/blocks/1"];
     const bodies = [];
@@ -139,6 +150,7 @@ async function verifyPublic(origin, explorerSha) {
     }
     for (const body of bodies.slice(0, 3)) {
         if (!body.includes("Qualification") || !body.includes("Reward eligibility")
+                || !body.includes("Node telemetry")
                 || body.includes("qualified: no")) {
             throw new Error("The public qualification UI is stale");
         }

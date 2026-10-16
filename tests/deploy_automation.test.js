@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { spawnSync } = require("node:child_process");
 
 function anchor(blockCount, hashCharacter = "a") {
     return {
@@ -86,6 +87,31 @@ function anchor(blockCount, hashCharacter = "a") {
         "a Core-pin candidate must be deployable before production uses that pin");
     assert.match(remoteGate, /core_revision=\$\(docker image inspect/,
         "the candidate image must still expose a validated Core revision");
+
+    const gatePath = path.resolve(__dirname, "../deploy/github-actions/remote-gate.sh");
+    for (const [memory, swap, accepted] of [
+        ["2147483648", "4294967296", true],
+        ["2952790016", "4294967296", true],
+        ["2952790016", "2952790016", true],
+        ["0", "4294967296", false],
+        ["2952790016", "0", false],
+        ["2952790016", "-1", false],
+        ["2952790016", "2147483648", false],
+        ["02952790016", "4294967296", false],
+        ["9223372036854775808", "9223372036854775808", false],
+        ["1+1", "4294967296", false],
+        ["", "4294967296", false]
+    ]) {
+        const check = spawnSync("bash", ["-c",
+            'source "$1"; valid_memory_limits "$2" "$3"',
+            "memory-limit-test", gatePath, memory, swap]);
+        assert.equal(check.status, accepted ? 0 : 1,
+            `memory/swap limits ${memory}/${swap} must ${accepted ? "pass" : "fail closed"}`);
+    }
+    assert.match(remoteGate, /--memory "\$\{memory_limit\}"/);
+    assert.match(remoteGate, /--memory-swap "\$\{memory_swap_limit\}"/);
+    assert.doesNotMatch(remoteGate, /--memory 2g/,
+        "a deployment must not silently replace the active memory budget");
 
     console.log("Deployment automation tests passed");
 })().catch((error) => {

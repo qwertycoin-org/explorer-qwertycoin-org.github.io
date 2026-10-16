@@ -20,6 +20,12 @@ valid_sha() {
   [[ $1 =~ ^[0-9a-f]{40}$ ]]
 }
 
+valid_memory_limits() {
+  # Require finite byte limits; bound decimal length before shell arithmetic.
+  [[ $1 =~ ^[1-9][0-9]{0,17}$ && $2 =~ ^[1-9][0-9]{0,17}$ ]] \
+    && (( $2 >= $1 ))
+}
+
 load_image() {
   docker load --quiet >/dev/null 2>&1 || fail
   printf 'IMAGE_OK\n'
@@ -55,6 +61,11 @@ rollout() {
     '[.[0].HostConfig.CapDrop[]? | select(. == "ALL")] | length') == 1 ]] || fail
   [[ $(docker inspect "${current}" | jq -r \
     '[.[0].HostConfig.SecurityOpt[]? | select(. == "no-new-privileges:true")] | length') == 1 ]] || fail
+
+  local memory_limit memory_swap_limit
+  memory_limit=$(docker inspect "${current}" --format '{{.HostConfig.Memory}}') || fail
+  memory_swap_limit=$(docker inspect "${current}" --format '{{.HostConfig.MemorySwap}}') || fail
+  valid_memory_limits "${memory_limit}" "${memory_swap_limit}" || fail
 
   local current_image current_revision
   current_image=$(docker inspect "${current}" --format '{{.Image}}') || fail
@@ -139,7 +150,8 @@ rollout() {
     --cap-drop ALL \
     --security-opt no-new-privileges:true \
     --pids-limit 256 \
-    --memory 2g \
+    --memory "${memory_limit}" \
+    --memory-swap "${memory_swap_limit}" \
     --cpus 2 \
     --log-driver json-file \
     --log-opt max-size=10m \
@@ -180,6 +192,8 @@ rollout() {
   [[ $(docker inspect "${new_name}" --format '{{.State.Health.Status}}') == healthy ]]
   [[ $(docker inspect "${new_name}" --format '{{.Image}}') == "${image_id}" ]]
   [[ $(docker inspect "${new_name}" --format '{{.RestartCount}}') == 0 ]]
+  [[ $(docker inspect "${new_name}" --format '{{.HostConfig.Memory}}') == "${memory_limit}" ]]
+  [[ $(docker inspect "${new_name}" --format '{{.HostConfig.MemorySwap}}') == "${memory_swap_limit}" ]]
 
   local version info nodes rewards snapshot_ok=0
   version=$(curl --fail --silent --show-error --max-time 10 \
@@ -252,4 +266,6 @@ main() {
   esac
 }
 
-main "$@"
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi

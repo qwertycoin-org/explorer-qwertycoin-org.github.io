@@ -66,6 +66,13 @@ EPoSe snapshot; and atomically retains the previous stopped container for
 rollback. The protected inventory deliberately limits production deployment to
 that one target.
 
+The gate preserves the healthy active container's explicit finite memory and
+memory-plus-swap byte limits, validates them before stopping anything, and
+checks both limits on the replacement. It never silently resets an operator's
+reviewed memory budget to a fixed default. Recheck host capacity before changing
+that budget: replaying a longer canonical chain can require more memory than
+the previously running observer needed at its original startup height.
+
 The workflow log identifies targets only by ordinal. Keep the GHCR package
 private unless public distribution is explicitly intended; the job-scoped
 `GITHUB_TOKEN` publishes and reads the package without installing registry

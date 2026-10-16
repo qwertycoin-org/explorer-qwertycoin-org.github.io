@@ -15,6 +15,7 @@ set(SOURCE_FILES
 		CmdLineOptions.cpp
 		page.h
 		rpccalls.cpp rpccalls.h
+		epose_telemetry.cpp epose_telemetry.h
 		version.h.in
         MempoolStatus.cpp
         MempoolStatus.h

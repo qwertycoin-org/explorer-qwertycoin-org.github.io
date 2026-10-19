@@ -4,7 +4,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-const EXPECTED_CORE_SHA = "766839bb49475200977f6302b60c01e34d66e253";
+const EXPECTED_CORE_SHA = "254796c3aa6f48e91f4c5680eb27af017316ae5c";
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const TARGET_PATTERN = /^[a-z_][a-z0-9_-]*@[a-z0-9.-]+$/i;

@@ -76,7 +76,7 @@ rollout() {
   # rollback container still uses the previous pin. The candidate image is
   # commit- and Core-bound above and again by the GitHub-side digest gate.
 
-  if [[ ${current_revision} == "${explorer_sha}" ]]; then
+  if [[ ${current_revision} == "${explorer_sha}" && ${current_image} == "${image_id}" ]]; then
     printf 'ALREADY_CURRENT\n'
     return
   fi
@@ -101,7 +101,7 @@ rollout() {
   mapfile -t explorer_cmd < <(docker inspect "${current}" | jq -er '.[0].Config.Cmd[]') || fail
   ((${#explorer_cmd[@]} > 0)) || fail
 
-  local new_name="qwertycoin-explorer-${explorer_sha:0:12}"
+  local new_name="qwertycoin-explorer-${explorer_sha:0:12}-core-${core_revision:0:9}"
   local stamp rollback_name failed_name
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   rollback_name="${current}-rollback-${stamp}"

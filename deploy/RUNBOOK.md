@@ -26,7 +26,7 @@ historical-state memory use or providing sufficient capacity.
 
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin
    core SHA. The current compatibility candidate is
-   `766839bb49475200977f6302b60c01e34d66e253`.
+   `254796c3aa6f48e91f4c5680eb27af017316ae5c`.
 2. Resolve the deployment architecture and the matching immutable Ubuntu image
    digest. Copy `BUILD.env.example` outside the repository, fill the immutable
    values, and do not put credentials in it. The Dockerfile carries the same
@@ -294,3 +294,20 @@ is ready. Rebuild only explorer-derived indexes/caches, then revalidate genesis,
 network and parameter identity, tip context, EPoSE capability, links, and the
 mainnet-v2 launch notice. A same-genesis reset also requires a new local deployment
 generation so derived data cannot leak across deployment generations.
+
+
+### Operational PR-228 Core-pin rollout (2026-10-19)
+
+The pinned Core source is the reviewed PR-228 candidate, not an official stable
+2.0.5 tag. Server rollout does not merge Core/main or publish a client release.
+The private operator inventory excludes Pool dependencies and designated hosts;
+these remain on their accepted stable pins. Do not publish that inventory.
+
+The production Core-pin-only build preserves the application source separately
+from the embedded Core revision. An unchanged Explorer source SHA must not cause
+`ALREADY_CURRENT` when the immutable image differs. Candidate names include both
+source identifiers so a different embedded Core can retain the old rollback.
+The retired public Integration instance remains disabled: do not resurrect it
+implicitly. This explicitly authorized operational deployment uses isolated
+read-only-chain validation with exclusive derived state, then public production
+checks. Normal feature/promotion and final master merge remain owner-controlled.

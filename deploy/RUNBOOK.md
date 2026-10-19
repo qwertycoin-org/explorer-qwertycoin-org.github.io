@@ -3,6 +3,25 @@
 This explorer is a read-only observer. It must never change consensus settings,
 wallet data, service identities, or blockchain storage.
 
+## Process reaping and startup capacity
+
+Run the observer and wallet gateway with Docker `--init` (Compose `init: true`).
+Timed-out exec health checks can leave orphaned children; an application running
+as PID 1 does not necessarily reap them. A growing zombie count can exhaust the
+finite PID budget while simple HTML requests still succeed. Do not remove or
+raise that protection to hide the leak. Use direct-exec probes, or `exec curl`
+in a shell probe, with curl's 10-second deadline below Docker's 12-second limit.
+The startup grace period allows historical replay; passing readiness is still
+required before rollout acceptance, and PID reaping is verified after rollout.
+
+Recheck startup memory at the current chain height, not only the previous
+container's steady-state usage. The read-only embedded Core replays historical
+state before opening HTTP; a fixed old cap may cause a restart loop. Inspect
+host headroom and all co-located workloads before adjusting finite memory and
+memory-plus-swap limits. The deployment gate preserves validated active limits.
+Swap may buffer emergency recovery but is not a substitute for fixing growing
+historical-state memory use or providing sufficient capacity.
+
 ## Release pair and build
 
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin

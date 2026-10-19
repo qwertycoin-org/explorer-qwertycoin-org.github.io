@@ -113,6 +113,26 @@ function anchor(blockCount, hashCharacter = "a") {
     assert.doesNotMatch(remoteGate, /--memory 2g/,
         "a deployment must not silently replace the active memory budget");
 
+    assert.match(remoteGate, /--init\s*\\/,
+        "an init process must reap orphaned health-check children");
+    assert.match(remoteGate, /--health-cmd 'exec curl[^']*--max-time 10 /,
+        "the probe must replace its shell and terminate before Docker kills it");
+    assert.match(remoteGate, /--health-timeout 12s/);
+    assert.match(remoteGate, /HostConfig\.Init.*== true/,
+        "rollout acceptance must verify the reaper is active");
+    for (const name of ["docker-compose.production.yml", "docker-compose.preview.yml",
+        "docker-compose.node01.yml"]) {
+        const compose = fs.readFileSync(path.resolve(__dirname, "..", name), "utf8");
+        const services = compose.split(/^networks:|^volumes:/m)[0]
+            .split(/(?=^  qwertycoin-[\w-]+:$)/m).slice(1);
+        assert.ok(services.length > 0);
+        for (const service of services) {
+            assert.match(service, /    init: true/);
+            assert.match(service, /"--max-time", "10"/);
+            assert.match(service, /      timeout: 12s/);
+        }
+    }
+
     console.log("Deployment automation tests passed");
 })().catch((error) => {
     console.error(error.message);

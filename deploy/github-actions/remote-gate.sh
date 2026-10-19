@@ -144,6 +144,7 @@ rollout() {
     --label "${role_label}" \
     --label "org.qwertycoin.source.revision=${explorer_sha}" \
     --restart unless-stopped \
+    --init \
     --stop-timeout 30 \
     --read-only \
     --tmpfs /tmp:rw,nosuid,nodev,noexec,size=32m,mode=1777 \
@@ -156,11 +157,11 @@ rollout() {
     --log-driver json-file \
     --log-opt max-size=10m \
     --log-opt max-file=3 \
-    --health-cmd 'curl --fail --silent --show-error http://127.0.0.1:8081/readyz' \
+    --health-cmd 'exec curl --fail --silent --show-error --connect-timeout 2 --max-time 10 http://127.0.0.1:8081/readyz' \
     --health-interval 30s \
-    --health-timeout 5s \
+    --health-timeout 12s \
     --health-retries 3 \
-    --health-start-period 30s \
+    --health-start-period 600s \
     --user 101:101 \
     --network "${network_name}" \
     --ip "${explorer_ip}" \
@@ -192,6 +193,7 @@ rollout() {
   [[ $(docker inspect "${new_name}" --format '{{.State.Health.Status}}') == healthy ]]
   [[ $(docker inspect "${new_name}" --format '{{.Image}}') == "${image_id}" ]]
   [[ $(docker inspect "${new_name}" --format '{{.RestartCount}}') == 0 ]]
+  [[ $(docker inspect "${new_name}" --format '{{.HostConfig.Init}}') == true ]]
   [[ $(docker inspect "${new_name}" --format '{{.HostConfig.Memory}}') == "${memory_limit}" ]]
   [[ $(docker inspect "${new_name}" --format '{{.HostConfig.MemorySwap}}') == "${memory_swap_limit}" ]]
 

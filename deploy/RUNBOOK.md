@@ -3,11 +3,30 @@
 This explorer is a read-only observer. It must never change consensus settings,
 wallet data, service identities, or blockchain storage.
 
+## Process reaping and startup capacity
+
+Run the observer and wallet gateway with Docker `--init` (Compose `init: true`).
+Timed-out exec health checks can leave orphaned children; an application running
+as PID 1 does not necessarily reap them. A growing zombie count can exhaust the
+finite PID budget while simple HTML requests still succeed. Do not remove or
+raise that protection to hide the leak. Use direct-exec probes, or `exec curl`
+in a shell probe, with curl's 10-second deadline below Docker's 12-second limit.
+The startup grace period allows historical replay; passing readiness is still
+required before rollout acceptance, and PID reaping is verified after rollout.
+
+Recheck startup memory at the current chain height, not only the previous
+container's steady-state usage. The read-only embedded Core replays historical
+state before opening HTTP; a fixed old cap may cause a restart loop. Inspect
+host headroom and all co-located workloads before adjusting finite memory and
+memory-plus-swap limits. The deployment gate preserves validated active limits.
+Swap may buffer emergency recovery but is not a substitute for fixing growing
+historical-state memory use or providing sufficient capacity.
+
 ## Release pair and build
 
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin
    core SHA. The current compatibility candidate is
-   `766839bb49475200977f6302b60c01e34d66e253`.
+   `254796c3aa6f48e91f4c5680eb27af017316ae5c`.
 2. Resolve the deployment architecture and the matching immutable Ubuntu image
    digest. Copy `BUILD.env.example` outside the repository, fill the immutable
    values, and do not put credentials in it. The Dockerfile carries the same
@@ -65,6 +84,13 @@ a Core revision change; validates readiness, source identity and the common
 EPoSe snapshot; and atomically retains the previous stopped container for
 rollback. The protected inventory deliberately limits production deployment to
 that one target.
+
+The gate preserves the healthy active container's explicit finite memory and
+memory-plus-swap byte limits, validates them before stopping anything, and
+checks both limits on the replacement. It never silently resets an operator's
+reviewed memory budget to a fixed default. Recheck host capacity before changing
+that budget: replaying a longer canonical chain can require more memory than
+the previously running observer needed at its original startup height.
 
 The workflow log identifies targets only by ordinal. Keep the GHCR package
 private unless public distribution is explicitly intended; the job-scoped
@@ -268,3 +294,20 @@ is ready. Rebuild only explorer-derived indexes/caches, then revalidate genesis,
 network and parameter identity, tip context, EPoSE capability, links, and the
 mainnet-v2 launch notice. A same-genesis reset also requires a new local deployment
 generation so derived data cannot leak across deployment generations.
+
+
+### Operational PR-228 Core-pin rollout (2026-10-19)
+
+The pinned Core source is the reviewed PR-228 candidate, not an official stable
+2.0.5 tag. Server rollout does not merge Core/main or publish a client release.
+The private operator inventory excludes Pool dependencies and designated hosts;
+these remain on their accepted stable pins. Do not publish that inventory.
+
+The production Core-pin-only build preserves the application source separately
+from the embedded Core revision. An unchanged Explorer source SHA must not cause
+`ALREADY_CURRENT` when the immutable image differs. Candidate names include both
+source identifiers so a different embedded Core can retain the old rollback.
+The retired public Integration instance remains disabled: do not resurrect it
+implicitly. This explicitly authorized operational deployment uses isolated
+read-only-chain validation with exclusive derived state, then public production
+checks. Normal feature/promotion and final master merge remain owner-controlled.

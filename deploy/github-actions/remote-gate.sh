@@ -101,6 +101,13 @@ rollout() {
   mapfile -t explorer_cmd < <(docker inspect "${current}" | jq -er '.[0].Config.Cmd[]') || fail
   ((${#explorer_cmd[@]} > 0)) || fail
 
+  # Preserve verified per-container DNS overrides used by local endpoint probes.
+  local -a extra_host_args=()
+  local host_mapping
+  while IFS= read -r host_mapping; do
+    extra_host_args+=(--add-host "${host_mapping}")
+  done < <(docker inspect "${current}" | jq -r '.[0].HostConfig.ExtraHosts[]?')
+
   local new_name="qwertycoin-explorer-${explorer_sha:0:12}-core-${core_revision:0:9}"
   local stamp rollback_name failed_name
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
@@ -140,6 +147,7 @@ rollout() {
   old_disconnected=1
 
   docker run --detach \
+    "${extra_host_args[@]}" \
     --name "${new_name}" \
     --label "${role_label}" \
     --label "org.qwertycoin.source.revision=${explorer_sha}" \

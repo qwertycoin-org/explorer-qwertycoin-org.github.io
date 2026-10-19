@@ -3,22 +3,30 @@
 This explorer is a read-only observer. It must never change consensus settings,
 wallet data, service identities, or blockchain storage.
 
-## Integration branch
+## Process reaping and startup capacity
 
-Pushes to the protected `integration` branch are built by GitHub Actions and
-published to GHCR with both an immutable `integration-sha-<commit>` tag and the
-moving `integration` tag. The deployment job uses only the protected
-`integration` environment. Its SSH key is restricted on the target to
-`integration-remote-gate.sh`, which can load an image and replace only the
-container labelled `org.qwertycoin.role=integration-explorer`.
+Run the observer and wallet gateway with Docker `--init` (Compose `init: true`).
+Timed-out exec health checks can leave orphaned children; an application running
+as PID 1 does not necessarily reap them. A growing zombie count can exhaust the
+finite PID budget while simple HTML requests still succeed. Do not remove or
+raise that protection to hide the leak. Use direct-exec probes, or `exec curl`
+in a shell probe, with curl's 10-second deadline below Docker's 12-second limit.
+The startup grace period allows historical replay; passing readiness is still
+required before rollout acceptance, and PID reaping is verified after rollout.
 
-The target inventory, pinned SSH host key, private deploy key, public origin,
-host port, Docker volume names, and production-container lookup remain outside
-the public repository. Integration reuses the node's chain volume read-only,
-but has its own writable derived-data volume, active-container state, resource
-limits, and rollback container. Promotion to production still requires a
-separate reviewed merge to `master`; integration never calls the production
-deployment gate.
+Recheck startup memory at the current chain height, not only the previous
+container's steady-state usage. The read-only embedded Core replays historical
+state before opening HTTP; a fixed old cap may cause a restart loop. Inspect
+host headroom and all co-located workloads before adjusting finite memory and
+memory-plus-swap limits. The deployment gate preserves validated active limits.
+Swap may buffer emergency recovery but is not a substitute for fixing growing
+historical-state memory use or providing sufficient capacity.
+
+## Integration environment (retired)
+
+The former public Integration Explorer server is retired and has no deployment.
+Do not use its workflow or endpoint as a validation target. Validate Explorer
+changes against Production through the reviewed production release path.
 
 ## Release pair and build
 

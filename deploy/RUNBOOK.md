@@ -8,6 +8,11 @@ wallet data, service identities, or blockchain storage.
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin
    core SHA. The current compatibility candidate is
    `aebdc13cdd0b2c0ed32bfc95fc1f867bd6a562ca`.
+   The isolated Integration workflow must pin its `QWC_COMMIT` build argument
+   to that same reviewed core SHA and use a matching SHA-scoped build cache.
+   Verify the published image's source metadata and `/api/v1/version` before
+   treating the Integration deployment as compatible; the production PR must
+   remain a focused change based on the same reviewed feature branch.
 2. Resolve the deployment architecture and the matching immutable Ubuntu image
    digest. Copy `BUILD.env.example` outside the repository, fill the immutable
    values, and do not put credentials in it. The Dockerfile carries the same

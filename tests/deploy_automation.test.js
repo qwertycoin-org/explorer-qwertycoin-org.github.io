@@ -85,6 +85,10 @@ function anchor(blockCount, hashCharacter = "a") {
     assert.match(workflow, /secrets\.QWC_DEPLOY_SSH_KNOWN_HOSTS/);
     assert.match(workflow, /secrets\.QWC_DEPLOY_TARGETS/);
     assert.match(workflow, /needs\.supported-container-build\.outputs\.digest/);
+    const productionDeploy = fs.readFileSync(path.resolve(
+        __dirname, "../deploy/github-actions/deploy.mjs"), "utf8");
+    assert.match(productionDeploy,
+        /const EXPECTED_CORE_SHA = "aebdc13cdd0b2c0ed32bfc95fc1f867bd6a562ca"/);
     const nonActionLines = workflow.split("\n")
         .filter((line) => !/^\s*-?\s*uses:/.test(line))
         .join("\n");
@@ -109,6 +113,8 @@ function anchor(blockCount, hashCharacter = "a") {
         "a Core-pin candidate must be deployable before production uses that pin");
     assert.match(remoteGate, /core_revision=\$\(docker image inspect/,
         "the candidate image must still expose a validated Core revision");
+    assert.match(remoteGate, /current_revision\} == "\$\{explorer_sha\}" && \$\{current_image\} == "\$\{image_id\}/,
+        "the rollout must not skip a Core-only image change with unchanged Explorer source");
 
     const integrationGate = fs.readFileSync(path.resolve(
         __dirname, "../deploy/github-actions/integration-remote-gate.sh"), "utf8");

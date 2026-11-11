@@ -76,7 +76,7 @@ rollout() {
   # rollback container still uses the previous pin. The candidate image is
   # commit- and Core-bound above and again by the GitHub-side digest gate.
 
-  if [[ ${current_revision} == "${explorer_sha}" ]]; then
+  if [[ ${current_revision} == "${explorer_sha}" && ${current_image} == "${image_id}" ]]; then
     printf 'ALREADY_CURRENT\n'
     return
   fi

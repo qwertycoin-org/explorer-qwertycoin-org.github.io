@@ -94,15 +94,16 @@
     <div id="epose-column-tooltip" class="column-help-tooltip" role="tooltip" hidden></div>
     <div class="table-wrap">
         <table class="responsive-table epose-table">
-            <caption class="sr-only">Current EPoSe service-node registrations, qualification, reward eligibility, and technical identity.</caption>
+            <caption class="sr-only">Current EPoSe service-node registrations, self-reported node telemetry, qualification, reward eligibility, and technical identity.</caption>
             <thead><tr>
                 <th scope="col"><button type="button" class="column-help" data-help="Signed hostname or IP address and port from the endpoint descriptor validated by Core. This is an advertisement, not a reachability test." aria-controls="epose-column-tooltip" aria-expanded="false">Advertised endpoint <span class="column-help-mark" aria-hidden="true">?</span></button></th>
+                <th scope="col"><button type="button" class="column-help" data-help="The daemon version, height, hash, and synchronization flag are self-reported by the signed endpoint. The explorer independently compares the reported hash with its canonical block at the same height. This observation does not affect EPoSe qualification or rewards." aria-controls="epose-column-tooltip" aria-expanded="false">Node telemetry <span class="column-help-mark" aria-hidden="true">?</span></button></th>
                 <th scope="col"><button type="button" class="column-help" data-help="Descriptor sequence, active epochs, and the exclusive expiry epoch. A registration expiring at the start of Epoch 5 is active through Epoch 4." aria-controls="epose-column-tooltip" aria-expanded="false">Service period <span class="column-help-mark" aria-hidden="true">?</span></button></th>
                 <th scope="col"><button type="button" id="epose-qualification-column" class="column-help" data-help="Core-reported qualification status for the observed epoch. Pending means qualification has not been finalized." aria-controls="epose-column-tooltip" aria-expanded="false">Qualification <span class="column-help-mark" aria-hidden="true">?</span></button></th>
                 <th scope="col"><button type="button" id="epose-reward-column" class="column-help" data-help="Eligibility for service rewards in the observed payout epoch, based on finalized qualification from the prior source epoch." aria-controls="epose-column-tooltip" aria-expanded="false">Reward eligibility <span class="column-help-mark" aria-hidden="true">?</span></button></th>
                 <th scope="col"><button type="button" class="column-help" data-help="EPoSe protocol and descriptor versions, the persistent node ID, and the epoch-specific service verification key. These identifiers have different lifetimes and purposes." aria-controls="epose-column-tooltip" aria-expanded="false">Technical identity <span class="column-help-mark" aria-hidden="true">?</span></button></th>
             </tr></thead>
-            <tbody id="epose-service-node-rows"><tr><td colspan="5">Loading service-node data…</td></tr></tbody>
+            <tbody id="epose-service-node-rows"><tr><td colspan="6">Loading service-node data…</td></tr></tbody>
         </table>
     </div>
     <details class="advanced-details" id="epochs" {{#show_epoch_details}}open{{/show_epoch_details}}>
@@ -323,7 +324,7 @@
         if (tbody.contains(document.activeElement)) return;
         tbody.textContent = "";
         if (!nodes.length) {
-            var emptyRow = tbody.insertRow(); var emptyCell = emptyRow.insertCell(); emptyCell.colSpan = 5; emptyCell.textContent = "Successful empty set for current epoch " + payload.current_epoch + "."; return;
+            var emptyRow = tbody.insertRow(); var emptyCell = emptyRow.insertCell(); emptyCell.colSpan = 6; emptyCell.textContent = "Successful empty set for current epoch " + payload.current_epoch + "."; return;
         }
         nodes.forEach(function (node) {
             var row = tbody.insertRow();
@@ -331,6 +332,21 @@
             var endpoint = row.insertCell(); endpoint.dataset.label = "Advertised endpoint";
             var endpointName = document.createElement("strong"); endpointName.className = "epose-endpoint"; endpointName.textContent = advertised.availability === "current" ? advertised.authority : "Unavailable"; endpoint.appendChild(endpointName);
             var endpointSource = document.createElement("small"); endpointSource.textContent = advertised.availability === "current" ? "Signed endpoint advertisement · " + String(advertised.transport || "unknown").toUpperCase() + " · not a reachability check" : "Signed endpoint advertisement unavailable"; endpoint.appendChild(endpointSource);
+            var telemetry = node.node_telemetry || {}; var telemetryCell = row.insertCell(); telemetryCell.dataset.label = "Node telemetry";
+            if (telemetry.availability === "reported") {
+                var coreVersion = document.createElement("strong"); coreVersion.className = "epose-endpoint"; coreVersion.textContent = "Core " + String(telemetry.software_version || "version unavailable"); telemetryCell.appendChild(coreVersion);
+                var remoteTip = document.createElement("small"); remoteTip.textContent = "Tip " + String(telemetry.tip_height) + " · " + short(telemetry.tip_hash); telemetryCell.appendChild(remoteTip);
+                var chainStatus = telemetry.chain_status === "same_tip" ? {key: "qualified", label: "Same chain tip", detail: telemetry.self_reported_synchronized === true ? "Daemon reports synchronized" : "Daemon reports not synchronized"}
+                    : telemetry.chain_status === "canonical_behind" ? {key: "pending", label: "Canonical · " + String(telemetry.blocks_behind) + " blocks behind", detail: "Hash matches the explorer at the reported height"}
+                    : telemetry.chain_status === "ahead_unverified" ? {key: "pending", label: "Ahead of observer", detail: "Canonical status cannot yet be verified"}
+                    : telemetry.chain_status === "observer_unavailable" ? {key: "unavailable", label: "Observer comparison unavailable", detail: "The report was retained without a chain verdict"}
+                    : telemetry.chain_status === "hash_mismatch" ? {key: "not_qualified", label: "Hash mismatch", detail: "Reported tip is not canonical at that height"}
+                    : {key: "not_qualified", label: "Invalid telemetry report", detail: "The report did not pass validation"};
+                statusBadge(telemetryCell, chainStatus);
+            } else {
+                var unavailableLabels = {not_reported: "Version not reported", endpoint_unavailable: "Signed endpoint unavailable", unreachable: "Endpoint unreachable", rejected: "Telemetry rejected", not_checked_capacity: "Telemetry check deferred"};
+                statusBadge(telemetryCell, {key: "unavailable", label: unavailableLabels[telemetry.availability] || "Telemetry unavailable", detail: "No verified chain comparison"});
+            }
             var descriptor = row.insertCell(); descriptor.dataset.label = "Service period"; descriptor.textContent = statusLogic.servicePeriod(node);
             var registration = document.createElement("small"); registration.className = "epose-registration"; registration.textContent = statusLogic.registration(node).label; descriptor.appendChild(registration);
             var protocol = row.insertCell(); protocol.dataset.label = "Qualification"; statusBadge(protocol, statusLogic.currentQualification(node, info, snapshots));
@@ -398,10 +414,10 @@
             text("epose-node-count", returnedCount === null || totalCount === null ? "Unavailable" : "showing " + returnedCount + " of " + totalCount + (returnedCount < totalCount ? " (truncated)" : ""));
             var observed = Number(nodes.observed_at_unix);
             text("epose-observed-at", Number.isFinite(observed) && observed > 0 ? new Date(observed * 1000).toISOString() : "Unavailable");
-            try { renderNodes(nodes, info, snapshots); } catch (error) { text("epose-node-count", "Unavailable"); var failedBody = byId("epose-service-node-rows"); failedBody.textContent = ""; var failedRow = failedBody.insertRow(); var failedCell = failedRow.insertCell(); failedCell.colSpan = 5; failedCell.textContent = error.message; delay = Math.min(delay * 2, 120000); }
+            try { renderNodes(nodes, info, snapshots); } catch (error) { text("epose-node-count", "Unavailable"); var failedBody = byId("epose-service-node-rows"); failedBody.textContent = ""; var failedRow = failedBody.insertRow(); var failedCell = failedRow.insertCell(); failedCell.colSpan = 6; failedCell.textContent = error.message; delay = Math.min(delay * 2, 120000); }
         } else {
             text("epose-epoch", "Unavailable"); text("epose-node-count", "Unavailable"); text("epose-observed-at", "Unavailable");
-            var tbody = byId("epose-service-node-rows"); tbody.textContent = ""; var row = tbody.insertRow(); var cell = row.insertCell(); cell.colSpan = 5; cell.textContent = nodesResult.reason.message;
+            var tbody = byId("epose-service-node-rows"); tbody.textContent = ""; var row = tbody.insertRow(); var cell = row.insertCell(); cell.colSpan = 6; cell.textContent = nodesResult.reason.message;
         }
         if (rewardsResult.status === "fulfilled") {
             var sourceEpoch = statusLogic.nonNegativeInteger(rewards.epoch);

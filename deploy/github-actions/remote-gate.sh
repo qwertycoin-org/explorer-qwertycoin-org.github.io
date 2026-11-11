@@ -212,6 +212,11 @@ rollout() {
       and ($rewards.data.height == $info.data.snapshot_block_count)
       and ($nodes.data.current_epoch == $info.data.current_epoch)
       and ($nodes.data.source_epoch == $rewards.data.epoch)
+      and (($nodes.data.service_nodes | type) == "array")
+      and ([$nodes.data.service_nodes[].node_telemetry.availability]
+        | all(. == "reported" or . == "not_reported"
+          or . == "endpoint_unavailable" or . == "unreachable"
+          or . == "rejected" or . == "not_checked_capacity"))
       and ($rewards.data.epoch + 1 == $info.data.current_epoch)' >/dev/null; then
       snapshot_ok=1
       break

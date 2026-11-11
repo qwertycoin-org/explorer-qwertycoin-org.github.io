@@ -2,6 +2,7 @@
 #include "src/epose_endpoint_view.h"
 #include "src/epose_reward_view.h"
 #include "src/epose_snapshot.h"
+#include "src/epose_telemetry.h"
 #include "src/pagination.h"
 #include "src/hashrate.h"
 #include "src/supply_math.h"
@@ -120,6 +121,33 @@ int main()
     ok &= expect(xmreg::format_epose_endpoint_authority(
             "2001:db8::1", 8198, 2) == "[2001:db8::1]:8198",
             "IPv6 endpoint authority");
+    ok &= expect(xmreg::valid_epose_dns_name("seed-01.qwertycoin.org")
+            && !xmreg::valid_epose_dns_name("127.0.0.1")
+            && !xmreg::valid_epose_dns_name("metadata.internal/path"),
+            "telemetry DNS names are bounded and syntactically safe");
+    ok &= expect(xmreg::is_public_epose_address("45.77.129.184")
+            && !xmreg::is_public_epose_address("127.0.0.1")
+            && !xmreg::is_public_epose_address("10.0.0.1")
+            && !xmreg::is_public_epose_address("169.254.169.254")
+            && !xmreg::is_public_epose_address("192.0.2.1")
+            && !xmreg::is_public_epose_address("2001:db8::1"),
+            "telemetry rejects private, metadata, and documentation addresses");
+    const std::string canonical_tip(64, 'a');
+    ok &= expect(xmreg::assess_epose_tip(23039, canonical_tip, 23039,
+            canonical_tip).status == "same_tip", "matching telemetry tip");
+    const auto behind = xmreg::assess_epose_tip(
+            23037, std::string(64, 'b'), 23039, std::string(64, 'b'));
+    ok &= expect(behind.status == "canonical_behind" && behind.blocks_behind == 2,
+            "canonical telemetry tip may be behind");
+    ok &= expect(xmreg::assess_epose_tip(23039, canonical_tip, 23040,
+            std::string(64, 'c')).status == "hash_mismatch",
+            "telemetry fork mismatch is explicit");
+    ok &= expect(xmreg::assess_epose_tip(23041, canonical_tip, 23040,
+            "").status == "ahead_unverified",
+            "telemetry ahead of the observer is not guessed canonical");
+    ok &= expect(xmreg::assess_epose_tip(23039, canonical_tip, 23040,
+            "").status == "observer_unavailable",
+            "missing observer hash does not accuse a node of a mismatch");
 
     const xmreg::epose_chain_anchor anchored_tip {2819, std::string(64, 'a')};
     ok &= expect(xmreg::same_epose_chain_anchor(

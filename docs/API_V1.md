@@ -48,6 +48,26 @@ that the endpoint is currently reachable. When available,
 same validated descriptor. They describe the EPoSE descriptor/service protocol,
 not the remote daemon's software release.
 
+Each service-node row also contains `node_telemetry`. The explorer sends a
+bounded request to the Core-validated signed endpoint and accepts a report only
+when the endpoint returns the same descriptor hash and service public key.
+`software_version`, `tip_height`, `tip_hash`, and
+`self_reported_synchronized` remain service-node self-reports. For a reported
+height already present in the explorer's read-only chain, `chain_status` is
+derived by comparing `tip_hash` with the canonical block hash at that exact
+height: `same_tip`, `canonical_behind`, or `hash_mismatch`. A higher reported
+height is `ahead_unverified`; the explorer does not guess that it is canonical.
+If the observer cannot read the canonical hash at that height, the explicit
+state is `observer_unavailable` rather than a false mismatch.
+Other availability values are `not_reported`, `endpoint_unavailable`,
+`unreachable`, `rejected`, and `not_checked_capacity`.
+
+Remote checks reject non-public IPv4/IPv6 results, mixed public/private DNS,
+oversized responses, redirects or malformed identity bindings. They use fixed
+timeouts, bounded parallelism, a maximum of 64 checks per snapshot, and
+positive/negative caches. This observer-only data never changes qualification,
+reward eligibility, or consensus state.
+
 Service-node rows expose `qualified_for_current_epoch` together with
 `qualification_epoch`. The older `qualified_for_source_epoch` key is retained
 as a compatibility alias for this same current observation; consumers that

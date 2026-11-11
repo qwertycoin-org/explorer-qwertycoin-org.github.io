@@ -33,6 +33,7 @@
 #include "epose_endpoint_view.h"
 #include "epose_reward_view.h"
 #include "epose_snapshot.h"
+#include "epose_telemetry.h"
 #include "transaction_amounts.h"
 
 #include "../ext/crow_all.h"
@@ -537,6 +538,7 @@ std::mutex epose_snapshot_cache_mutex;
 json epose_snapshot_cache;
 epose_chain_anchor epose_snapshot_cache_anchor;
 map<string, json> epose_endpoint_cache;
+map<string, pair<epose_remote_telemetry, uint64_t>> epose_telemetry_cache;
 uint64_t epose_snapshot_cache_time {0};
 
 public:
@@ -6172,8 +6174,89 @@ json_epose_snapshot()
             return cache_failure(
                     "Core returned an inconsistent finalized EPoSe qualification set");
 
+        constexpr size_t maximum_telemetry_checks = 64;
+        constexpr size_t telemetry_concurrency = 32;
+        constexpr uint64_t telemetry_success_cache_seconds = 60;
+        constexpr uint64_t telemetry_failure_cache_seconds = 15;
+        const uint64_t telemetry_now = static_cast<uint64_t>(std::time(nullptr));
+        auto telemetry_json = [&](const epose_remote_telemetry& telemetry) {
+            json view {
+                    {"availability", "unreachable"},
+                    {"telemetry_version", nullptr},
+                    {"software_version", nullptr},
+                    {"tip_height", nullptr},
+                    {"tip_hash", nullptr},
+                    {"self_reported_synchronized", nullptr},
+                    {"chain_status", nullptr},
+                    {"blocks_behind", nullptr},
+                    {"observed_at_unix", telemetry.observed_at_unix},
+                    {"source", "service-node self-report with observer chain comparison"}
+            };
+            if (telemetry.state == epose_telemetry_state::not_reported)
+            {
+                view["availability"] = "not_reported";
+                return view;
+            }
+            if (telemetry.state == epose_telemetry_state::endpoint_unavailable)
+            {
+                view["availability"] = "endpoint_unavailable";
+                return view;
+            }
+            if (telemetry.state == epose_telemetry_state::rejected)
+            {
+                view["availability"] = "rejected";
+                return view;
+            }
+            if (telemetry.state == epose_telemetry_state::not_checked_capacity)
+            {
+                view["availability"] = "not_checked_capacity";
+                return view;
+            }
+            if (telemetry.state != epose_telemetry_state::reported)
+                return view;
+
+            string canonical_hash;
+            if (telemetry.tip_height < before.block_count)
+            {
+                try
+                {
+                    canonical_hash = pod_to_hex(
+                            core_storage->get_block_id_by_height(telemetry.tip_height));
+                }
+                catch (...)
+                {
+                    canonical_hash.clear();
+                }
+            }
+            const auto assessment = assess_epose_tip(
+                    telemetry.tip_height, telemetry.tip_hash,
+                    before.block_count - 1, canonical_hash);
+            view["availability"] = "reported";
+            view["telemetry_version"] = telemetry.telemetry_version;
+            view["software_version"] = telemetry.software_version;
+            view["tip_height"] = telemetry.tip_height;
+            view["tip_hash"] = telemetry.tip_hash;
+            view["self_reported_synchronized"] = telemetry.synchronized;
+            view["chain_status"] = assessment.status;
+            if (assessment.status == "canonical_behind")
+                view["blocks_behind"] = assessment.blocks_behind;
+            return view;
+        };
+
+        struct telemetry_job
+        {
+            size_t node_index;
+            string descriptor_hash;
+            string service_public_key;
+            string host;
+            uint64_t port;
+            uint64_t transport;
+        };
+
         json nodes = json::array();
         map<string, json> current_endpoint_cache;
+        vector<telemetry_job> telemetry_jobs;
+        set<string> active_telemetry_descriptors;
         for (const auto& node: service_node_info.service_nodes)
         {
             json endpoint {
@@ -6182,6 +6265,7 @@ json_epose_snapshot()
                     {"host", nullptr},
                     {"port", nullptr},
                     {"transport", nullptr},
+                    {"transport_code", nullptr},
                     {"descriptor_version", nullptr},
                     {"service_kind", nullptr},
                     {"service_version", nullptr},
@@ -6210,6 +6294,7 @@ json_epose_snapshot()
                             {"host", advertised.host},
                             {"port", advertised.port},
                             {"transport", epose_endpoint_transport_name(advertised.transport)},
+                            {"transport_code", advertised.transport},
                             {"descriptor_version", advertised.version},
                             {"service_kind", advertised.service_kind},
                             {"service_version", advertised.service_version},
@@ -6242,8 +6327,93 @@ json_epose_snapshot()
                     {"source_qualification_epoch", rewards.epoch},
                     {"source_qualification_availability", "finalized"},
                     {"advertised_endpoint", endpoint},
+                    {"node_telemetry", telemetry_json(epose_remote_telemetry {
+                            epose_telemetry_state::endpoint_unavailable})},
                     {"reachability", "unsupported"}
             });
+
+            if (endpoint.value("availability", "unavailable") == "current")
+            {
+                active_telemetry_descriptors.emplace(node.endpoint_commitment);
+                const auto cached = epose_telemetry_cache.find(node.endpoint_commitment);
+                if (cached != epose_telemetry_cache.end()
+                    && telemetry_now >= cached->second.second)
+                {
+                    const bool long_cache = cached->second.first.state
+                            != epose_telemetry_state::unreachable;
+                    const uint64_t cache_seconds = long_cache
+                            ? telemetry_success_cache_seconds
+                            : telemetry_failure_cache_seconds;
+                    if (telemetry_now - cached->second.second < cache_seconds)
+                    {
+                        nodes.back()["node_telemetry"] = telemetry_json(
+                                cached->second.first);
+                        continue;
+                    }
+                }
+
+                if (telemetry_jobs.size() < maximum_telemetry_checks)
+                {
+                    telemetry_jobs.push_back({nodes.size() - 1,
+                            node.endpoint_commitment, node.service_public_key,
+                            endpoint.at("host").get<string>(),
+                            endpoint.at("port").get<uint64_t>(),
+                            endpoint.at("transport_code").get<uint64_t>()});
+                }
+                else
+                {
+                    epose_remote_telemetry capacity;
+                    capacity.state = epose_telemetry_state::not_checked_capacity;
+                    capacity.observed_at_unix = telemetry_now;
+                    nodes.back()["node_telemetry"] = telemetry_json(capacity);
+                }
+            }
+        }
+
+        for (size_t offset = 0; offset < telemetry_jobs.size();
+             offset += telemetry_concurrency)
+        {
+            const size_t end = std::min(
+                    telemetry_jobs.size(), offset + telemetry_concurrency);
+            vector<pair<size_t, future<epose_remote_telemetry>>> pending;
+            pending.reserve(end - offset);
+            for (size_t index = offset; index < end; ++index)
+            {
+                const telemetry_job job = telemetry_jobs[index];
+                pending.emplace_back(index, std::async(std::launch::async, [job]() {
+                    try
+                    {
+                        return fetch_epose_remote_telemetry(
+                                job.host, job.port, job.transport,
+                                job.descriptor_hash, job.service_public_key);
+                    }
+                    catch (...)
+                    {
+                        epose_remote_telemetry unavailable;
+                        unavailable.observed_at_unix =
+                                static_cast<uint64_t>(std::time(nullptr));
+                        return unavailable;
+                    }
+                }));
+            }
+            for (auto& item: pending)
+            {
+                const telemetry_job& job = telemetry_jobs[item.first];
+                const epose_remote_telemetry telemetry = item.second.get();
+                epose_telemetry_cache[job.descriptor_hash] =
+                        {telemetry, telemetry_now};
+                nodes.at(job.node_index)["node_telemetry"] =
+                        telemetry_json(telemetry);
+            }
+        }
+
+        for (auto cached = epose_telemetry_cache.begin();
+             cached != epose_telemetry_cache.end();)
+        {
+            if (active_telemetry_descriptors.count(cached->first) == 0)
+                cached = epose_telemetry_cache.erase(cached);
+            else
+                ++cached;
         }
 
         epose_chain_anchor after_all_queries;
@@ -6299,6 +6469,8 @@ json_epose_snapshot()
                 {"source_qualified_count", rewards.qualified_count},
                 {"identity_key", "identity_id"},
                 {"endpoint_capability", "signed_descriptor_lookup"},
+                {"telemetry_capability", "self_report_v1_observer_compared"},
+                {"telemetry_maximum_checks", maximum_telemetry_checks},
                 {"reachability_capability", "unsupported"},
                 {"truncated", service_node_info.returned_count
                         < service_node_info.total_count}

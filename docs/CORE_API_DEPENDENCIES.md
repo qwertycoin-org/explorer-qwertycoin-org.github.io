@@ -27,12 +27,17 @@ requests to change consensus.
 4. **Epoch evidence:** parameter-derived start/end/cutoff/freeze boundaries,
    qualification source epoch, payout epoch, state commitment, and exact chain
    anchor.
-5. **Reachability observations:** only if a separately defined, timestamped and
-   privacy-reviewed observer interface is adopted. Registration or protocol
-   activity must not be repurposed as online status.
+5. **Independent reachability observations:** the explorer now performs a
+   timestamped, bounded fetch of optional self-reported daemon telemetry from
+   each signed endpoint. A successful response proves only that the endpoint
+   answered that request; it is not an uptime history or consensus input.
 
 The signed advertised endpoint is already available through
 `get_epose_service_endpoint_v2` and is displayed separately from reachability.
+Core v2.0.4 extends that response with optional, display-only daemon version and
+tip telemetry when the queried descriptor belongs to the responding local
+service node. The explorer binds it back to the descriptor and service key and
+compares its reported hash with the local canonical block at the same height.
 The explorer also consumes `get_epose_block_reward` for an exact canonical
 block-hash-bound miner/service allocation. The response is accepted only when
 its hash, height, coinbase total and complete denomination proof match the local

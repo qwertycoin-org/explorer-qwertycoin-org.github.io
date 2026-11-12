@@ -163,6 +163,20 @@ function anchor(blockCount, hashCharacter = "a") {
     assert.match(remoteGate, /--health-cmd 'exec curl[^']*--max-time 10 /,
         "the probe must replace its shell and terminate before Docker kills it");
     assert.match(remoteGate, /--health-timeout 12s/);
+    const startupBudget = spawnSync("bash", ["-c",
+        'source "$1"; printf "%s" "$startup_timeout_seconds"',
+        "startup-budget-test", gatePath], {encoding: "utf8"});
+    assert.equal(startupBudget.status, 0);
+    const startupSeconds = Number(startupBudget.stdout);
+    assert.ok(startupSeconds >= 900 && startupSeconds <= 1800,
+        "startup must admit verified replay time while remaining bounded");
+    assert.ok(deploy.DEPLOY_TIMEOUT_MS >= (startupSeconds + 300 + 120) * 1000,
+        "SSH must outlive startup, health convergence and transport/backup margin");
+    assert.match(remoteGate, /while \(\(SECONDS < ready_deadline\)\); do/,
+        "startup must use elapsed time, not a retry count multiplied by HTTP timeout");
+    assert.match(remoteGate, /--health-start-period "\$\{startup_timeout_seconds\}s"/,
+        "Docker grace must match the readiness window");
+
     assert.match(remoteGate, /HostConfig\.Init.*== true/,
         "rollout acceptance must verify the reaper is active");
     for (const name of ["docker-compose.production.yml", "docker-compose.preview.yml",

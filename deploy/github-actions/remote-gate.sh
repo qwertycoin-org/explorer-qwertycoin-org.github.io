@@ -20,6 +20,12 @@ valid_sha() {
   [[ $1 =~ ^[0-9a-f]{40}$ ]]
 }
 
+valid_memory_limits() {
+  # Require finite byte limits; bound decimal length before shell arithmetic.
+  [[ $1 =~ ^[1-9][0-9]{0,17}$ && $2 =~ ^[1-9][0-9]{0,17}$ ]] \
+    && (( $2 >= $1 ))
+}
+
 load_image() {
   docker load --quiet >/dev/null 2>&1 || fail
   printf 'IMAGE_OK\n'
@@ -56,6 +62,11 @@ rollout() {
   [[ $(docker inspect "${current}" | jq -r \
     '[.[0].HostConfig.SecurityOpt[]? | select(. == "no-new-privileges:true")] | length') == 1 ]] || fail
 
+  local memory_limit memory_swap_limit
+  memory_limit=$(docker inspect "${current}" --format '{{.HostConfig.Memory}}') || fail
+  memory_swap_limit=$(docker inspect "${current}" --format '{{.HostConfig.MemorySwap}}') || fail
+  valid_memory_limits "${memory_limit}" "${memory_swap_limit}" || fail
+
   local current_image current_revision
   current_image=$(docker inspect "${current}" --format '{{.Image}}') || fail
   current_revision=$(docker image inspect "${current_image}" \
@@ -65,7 +76,7 @@ rollout() {
   # rollback container still uses the previous pin. The candidate image is
   # commit- and Core-bound above and again by the GitHub-side digest gate.
 
-  if [[ ${current_revision} == "${explorer_sha}" ]]; then
+  if [[ ${current_revision} == "${explorer_sha}" && ${current_image} == "${image_id}" ]]; then
     printf 'ALREADY_CURRENT\n'
     return
   fi
@@ -90,7 +101,14 @@ rollout() {
   mapfile -t explorer_cmd < <(docker inspect "${current}" | jq -er '.[0].Config.Cmd[]') || fail
   ((${#explorer_cmd[@]} > 0)) || fail
 
-  local new_name="qwertycoin-explorer-${explorer_sha:0:12}"
+  # Preserve verified per-container DNS overrides used by local endpoint probes.
+  local -a extra_host_args=()
+  local host_mapping
+  while IFS= read -r host_mapping; do
+    extra_host_args+=(--add-host "${host_mapping}")
+  done < <(docker inspect "${current}" | jq -r '.[0].HostConfig.ExtraHosts[]?')
+
+  local new_name="qwertycoin-explorer-${explorer_sha:0:12}-core-${core_revision:0:9}"
   local stamp rollback_name failed_name
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   rollback_name="${current}-rollback-${stamp}"
@@ -129,26 +147,29 @@ rollout() {
   old_disconnected=1
 
   docker run --detach \
+    "${extra_host_args[@]}" \
     --name "${new_name}" \
     --label "${role_label}" \
     --label "org.qwertycoin.source.revision=${explorer_sha}" \
     --restart unless-stopped \
+    --init \
     --stop-timeout 30 \
     --read-only \
     --tmpfs /tmp:rw,nosuid,nodev,noexec,size=32m,mode=1777 \
     --cap-drop ALL \
     --security-opt no-new-privileges:true \
     --pids-limit 256 \
-    --memory 2g \
+    --memory "${memory_limit}" \
+    --memory-swap "${memory_swap_limit}" \
     --cpus 2 \
     --log-driver json-file \
     --log-opt max-size=10m \
     --log-opt max-file=3 \
-    --health-cmd 'curl --fail --silent --show-error http://127.0.0.1:8081/readyz' \
+    --health-cmd 'exec curl --fail --silent --show-error --connect-timeout 2 --max-time 10 http://127.0.0.1:8081/readyz' \
     --health-interval 30s \
-    --health-timeout 5s \
+    --health-timeout 12s \
     --health-retries 3 \
-    --health-start-period 30s \
+    --health-start-period 600s \
     --user 101:101 \
     --network "${network_name}" \
     --ip "${explorer_ip}" \
@@ -180,6 +201,9 @@ rollout() {
   [[ $(docker inspect "${new_name}" --format '{{.State.Health.Status}}') == healthy ]]
   [[ $(docker inspect "${new_name}" --format '{{.Image}}') == "${image_id}" ]]
   [[ $(docker inspect "${new_name}" --format '{{.RestartCount}}') == 0 ]]
+  [[ $(docker inspect "${new_name}" --format '{{.HostConfig.Init}}') == true ]]
+  [[ $(docker inspect "${new_name}" --format '{{.HostConfig.Memory}}') == "${memory_limit}" ]]
+  [[ $(docker inspect "${new_name}" --format '{{.HostConfig.MemorySwap}}') == "${memory_swap_limit}" ]]
 
   local version info nodes rewards snapshot_ok=0
   version=$(curl --fail --silent --show-error --max-time 10 \
@@ -252,4 +276,6 @@ main() {
   esac
 }
 
-main "$@"
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  main "$@"
+fi

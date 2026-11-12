@@ -658,8 +658,10 @@ main(int ac, const char* av[])
         return response;
     };
 
-    // Preserve the compatibility alias and expose the same restricted,
-    // allowlisted wallet RPC gateway through a stable versioned route.
+    // Keep the production compatibility alias while also exposing a versioned
+    // route that can be proven independently on the isolated integration
+    // Explorer. Both routes terminate in the same restricted, allowlisted
+    // wallet RPC gateway, request limits, and concurrency bound above.
     CROW_ROUTE(app, "/qwc-rpc/<path>").methods("POST"_method, "OPTIONS"_method)
     (wallet_rpc_handler);
 

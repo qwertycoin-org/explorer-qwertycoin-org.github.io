@@ -130,6 +130,6 @@ COPY --chown=qwertycoin:qwertycoin --from=builder /root/qwertycoin-explorer/buil
 
 EXPOSE 8081
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8081/readyz"]
+HEALTHCHECK --interval=30s --timeout=12s --start-period=600s --retries=3 CMD ["curl", "--fail", "--silent", "--show-error", "--connect-timeout", "2", "--max-time", "10", "http://127.0.0.1:8081/readyz"]
 ENTRYPOINT ["./qwertycoin-explorer"]
 CMD ["--port", "8081", "--bindaddr", "0.0.0.0", "--bc-path", "/home/qwertycoin/.qwertycoin/lmdb", "--derived-data-path", "/var/lib/qwertycoin-explorer", "--enable-json-api"]

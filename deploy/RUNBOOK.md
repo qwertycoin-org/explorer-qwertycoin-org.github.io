@@ -3,11 +3,39 @@
 This explorer is a read-only observer. It must never change consensus settings,
 wallet data, service identities, or blockchain storage.
 
+## Process reaping and startup capacity
+
+Run the observer and wallet gateway with Docker `--init` (Compose `init: true`).
+Timed-out exec health checks can leave orphaned children; an application running
+as PID 1 does not necessarily reap them. A growing zombie count can exhaust the
+finite PID budget while simple HTML requests still succeed. Do not remove or
+raise that protection to hide the leak. Use direct-exec probes, or `exec curl`
+in a shell probe, with curl's 10-second deadline below Docker's 12-second limit.
+The startup grace period allows historical replay; passing readiness is still
+required before rollout acceptance, and PID reaping is verified after rollout.
+
+Recheck startup memory at the current chain height, not only the previous
+container's steady-state usage. The read-only embedded Core replays historical
+state before opening HTTP; a fixed old cap may cause a restart loop. Inspect
+host headroom and all co-located workloads before adjusting finite memory and
+memory-plus-swap limits. The deployment gate preserves validated active limits.
+Swap may buffer emergency recovery but is not a substitute for fixing growing
+historical-state memory use or providing sufficient capacity.
+
+## Integration environment (retired)
+
+The former public Integration Explorer server is retired and has no deployment.
+Do not use its workflow or endpoint as a validation target. Validate Explorer
+changes against Production through the reviewed production release path.
+
 ## Release pair and build
 
 1. Record the reviewed 40-character explorer SHA and the compatible Qwertycoin
    core SHA. The current compatibility candidate is
-   `766839bb49475200977f6302b60c01e34d66e253`.
+   `aebdc13cdd0b2c0ed32bfc95fc1f867bd6a562ca`.
+   The production build and deployment verification must pin and report that
+   same reviewed Core SHA. Verify image metadata and the public `/api/v1/version`
+   against the exact Production deployment before accepting the rollout.
 2. Resolve the deployment architecture and the matching immutable Ubuntu image
    digest. Copy `BUILD.env.example` outside the repository, fill the immutable
    values, and do not put credentials in it. The Dockerfile carries the same
@@ -65,6 +93,13 @@ a Core revision change; validates readiness, source identity and the common
 EPoSe snapshot; and atomically retains the previous stopped container for
 rollback. The protected inventory deliberately limits production deployment to
 that one target.
+
+The gate preserves the healthy active container's explicit finite memory and
+memory-plus-swap byte limits, validates them before stopping anything, and
+checks both limits on the replacement. It never silently resets an operator's
+reviewed memory budget to a fixed default. Recheck host capacity before changing
+that budget: replaying a longer canonical chain can require more memory than
+the previously running observer needed at its original startup height.
 
 The workflow log identifies targets only by ordinal. Keep the GHCR package
 private unless public distribution is explicitly intended; the job-scoped

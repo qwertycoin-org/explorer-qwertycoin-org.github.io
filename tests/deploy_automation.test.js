@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { spawnSync } = require("node:child_process");
 
 function anchor(blockCount, hashCharacter = "a") {
     return {
@@ -20,6 +21,8 @@ function anchor(blockCount, hashCharacter = "a") {
 (async () => {
     const deploy = await import(pathToFileURL(path.resolve(
         __dirname, "../deploy/github-actions/deploy.mjs")));
+    const integrationDeploy = await import(pathToFileURL(path.resolve(
+        __dirname, "../deploy/github-actions/integration-deploy.mjs")));
 
     assert.deepEqual(deploy.parseTargets("deploy@production.invalid"), [
         "deploy@production.invalid"
@@ -30,6 +33,13 @@ function anchor(blockCount, hashCharacter = "a") {
     ].join("\n")));
     assert.throws(() => deploy.parseTargets(
         "deploy@production.invalid;touch /tmp/bad"));
+    assert.equal(integrationDeploy.parseIntegrationTarget("deploy@integration.invalid"),
+        "deploy@integration.invalid");
+    assert.throws(() => integrationDeploy.parseIntegrationTarget(""));
+    assert.throws(() => integrationDeploy.parseIntegrationTarget(
+        "deploy@integration.invalid\ndeploy@production.invalid"));
+    assert.throws(() => integrationDeploy.parseIntegrationTarget(
+        "deploy@integration.invalid;touch /tmp/bad"));
 
     const info = anchor(2880);
     info.data.current_epoch = 4;
@@ -40,6 +50,7 @@ function anchor(blockCount, hashCharacter = "a") {
     rewards.data.height = 2880;
     rewards.data.epoch = 3;
     assert.equal(deploy.sameSnapshot(info, nodes, rewards), true);
+    assert.equal(integrationDeploy.sameSnapshot(info, nodes, rewards), true);
     assert.equal(deploy.sameSnapshot(info, anchor(2879), rewards), false);
     const reorged = anchor(2880, "b");
     reorged.data.current_epoch = 4;
@@ -54,7 +65,10 @@ function anchor(blockCount, hashCharacter = "a") {
         "deploy/github-actions/configure-ssh.mjs",
         "deploy/github-actions/cleanup-ssh.mjs",
         "deploy/github-actions/deploy.mjs",
-        "deploy/github-actions/remote-gate.sh"
+        "deploy/github-actions/remote-gate.sh",
+        ".github/workflows/integration.yml",
+        "deploy/github-actions/integration-deploy.mjs",
+        "deploy/github-actions/integration-remote-gate.sh"
     ].map((name) => fs.readFileSync(path.resolve(__dirname, "..", name), "utf8"))
         .join("\n");
     const literalAddresses = publicFiles.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || [];
@@ -71,10 +85,23 @@ function anchor(blockCount, hashCharacter = "a") {
     assert.match(workflow, /secrets\.QWC_DEPLOY_SSH_KNOWN_HOSTS/);
     assert.match(workflow, /secrets\.QWC_DEPLOY_TARGETS/);
     assert.match(workflow, /needs\.supported-container-build\.outputs\.digest/);
+    const productionDeploy = fs.readFileSync(path.resolve(
+        __dirname, "../deploy/github-actions/deploy.mjs"), "utf8");
+    assert.match(productionDeploy,
+        /const EXPECTED_CORE_SHA = "aebdc13cdd0b2c0ed32bfc95fc1f867bd6a562ca"/);
     const nonActionLines = workflow.split("\n")
         .filter((line) => !/^\s*-?\s*uses:/.test(line))
         .join("\n");
     assert.doesNotMatch(nonActionLines, /\b[a-z_][a-z0-9_-]*@[a-z0-9.-]+\b/i);
+
+    const integrationWorkflow = fs.readFileSync(path.resolve(
+        __dirname, "../.github/workflows/integration.yml"), "utf8");
+    assert.match(integrationWorkflow, /branches: \[integration\]/);
+    assert.match(integrationWorkflow, /environment: integration/);
+    assert.match(integrationWorkflow, /secrets\.QWC_INTEGRATION_DEPLOY_TARGET/);
+    assert.match(integrationWorkflow, /vars\.QWC_INTEGRATION_PUBLIC_ORIGIN/);
+    assert.match(integrationWorkflow, /QWC_COMMIT=aebdc13cdd0b2c0ed32bfc95fc1f867bd6a562ca/);
+    assert.doesNotMatch(integrationWorkflow, /refs\/heads\/master/);
 
     const remoteGate = fs.readFileSync(path.resolve(
         __dirname, "../deploy/github-actions/remote-gate.sh"), "utf8");
@@ -86,6 +113,70 @@ function anchor(blockCount, hashCharacter = "a") {
         "a Core-pin candidate must be deployable before production uses that pin");
     assert.match(remoteGate, /core_revision=\$\(docker image inspect/,
         "the candidate image must still expose a validated Core revision");
+    assert.match(remoteGate, /current_revision\} == "\$\{explorer_sha\}" && \$\{current_image\} == "\$\{image_id\}/,
+        "the rollout must not skip a Core-only image change with unchanged Explorer source");
+
+    const integrationGate = fs.readFileSync(path.resolve(
+        __dirname, "../deploy/github-actions/integration-remote-gate.sh"), "utf8");
+    assert.match(integrationGate, /role_value='integration-explorer'/);
+    assert.match(integrationGate, /org\.qwertycoin\.role=\$\{role_value\}/);
+    assert.match(integrationGate, /INTEGRATION_DERIVED_VOLUME/);
+    assert.doesNotMatch(integrationGate, /docker (?:stop|rename).*production/,
+        "the integration gate must never mutate the production container");
+    assert.doesNotMatch(integrationGate, /production_core/,
+        "a Core-pin candidate must be testable before production uses that pin");
+    assert.equal((integrationGate.match(/== "\$\{expected_core_sha\}"/g) || []).length, 1,
+        "only the integration candidate may be required to use the new Core pin");
+
+    const integrationDeploySource = fs.readFileSync(path.resolve(
+        __dirname, "../deploy/github-actions/integration-deploy.mjs"), "utf8");
+    assert.match(integrationDeploySource, /aebdc13cdd0b2c0ed32bfc95fc1f867bd6a562ca/);
+    assert.match(integrationDeploySource, /\/api\/v1\/wallet-rpc\/json_rpc/);
+    assert.match(integrationDeploySource, /public integration wallet gateway reports an incompatible daemon/i);
+    const gatePath = path.resolve(__dirname, "../deploy/github-actions/remote-gate.sh");
+    for (const [memory, swap, accepted] of [
+        ["2147483648", "4294967296", true],
+        ["2952790016", "4294967296", true],
+        ["2952790016", "2952790016", true],
+        ["0", "4294967296", false],
+        ["2952790016", "0", false],
+        ["2952790016", "-1", false],
+        ["2952790016", "2147483648", false],
+        ["02952790016", "4294967296", false],
+        ["9223372036854775808", "9223372036854775808", false],
+        ["1+1", "4294967296", false],
+        ["", "4294967296", false]
+    ]) {
+        const check = spawnSync("bash", ["-c",
+            'source "$1"; valid_memory_limits "$2" "$3"',
+            "memory-limit-test", gatePath, memory, swap]);
+        assert.equal(check.status, accepted ? 0 : 1,
+            `memory/swap limits ${memory}/${swap} must ${accepted ? "pass" : "fail closed"}`);
+    }
+    assert.match(remoteGate, /--memory "\$\{memory_limit\}"/);
+    assert.match(remoteGate, /--memory-swap "\$\{memory_swap_limit\}"/);
+    assert.doesNotMatch(remoteGate, /--memory 2g/,
+        "a deployment must not silently replace the active memory budget");
+
+    assert.match(remoteGate, /--init\s*\\/,
+        "an init process must reap orphaned health-check children");
+    assert.match(remoteGate, /--health-cmd 'exec curl[^']*--max-time 10 /,
+        "the probe must replace its shell and terminate before Docker kills it");
+    assert.match(remoteGate, /--health-timeout 12s/);
+    assert.match(remoteGate, /HostConfig\.Init.*== true/,
+        "rollout acceptance must verify the reaper is active");
+    for (const name of ["docker-compose.production.yml", "docker-compose.preview.yml",
+        "docker-compose.node01.yml"]) {
+        const compose = fs.readFileSync(path.resolve(__dirname, "..", name), "utf8");
+        const services = compose.split(/^networks:|^volumes:/m)[0]
+            .split(/(?=^  qwertycoin-[\w-]+:$)/m).slice(1);
+        assert.ok(services.length > 0);
+        for (const service of services) {
+            assert.match(service, /    init: true/);
+            assert.match(service, /"--max-time", "10"/);
+            assert.match(service, /      timeout: 12s/);
+        }
+    }
 
     console.log("Deployment automation tests passed");
 })().catch((error) => {

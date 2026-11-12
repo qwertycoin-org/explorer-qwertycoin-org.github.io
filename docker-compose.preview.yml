@@ -3,6 +3,7 @@ services:
     image: "${QWC_EXPLORER_IMAGE:?immutable explorer image digest required}"
     container_name: "${QWC_EXPLORER_CONTAINER_NAME:?distinct preview container name required}"
     restart: unless-stopped
+    init: true
     stop_grace_period: 30s
     user: "${QWC_EXPLORER_UID:?uid required}:${QWC_EXPLORER_GID:?gid required}"
     command:
@@ -35,11 +36,11 @@ services:
     mem_limit: 2g
     cpus: 2.0
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8081/readyz"]
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "--connect-timeout", "2", "--max-time", "10", "http://127.0.0.1:8081/readyz"]
       interval: 30s
-      timeout: 5s
+      timeout: 12s
       retries: 3
-      start_period: 30s
+      start_period: 600s
     logging:
       driver: json-file
       options: {max-size: 10m, max-file: "3"}

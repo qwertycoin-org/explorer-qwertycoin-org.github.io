@@ -303,3 +303,17 @@ is ready. Rebuild only explorer-derived indexes/caches, then revalidate genesis,
 network and parameter identity, tip context, EPoSE capability, links, and the
 mainnet-v2 launch notice. A same-genesis reset also requires a new local deployment
 generation so derived data cannot leak across deployment generations.
+
+
+### Canonical replay startup budget
+
+The production gate permits 900 seconds for strict readiness and uses the same
+Docker startup grace. This is an elapsed-time deadline, not 900 HTTP attempts.
+The SSH transport budget is 25 minutes, covering replay, health convergence,
+image transfer and the host's retained backup steps. All readiness predicates,
+source/digest checks and rollback remain mandatory.
+
+Installed forced-command gates are provisioned separately from the image. Before
+a Core-pin rollout, compare the installed gate's approved Core source and startup
+budget with the reviewed candidate. Back up the installed file and merge the
+minimal changes; never overwrite operator-local backup protection blindly.

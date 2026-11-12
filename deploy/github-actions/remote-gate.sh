@@ -5,6 +5,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 umask 077
 
+# Canonical chain/EPoSE replay can exceed the old five-minute startup window.
+readonly startup_timeout_seconds=900
+
 readonly role_label='org.qwertycoin.role=public-explorer'
 readonly chain_destination='/home/qwertycoin/.qwertycoin'
 readonly derived_destination='/var/lib/qwertycoin-explorer'
@@ -169,7 +172,7 @@ rollout() {
     --health-interval 30s \
     --health-timeout 12s \
     --health-retries 3 \
-    --health-start-period 600s \
+    --health-start-period "${startup_timeout_seconds}s" \
     --user 101:101 \
     --network "${network_name}" \
     --ip "${explorer_ip}" \
@@ -179,7 +182,8 @@ rollout() {
     "${image_id}" "${explorer_cmd[@]}" >/dev/null
 
   local ready=0 ready_body
-  for _ in $(seq 1 300); do
+  local ready_deadline=$((SECONDS + startup_timeout_seconds))
+  while ((SECONDS < ready_deadline)); do
     if ready_body=$(curl --fail --silent --show-error --max-time 5 \
         "http://${host_ip}:${host_port}/readyz" 2>/dev/null) \
       && jq -e '.status == "success"

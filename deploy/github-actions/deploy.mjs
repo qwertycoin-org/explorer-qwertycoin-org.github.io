@@ -4,6 +4,9 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
+// Must cover canonical replay, health convergence, backup and image transport.
+export const DEPLOY_TIMEOUT_MS = 25 * 60 * 1000;
+
 const EXPECTED_CORE_SHA = "aebdc13cdd0b2c0ed32bfc95fc1f867bd6a562ca";
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
@@ -89,7 +92,7 @@ async function ssh(target, remoteCommand, inputPath = null) {
         } else {
             child.stdin.end();
         }
-        setTimeout(() => child.kill("SIGTERM"), 10 * 60 * 1000).unref();
+        setTimeout(() => child.kill("SIGTERM"), DEPLOY_TIMEOUT_MS).unref();
     });
 }
 
